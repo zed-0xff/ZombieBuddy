@@ -1,3 +1,0 @@
-Premain-Class: CorePatchAgent
-Can-Redefine-Classes: true
-Can-Retransform-Classes: true

@@ -1,0 +1,38 @@
+plugins {
+    id 'java'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+    gradlePluginPortal()
+}
+
+dependencies {
+    implementation 'net.bytebuddy:byte-buddy:1.18.2'
+    implementation 'net.bytebuddy:byte-buddy-agent:1.18.2'
+    implementation 'io.github.classgraph:classgraph:4.8.184'
+}
+
+jar {
+    archiveBaseName.set("ZombieBuddy")
+    manifest {
+        attributes(
+            'Premain-Class': 'me.zed_0xff.zombie_buddy.Agent',
+            'Can-Redefine-Classes': 'true',
+            'Can-Retransform-Classes': 'true'
+        )
+    }
+}
+
+// copy all runtime dependencies to the build/libs directory
+task copyDependencies(type: Copy) {
+    from configurations.runtimeClasspath
+    into "$buildDir/libs"
+}
+build.dependsOn(copyDependencies)
