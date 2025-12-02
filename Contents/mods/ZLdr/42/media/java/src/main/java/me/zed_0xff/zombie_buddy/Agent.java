@@ -42,7 +42,7 @@ public class Agent {
 
     try (ScanResult scanResult = new ClassGraph()
             .enableAllInfo()      // Scan everything (annotations, methods, etc.)
-            .acceptPackages(Agent.class.getPackage().getName()) // Limit scan to our package
+            .acceptPackages(Agent.class.getPackage().getName() + ".patches") // Limit scan to our package
             .scan()) {
 
         // Find all classes annotated with @Patch
