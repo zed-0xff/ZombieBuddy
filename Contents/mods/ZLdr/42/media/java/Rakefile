@@ -1,0 +1,19 @@
+task :default => [:build, :install]
+
+AGENT_NAME = "CorePatchAgent"
+APP_ROOT   = File.expand_path("~/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app")
+
+task :build do
+  java_dir = File.join(APP_ROOT, "Contents/Java")
+  classpath = Dir["*.jar"] + [ java_dir ]
+
+  FileUtils.rm_f Dir["*.class"]
+  sh "javac", "-Xdiags:verbose", "-cp", classpath.join(":"), "#{AGENT_NAME}.java"
+  sh "jar", "cmf", "MANIFEST.MF", "#{AGENT_NAME}.jar", *Dir["#{AGENT_NAME}*.class"]
+end
+
+task :install do
+  Dir["*.jar"].each do |jar|
+    FileUtils.cp jar, File.join(APP_ROOT, "Contents/Java/")
+  end
+end
