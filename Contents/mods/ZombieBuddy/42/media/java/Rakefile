@@ -19,14 +19,19 @@ task :clean do
 end
 
 desc "run the game"
-task :run do
-  sh "~/Zomboid/_steam/Contents/MacOS/JavaAppLauncher -javaagent:ZombieBuddy.jar --"
+task :run, :verbosity, :exit_after_game_load, :debug do |t, args|
+  cmd_args = []
+  cmd_args << "verbosity=#{args.verbosity}" if args.verbosity
+  cmd_args << "exit_after_game_load" if args.exit_after_game_load
+  cmd_args_str = cmd_args.empty? ? "" : "=" + cmd_args.join(",")
+
+  sh "~/Zomboid/_steam/Contents/MacOS/JavaAppLauncher -javaagent:ZombieBuddy.jar#{cmd_args_str} --"
 end
 
 namespace :run do
   desc "debug the game"
   task :debug do
-    sh "~/Zomboid/_steam/Contents/MacOS/JavaAppLauncher -javaagent:ZombieBuddy.jar=debug -- --debug -debug"
+    sh "~/Zomboid/_steam/Contents/MacOS/JavaAppLauncher -javaagent:ZombieBuddy.jar -- -debug"
   end
 end
 
