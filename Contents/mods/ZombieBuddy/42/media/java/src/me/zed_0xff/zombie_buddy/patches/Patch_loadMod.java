@@ -1,7 +1,7 @@
 package me.zed_0xff.zombie_buddy.patches;
 
 import me.zed_0xff.zombie_buddy.Patch;
-import me.zed_0xff.zombie_buddy.ZombieBuddy;
+import me.zed_0xff.zombie_buddy.Loader;
 
 import net.bytebuddy.asm.Advice;
 
@@ -23,7 +23,7 @@ public class Patch_loadMod {
         var mod = ZomboidFileSystem.instance.getModInfoForDir(modDir);
         if (mod == null) return;
         
-        ZombieBuddy.maybe_load_java(mod.getVersionDir());
-        ZombieBuddy.maybe_load_java(mod.getCommonDir());
+        Loader.maybe_load_java(mod.getVersionDir());
+        Loader.maybe_load_java(mod.getCommonDir());
     }
 }

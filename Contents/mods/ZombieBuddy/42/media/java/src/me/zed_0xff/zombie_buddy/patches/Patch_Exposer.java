@@ -1,5 +1,6 @@
 package me.zed_0xff.zombie_buddy.patches;
 
+import me.zed_0xff.zombie_buddy.Exposer;
 import me.zed_0xff.zombie_buddy.Patch;
 import net.bytebuddy.asm.Advice;
 
@@ -15,7 +16,10 @@ public class Patch_Exposer {
                 return;
             }
 
-            zombie.Lua.LuaManager.exposer.setExposed(null);
+            for (Class<?> cls : Exposer.getExposedClasses()) {
+                System.out.println("[ZB] Exposing class to Lua: " + cls.getName());
+                zombie.Lua.LuaManager.exposer.setExposed(cls);
+            }
         }
     }
 }
