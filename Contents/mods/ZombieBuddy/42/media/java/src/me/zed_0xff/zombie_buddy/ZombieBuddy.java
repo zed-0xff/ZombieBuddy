@@ -189,8 +189,18 @@ public class ZombieBuddy {
                 .enableAllInfo()              // Scan everything (annotations, methods, etc.)
                 .acceptPackages(packageName); // Limit scan to package
 
-        if (modLoader != null)
+        if (modLoader != null) {
             classGraph = classGraph.overrideClassLoaders(modLoader);
+        } else {
+            // When modLoader is null, we're scanning the system classloader
+            // Explicitly add known JARs so ClassGraph can find classes in dynamically added JARs
+            if (!g_known_jars.isEmpty()) {
+                String[] jarPaths = g_known_jars.stream()
+                        .map(File::getAbsolutePath)
+                        .toArray(String[]::new);
+                classGraph = classGraph.overrideClasspath((Object[]) jarPaths);
+            }
+        }
 
         try (ScanResult scanResult = classGraph.scan()) {
             // Log the number of classes scanned
