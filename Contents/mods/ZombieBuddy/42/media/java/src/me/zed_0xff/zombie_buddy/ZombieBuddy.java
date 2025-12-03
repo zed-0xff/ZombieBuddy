@@ -322,7 +322,6 @@ public class ZombieBuddy {
 
             try_call_main(cls);
             ApplyPatchesFromPackage(cls.getPackageName(), null);
-            //register_hooks(cls);
 
             System.out.println("[ZB] loaded " + clsName);
         }
@@ -352,30 +351,4 @@ public class ZombieBuddy {
             System.err.println("[ZB] " + cls + ": error invoking main(): " + e);
         }
     }
-
-    // public static void register_hooks(Class<?> cls) {
-    //     Method onLuaInit = null;
-    //     try {
-    //         onLuaInit = cls.getMethod("OnLuaInit");
-    //     } catch (java.lang.NoSuchMethodException e) {
-    //         return;
-    //     } catch (Exception e) {
-    //         System.err.println("[ZB] " + cls + ": error getting OnLuaInit(): " + e);
-    //         return;
-    //     }
-    //     if (onLuaInit != null) {
-    //         lua_init_hooks.add(onLuaInit);
-    //     }
-    // }
-    // 
-    // public static void OnLuaInit() {
-    //     for (Method hook : lua_init_hooks) {
-    //         try {
-    //             hook.invoke(null);
-    //             System.out.println("[ZB] OnLuaInit: invoked " + hook.getDeclaringClass().getName());
-    //         } catch (Exception e) {
-    //             System.err.println("[ZB] OnLuaInit: error invoking " + hook.getDeclaringClass().getName() + ": " + e);
-    //         }
-    //     }
-    // }
 }
