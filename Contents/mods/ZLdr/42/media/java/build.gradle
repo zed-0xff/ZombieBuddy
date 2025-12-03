@@ -43,7 +43,6 @@ sourceSets {
             srcDirs = ['src']
             include '**/*.java'
         }
-        java.destinationDirectory.set(file('build'))
     }
 }
 
@@ -53,9 +52,6 @@ task copyDependencies(type: Copy) {
     into "$buildDir/libs"
 }
 build.dependsOn(copyDependencies)
-tasks.named('copyDependencies') {
-    mustRunAfter(jar)
-}
 
 // disable annotation processing, JNI headers, and incremental compilation
 tasks.withType(JavaCompile).configureEach {
