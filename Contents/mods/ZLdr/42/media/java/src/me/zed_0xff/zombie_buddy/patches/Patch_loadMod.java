@@ -7,7 +7,7 @@ import net.bytebuddy.asm.Advice;
 
 import zombie.ZomboidFileSystem;
 
-@Patch(className = "zombie.ZomboidFileSystem", methodName = "loadMod", isAdvice = true)
+@Patch(className = "zombie.ZomboidFileSystem", methodName = "loadMod")
 public class Patch_loadMod {
 
     // XXX can't use "@This ZomboidFileSystem self" because it triggers following error:

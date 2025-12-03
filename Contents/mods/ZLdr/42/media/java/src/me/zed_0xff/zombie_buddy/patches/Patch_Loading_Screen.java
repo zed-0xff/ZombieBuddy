@@ -1,9 +1,7 @@
 package me.zed_0xff.zombie_buddy.patches;
 
 import me.zed_0xff.zombie_buddy.Patch;
-import net.bytebuddy.implementation.bind.annotation.*;
-
-import java.util.concurrent.Callable;
+import net.bytebuddy.asm.Advice;
 
 import zombie.core.Core;
 import zombie.ui.TextManager;
@@ -11,7 +9,7 @@ import zombie.ui.UIFont;
 
 public class Patch_Loading_Screen {
     public static final String WATERMARK = "[ZB]";
-    static boolean m_draw_watermark = false;
+    public static boolean m_draw_watermark = false;
 
     public static void draw_watermark() {
         var font = UIFont.Small;
@@ -24,31 +22,34 @@ public class Patch_Loading_Screen {
     }
 
     @Patch(className = "zombie.GameWindow", methodName = "init")
-    public class Patch_GameWindow {
-        public static void intercept(@SuperCall Callable<?> original) throws Exception {
+    class Patch_GameWindow {
+        @Advice.OnMethodEnter
+        static void enter() {
             m_draw_watermark = true;
-            original.call();
+        }
+
+        @Advice.OnMethodExit
+        static void exit() {
             m_draw_watermark = false;
 
-            // XXX
-            var exit = zombie.GameWindow.class.getMethod("exit");
-            exit.invoke(null);
+            // var mexit = zombie.GameWindow.class.getMethod("exit");
+            // mexit.invoke(null);
         }
     }
     
     @Patch(className = "zombie.ui.TextManager", methodName = "DrawStringCentre")
-    public class Patch_DrawStringCentre {
-        public static void intercept(@SuperCall Callable<?> original) throws Exception {
-            original.call();
+    class Patch_DrawStringCentre {
+        @Advice.OnMethodExit
+        static void exit() {
             if (m_draw_watermark)
                 draw_watermark();
         }
     }
     
     @Patch(className = "zombie.gameStates.MainScreenState", methodName = "renderBackground")
-    public class Patch_MainScreenState {
-        public static void intercept(@SuperCall Callable<?> original) throws Exception {
-            original.call();
+    class Patch_MainScreenState {
+        @Advice.OnMethodExit
+        static void exit() {
             draw_watermark();
         }
     }

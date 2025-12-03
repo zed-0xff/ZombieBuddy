@@ -40,8 +40,8 @@ public class ZombieBuddy {
     public static void premain(String agentArgs, Instrumentation inst) {
         System.out.println("[ZB] installing Agent ..");
 
-        if (zombie.Lua.LuaManager.exposer == null) // XXX REMOVEME
-            System.err.println("[ZB] exposer is null");
+        // if (zombie.Lua.LuaManager.exposer == null) // XXX REMOVEME
+        //     System.err.println("[ZB] exposer is null");
 
         g_instrumentation = inst;
         g_modLoader = new DynamicClassLoader( new java.net.URL[] {}, ZombieBuddy.class.getClassLoader() );
