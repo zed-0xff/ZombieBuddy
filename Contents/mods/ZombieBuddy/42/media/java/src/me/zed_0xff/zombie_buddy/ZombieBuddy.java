@@ -60,7 +60,7 @@ public class ZombieBuddy {
         }
 
         g_instrumentation = inst;
-        ApplyPatchesFromPackage(ZombieBuddy.class.getPackage().getName() + ".patches", null);
+        ApplyPatchesFromPackage(ZombieBuddy.class.getPackage().getName() + ".patches", null, true);
 
         System.out.println("[ZB] Agent installed.");
     }
@@ -68,7 +68,7 @@ public class ZombieBuddy {
     // Key for grouping patches by class+method
     private static record PatchTarget(String className, String methodName) {}
 
-    public static void ApplyPatchesFromPackage(String packageName, ClassLoader modLoader) {
+    public static void ApplyPatchesFromPackage(String packageName, ClassLoader modLoader, boolean isPreMain) {
         List<Class<?>> patches = CollectPatches(packageName, modLoader);
         if (patches.isEmpty()) {
             System.out.println("[ZB] no patches in package " + packageName);
@@ -78,12 +78,18 @@ public class ZombieBuddy {
         // Group patches by target class+method
         Map<PatchTarget, List<Class<?>>> advicePatches = new HashMap<>();
         Map<PatchTarget, Class<?>> delegationPatches = new HashMap<>();
+        Set<String> classesToWarmUp = new HashSet<>(); // Classes that need warm-up
 
         for (Class<?> patch : patches) {
             Patch ann = patch.getAnnotation(Patch.class);
             if (ann == null) continue;
 
             PatchTarget target = new PatchTarget(ann.className(), ann.methodName());
+            
+            // Track classes that need warm-up
+            if (ann.warmUp()) {
+                classesToWarmUp.add(ann.className());
+            }
             
             if (ann.isAdvice()) {
                 advicePatches.computeIfAbsent(target, k -> new ArrayList<>()).add(patch);
@@ -104,8 +110,9 @@ public class ZombieBuddy {
         // Check which target classes are already loaded
         Set<String> loadedClasses = new HashSet<>();
         for (Class<?> c : g_instrumentation.getAllLoadedClasses()) {
-            if (targetClasses.contains(c.getName())) {
-                loadedClasses.add(c.getName());
+            String className = c.getName();
+            if (targetClasses.contains(className)) {
+                loadedClasses.add(className);
             }
         }
         if (!loadedClasses.isEmpty()) {
@@ -121,10 +128,18 @@ public class ZombieBuddy {
             }
         }
 
+        var bbLogger = AgentBuilder.Listener.StreamWriting.toSystemOut().withErrorsOnly();
+        if (g_verbosity > 0) {
+            if (g_verbosity == 1) {
+                bbLogger = AgentBuilder.Listener.StreamWriting.toSystemOut().withTransformationsOnly();
+            } else {
+                bbLogger = AgentBuilder.Listener.StreamWriting.toSystemOut();
+            }
+        }
+
         AgentBuilder builder = new AgentBuilder.Default()
             .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
-            .disableClassFormatChanges()
-            .with(AgentBuilder.Listener.StreamWriting.toSystemOut().withErrorsOnly())
+            .with(bbLogger)
             .with(new AgentBuilder.Listener.Adapter() {
                 @Override
                 public void onTransformation(net.bytebuddy.description.type.TypeDescription td, 
@@ -147,9 +162,10 @@ public class ZombieBuddy {
                                      ClassLoader cl, 
                                      net.bytebuddy.utility.JavaModule jm,
                                      boolean loaded) {
-                    // Only log if it's a class we're targeting
-                    if (targetClasses.contains(td.getName())) {
-                        System.out.println("[ZB] Ignored (unexpected): " + td.getName());
+                    // Log ignored classes that we're targeting
+                    String className = td.getName();
+                    if (targetClasses.contains(className)) {
+                        System.err.println("[ZB] WARNING: Target class IGNORED: " + className + " (loaded=" + loaded + ")");
                     }
                 }
             });
@@ -182,6 +198,12 @@ public class ZombieBuddy {
                         
                         System.out.println("[ZB] patching " + className + "." + methodName + " with " + advices.size() + " advice(s)");
                         
+                        // Check if method exists in the type description
+                        var methods = td.getDeclaredMethods().filter(ElementMatchers.named(methodName));
+                        if (methods.isEmpty()) {
+                            System.err.println("[ZB] WARNING: Method " + methodName + " not found in " + td.getName());
+                        }
+                        
                         // Apply each advice via separate .visit() calls - they stack
                         for (Class<?> adviceClass : advices) {
                             result = result.visit(Advice.to(adviceClass).on(ElementMatchers.named(methodName))); // TODO: use SyntaxSugar.name2matcher
@@ -203,8 +225,18 @@ public class ZombieBuddy {
                     return result;
                 });
         }
-
+        
         builder.installOn(g_instrumentation);
+
+        for (String className : classesToWarmUp) {
+            System.out.println("[ZB] warming up class: " + className);
+            try {
+                Class<?> cls = Class.forName(className);
+                builder = builder.warmUp(cls);
+            } catch (ClassNotFoundException e) {
+                System.err.println("[ZB] Could not find class for warm-up: " + className);
+            }
+        }
     }
 
     public static List<Class<?>> CollectPatches(String packageName, ClassLoader modLoader) {
@@ -321,7 +353,7 @@ public class ZombieBuddy {
             }
 
             try_call_main(cls);
-            ApplyPatchesFromPackage(cls.getPackageName(), null);
+            ApplyPatchesFromPackage(cls.getPackageName(), null, false);
 
             System.out.println("[ZB] loaded " + clsName);
         }
