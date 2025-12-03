@@ -171,7 +171,7 @@ public class ZombieBuddy {
             }
 
             builder = builder
-                .type(ElementMatchers.named(className))
+                .type(SyntaxSugar.name2matcher(className))
                 .transform((bl, td, cl, mo, pd) -> {
                     var result = bl;
                     
@@ -180,12 +180,11 @@ public class ZombieBuddy {
                         String methodName = entry.getKey();
                         List<Class<?>> advices = entry.getValue();
                         
-                        System.out.println("[ZB] patching " + className + "." + methodName + 
-                            " with " + advices.size() + " advice(s)");
+                        System.out.println("[ZB] patching " + className + "." + methodName + " with " + advices.size() + " advice(s)");
                         
                         // Apply each advice via separate .visit() calls - they stack
                         for (Class<?> adviceClass : advices) {
-                            result = result.visit(Advice.to(adviceClass).on(ElementMatchers.named(methodName)));
+                            result = result.visit(Advice.to(adviceClass).on(ElementMatchers.named(methodName))); // TODO: use SyntaxSugar.name2matcher
                         }
                     }
                     
@@ -194,11 +193,10 @@ public class ZombieBuddy {
                         String methodName = entry.getKey();
                         Class<?> delegationClass = entry.getValue();
                         
-                        System.out.println("[ZB] patching " + className + "." + methodName + 
-                            " with delegation");
+                        System.out.println("[ZB] patching " + className + "." + methodName + " with delegation");
                         
                         result = result
-                            .method(ElementMatchers.named(methodName))
+                            .method(ElementMatchers.named(methodName)) // TODO: use SyntaxSugar.name2matcher
                             .intercept(MethodDelegation.to(delegationClass));
                     }
                     
