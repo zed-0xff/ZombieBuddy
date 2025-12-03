@@ -30,12 +30,13 @@ namespace :run do
   end
 end
 
+desc "build, install, and run"
+task :iter => [:build, :install, :run]
+
 desc "loop"
 task :loop do
   loop do
-    Rake::Task[:build].invoke
-    Rake::Task[:install].invoke
-    Rake::Task[:run].invoke
+    Rake::Task[:iter].invoke
     puts
     puts "[press any key]"
     puts

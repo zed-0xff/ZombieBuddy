@@ -81,13 +81,63 @@ public class ZombieBuddy {
             }
         }
 
-        AgentBuilder builder = new AgentBuilder.Default()
-            .with(AgentBuilder.Listener.StreamWriting.toSystemOut().withTransformationsOnly());
-
         // Collect all target classes that need patching
         Set<String> targetClasses = new HashSet<>();
         for (PatchTarget t : advicePatches.keySet()) targetClasses.add(t.className());
         for (PatchTarget t : delegationPatches.keySet()) targetClasses.add(t.className());
+
+        // Check which target classes are already loaded
+        Set<String> loadedClasses = new HashSet<>();
+        for (Class<?> c : g_instrumentation.getAllLoadedClasses()) {
+            if (targetClasses.contains(c.getName())) {
+                loadedClasses.add(c.getName());
+            }
+        }
+        if (!loadedClasses.isEmpty()) {
+            System.out.println("[ZB] Already loaded classes to retransform: " + loadedClasses);
+        }
+
+        // Warn about MethodDelegation on already-loaded classes (won't work with retransformation)
+        for (var entry : delegationPatches.entrySet()) {
+            if (loadedClasses.contains(entry.getKey().className())) {
+                System.err.println("[ZB] WARNING: MethodDelegation patch for already-loaded class " + 
+                    entry.getKey().className() + "." + entry.getKey().methodName() + 
+                    " - this may not work! Use isAdvice=true for loaded classes.");
+            }
+        }
+
+        AgentBuilder builder = new AgentBuilder.Default()
+            .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
+            .disableClassFormatChanges()
+            .with(AgentBuilder.Listener.StreamWriting.toSystemOut().withErrorsOnly())
+            .with(new AgentBuilder.Listener.Adapter() {
+                @Override
+                public void onTransformation(net.bytebuddy.description.type.TypeDescription td, 
+                                             ClassLoader cl, 
+                                             net.bytebuddy.utility.JavaModule jm,
+                                             boolean loaded,
+                                             net.bytebuddy.dynamic.DynamicType dt) {
+                    System.out.println("[ZB] Transformed: " + td.getName() + (loaded ? " (retransformed)" : " (new load)"));
+                }
+
+                @Override
+                public void onError(String typeName, ClassLoader cl, net.bytebuddy.utility.JavaModule jm,
+                                   boolean loaded, Throwable throwable) {
+                    System.err.println("[ZB] ERROR transforming " + typeName + ": " + throwable.getMessage());
+                    throwable.printStackTrace();
+                }
+
+                @Override
+                public void onIgnored(net.bytebuddy.description.type.TypeDescription td, 
+                                     ClassLoader cl, 
+                                     net.bytebuddy.utility.JavaModule jm,
+                                     boolean loaded) {
+                    // Only log if it's a class we're targeting
+                    if (targetClasses.contains(td.getName())) {
+                        System.out.println("[ZB] Ignored (unexpected): " + td.getName());
+                    }
+                }
+            });
 
         for (String className : targetClasses) {
             // Collect all method patches for this class

@@ -40,14 +40,14 @@ public class Patch_LuaManager {
         }
     }
 
-    @Patch(className = "zombie.Lua.LuaManager", methodName = "init")
-    public class Patch_init3 {
-        public static void intercept(@SuperCall Callable<?> original) throws Exception {
-            System.out.println("[ZB] before LuaManager.init 3");
-            original.call();
-            System.out.println("[ZB] after LuaManager.init 3");
-        }
-    }
+    // @Patch(className = "zombie.Lua.LuaManager", methodName = "init")
+    // public class Patch_init3 {
+    //     public static void intercept(@SuperCall Callable<?> original) throws Exception {
+    //         System.out.println("[ZB] before LuaManager.init 3");
+    //         original.call();
+    //         System.out.println("[ZB] after LuaManager.init 3");
+    //     }
+    // }
 
     // @Patch(className = "zombie.Lua.LuaManager", methodName = "RunLua")
     // public class Patch_RunLua {
