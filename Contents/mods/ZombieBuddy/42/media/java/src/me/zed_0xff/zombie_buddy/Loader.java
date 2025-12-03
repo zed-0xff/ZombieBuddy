@@ -46,6 +46,14 @@ public class Loader {
             Patch ann = patch.getAnnotation(Patch.class);
             if (ann == null) continue;
 
+            // TODO: show error on game UI (if debug mode is enabled?)
+            if (ann.className().equals("zombie.Lua.LuaManager$Exposer") && ann.methodName().equals("exposeAll") && !ann.IKnowWhatIAmDoing()) {
+                System.err.println("[ZB] XXX");
+                System.err.println("[ZB] XXX don't patch Exposer.exposeAll, use ZombieBuddy.Exposer.exposeClassToLua() instead!");
+                System.err.println("[ZB] XXX");
+                continue;
+            }
+
             PatchTarget target = new PatchTarget(ann.className(), ann.methodName());
             
             // Track classes that need warm-up

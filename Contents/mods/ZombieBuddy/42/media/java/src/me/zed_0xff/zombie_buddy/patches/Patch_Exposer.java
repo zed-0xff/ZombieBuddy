@@ -5,7 +5,7 @@ import me.zed_0xff.zombie_buddy.Patch;
 import net.bytebuddy.asm.Advice;
 
 public class Patch_Exposer {
-    @Patch(className = "zombie.Lua.LuaManager$Exposer", methodName = "exposeAll", warmUp = true)
+    @Patch(className = "zombie.Lua.LuaManager$Exposer", methodName = "exposeAll", warmUp = true, IKnowWhatIAmDoing = true)
     public static class Patch_exposeAll {
         @Advice.OnMethodEnter
         public static void enter() {
