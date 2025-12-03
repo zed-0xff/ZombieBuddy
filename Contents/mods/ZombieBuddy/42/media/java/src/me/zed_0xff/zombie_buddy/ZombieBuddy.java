@@ -186,13 +186,16 @@ public class ZombieBuddy {
         List<Class<?>> patches = new ArrayList<>();
 
         var classGraph = new ClassGraph()
-                .enableAllInfo()             // Scan everything (annotations, methods, etc.)
+                .enableAllInfo()              // Scan everything (annotations, methods, etc.)
                 .acceptPackages(packageName); // Limit scan to package
 
         if (modLoader != null)
             classGraph = classGraph.overrideClassLoaders(modLoader);
 
         try (ScanResult scanResult = classGraph.scan()) {
+            // Log the number of classes scanned
+            int totalClassesScanned = scanResult.getAllClasses().size();
+            System.out.println("[ZB] Scanned " + totalClassesScanned + " classes in package " + packageName);
 
             // Find all classes annotated with @Patch
             for (ClassInfo classInfo : scanResult.getClassesWithAnnotation(Patch.class.getName())) {
