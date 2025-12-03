@@ -4,10 +4,10 @@ import java.io.File;
 import java.lang.ClassLoader;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Method;
-import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.jar.JarFile;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,18 +24,7 @@ public class ZombieBuddy {
     //public static List<Method> lua_init_hooks = new ArrayList<>();
 
     static Set<String> g_known_classes = new HashSet<>();
-    static DynamicClassLoader g_modLoader = null;
-
-    public static class DynamicClassLoader extends URLClassLoader {
-        public DynamicClassLoader(java.net.URL[] urls, ClassLoader parent) {
-            super(urls, parent);
-        }
-
-        @Override
-        public void addURL(java.net.URL url) {
-            super.addURL(url);
-        }
-    }
+    static Set<File> g_known_jars = new HashSet<>();
 
     public static void premain(String agentArgs, Instrumentation inst) {
         System.out.println("[ZB] installing Agent ..");
@@ -44,7 +33,6 @@ public class ZombieBuddy {
         //     System.err.println("[ZB] exposer is null");
 
         g_instrumentation = inst;
-        g_modLoader = new DynamicClassLoader( new java.net.URL[] {}, ZombieBuddy.class.getClassLoader() );
         ApplyPatchesFromPackage(ZombieBuddy.class.getPackage().getName() + ".patches", null);
 
         System.out.println("[ZB] Agent installed.");
@@ -239,26 +227,35 @@ public class ZombieBuddy {
                     continue;
 
                 String prefix = line.substring(0, 14).toLowerCase();
-                if (prefix.equals("javaclasspath=")) {
-                    String classPath = line.substring(14).trim();
+                if (prefix.startsWith("javajarfile=")) {
+                    String classPath = line.split("=", 2)[1].trim();
                     if (!classPath.isEmpty()) {
+                        if (!classPath.endsWith(".jar")) {
+                            System.err.println("[ZB] Error! javaJarFile entry must end with \".jar\": " + classPath);
+                            continue;
+                        }
+
                         File f = new File(dir, classPath);
                         try {
                             if (f.exists()) {
-                                var url = f.toURI().toURL();
-                                if (!java.util.Arrays.asList(g_modLoader.getURLs()).contains(url)) {
-                                    g_modLoader.addURL(url);
-                                    System.out.println("[ZB] added classpath: " + f);
+                                if (g_known_jars.contains(f)) {
+                                    System.out.println("[ZB] " + f + " already added, skipping.");
+                                    continue;
                                 }
+
+                                JarFile jarFile = new JarFile(f);
+                                g_instrumentation.appendToSystemClassLoaderSearch(jarFile);
+                                g_known_jars.add(f);
+                                System.out.println("[ZB] added to classpath: " + f);
                             } else {
                                 System.err.println("[ZB] classpath not found: " + f);
                             }
                         } catch (Exception e) {
-                            System.err.println("[ZB] invalid classpath URL: " + f + " " + e);
+                            System.err.println("[ZB] Error! invalid classpath: " + f + " " + e);
                         }
                     }
-                } else if (prefix.equals("javamainclass=")) {
-                    String mainClass = line.substring(14).trim();
+                } else if (prefix.startsWith("javamainclass=")) {
+                    String mainClass = line.split("=", 2)[1].trim();
                     if (!mainClass.isEmpty())
                         mainClasses.add(mainClass);
                 }
@@ -279,14 +276,14 @@ public class ZombieBuddy {
             System.out.println("[ZB] loading class " + clsName);
             Class<?> cls = null;
             try {
-                cls = Class.forName(clsName, true, g_modLoader);
+                cls = Class.forName(clsName);
             } catch (Exception e) {
                 System.err.println("[ZB] failed to load Java class " + clsName + ": " + e);
                 continue;
             }
 
             try_call_main(cls);
-            ApplyPatchesFromPackage(cls.getPackageName(), g_modLoader);
+            ApplyPatchesFromPackage(cls.getPackageName(), null);
             //register_hooks(cls);
 
             System.out.println("[ZB] loaded " + clsName);
