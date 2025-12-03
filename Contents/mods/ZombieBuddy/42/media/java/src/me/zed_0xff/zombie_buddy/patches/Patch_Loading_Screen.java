@@ -1,6 +1,7 @@
 package me.zed_0xff.zombie_buddy.patches;
 
 import me.zed_0xff.zombie_buddy.Patch;
+import me.zed_0xff.zombie_buddy.ZombieBuddy;
 import net.bytebuddy.asm.Advice;
 
 import zombie.core.Core;
@@ -32,8 +33,10 @@ public class Patch_Loading_Screen {
         static void exit() {
             m_draw_watermark = false;
 
-            // var mexit = zombie.GameWindow.class.getMethod("exit");
-            // mexit.invoke(null);
+            if (ZombieBuddy.g_exit_after_game_load) {
+                System.out.println("[ZB] Exiting after loading as requested.");
+                Core.getInstance().quit();
+            }
         }
     }
     

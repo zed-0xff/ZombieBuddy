@@ -21,16 +21,43 @@ import net.bytebuddy.matcher.ElementMatchers;
 
 public class ZombieBuddy {
     public static Instrumentation g_instrumentation;
-    //public static List<Method> lua_init_hooks = new ArrayList<>();
+    public static int g_verbosity = 0;
+    public static boolean g_exit_after_game_load = false;
 
     static Set<String> g_known_classes = new HashSet<>();
     static Set<File> g_known_jars = new HashSet<>();
 
     public static void premain(String agentArgs, Instrumentation inst) {
         System.out.println("[ZB] installing Agent ..");
+        if (agentArgs != null && !agentArgs.isEmpty()) {
+            System.out.println("[ZB] agentArgs: " + agentArgs);
+            String[] args = agentArgs.split(",");
+            for (String arg : args) {
+                String[] kv = arg.split("=", 2);
+                String key = kv[0].toLowerCase();
+                String value = (kv.length > 1) ? kv[1] : "";
 
-        // if (zombie.Lua.LuaManager.exposer == null) // XXX REMOVEME
-        //     System.err.println("[ZB] exposer is null");
+                switch (key) {
+                    case "verbosity":
+                        try {
+                            g_verbosity = Integer.parseInt(value);
+                            System.err.println("[ZB] set verbosity to " + g_verbosity);
+                        } catch (NumberFormatException e) {
+                            System.err.println("[ZB] invalid verbosity value: " + value);
+                        }
+                        break;
+
+                    case "exit_after_game_load":
+                        g_exit_after_game_load = true;
+                        System.err.println("[ZB] will exit after game load");
+                        break;
+
+                    default:
+                        System.err.println("[ZB] unknown agent argument: " + key);
+                        break;
+                }
+            }
+        }
 
         g_instrumentation = inst;
         ApplyPatchesFromPackage(ZombieBuddy.class.getPackage().getName() + ".patches", null);
