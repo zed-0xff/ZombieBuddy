@@ -6,8 +6,10 @@ import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Method;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import io.github.classgraph.*;
@@ -38,12 +40,18 @@ public class ZombieBuddy {
     public static void premain(String agentArgs, Instrumentation inst) {
         System.out.println("[ZB] installing Agent ..");
 
+        if (zombie.Lua.LuaManager.exposer == null) // XXX REMOVEME
+            System.err.println("[ZB] exposer is null");
+
         g_instrumentation = inst;
         g_modLoader = new DynamicClassLoader( new java.net.URL[] {}, ZombieBuddy.class.getClassLoader() );
         ApplyPatchesFromPackage(ZombieBuddy.class.getPackage().getName() + ".patches", null);
 
         System.out.println("[ZB] Agent installed.");
     }
+
+    // Key for grouping patches by class+method
+    private static record PatchTarget(String className, String methodName) {}
 
     public static void ApplyPatchesFromPackage(String packageName, ClassLoader modLoader) {
         List<Class<?>> patches = CollectPatches(packageName, modLoader);
@@ -52,21 +60,85 @@ public class ZombieBuddy {
             return;
         }
 
-        AgentBuilder builder = new AgentBuilder.Default()
-            .with(AgentBuilder.Listener.StreamWriting.toSystemOut().withTransformationsOnly()); // logs transformations AND errors
+        // Group patches by target class+method
+        Map<PatchTarget, List<Class<?>>> advicePatches = new HashMap<>();
+        Map<PatchTarget, Class<?>> delegationPatches = new HashMap<>();
 
         for (Class<?> patch : patches) {
             Patch ann = patch.getAnnotation(Patch.class);
             if (ann == null) continue;
 
-            System.out.println("[ZB] patching " + ann.className() + "." + ann.methodName() + " ..");
+            PatchTarget target = new PatchTarget(ann.className(), ann.methodName());
+            
+            if (ann.isAdvice()) {
+                advicePatches.computeIfAbsent(target, k -> new ArrayList<>()).add(patch);
+            } else {
+                if (delegationPatches.containsKey(target)) {
+                    System.out.println("[ZB] WARNING: multiple MethodDelegation patches for " + 
+                        ann.className() + "." + ann.methodName() + " - only last one will apply!");
+                }
+                delegationPatches.put(target, patch);
+            }
+        }
+
+        AgentBuilder builder = new AgentBuilder.Default()
+            .with(AgentBuilder.Listener.StreamWriting.toSystemOut().withTransformationsOnly());
+
+        // Collect all target classes that need patching
+        Set<String> targetClasses = new HashSet<>();
+        for (PatchTarget t : advicePatches.keySet()) targetClasses.add(t.className());
+        for (PatchTarget t : delegationPatches.keySet()) targetClasses.add(t.className());
+
+        for (String className : targetClasses) {
+            // Collect all method patches for this class
+            Map<String, List<Class<?>>> methodAdvices = new HashMap<>();
+            Map<String, Class<?>> methodDelegations = new HashMap<>();
+
+            for (var entry : advicePatches.entrySet()) {
+                if (entry.getKey().className().equals(className)) {
+                    methodAdvices.put(entry.getKey().methodName(), entry.getValue());
+                }
+            }
+            for (var entry : delegationPatches.entrySet()) {
+                if (entry.getKey().className().equals(className)) {
+                    methodDelegations.put(entry.getKey().methodName(), entry.getValue());
+                }
+            }
 
             builder = builder
-                .type(ElementMatchers.named(ann.className()))
-                .transform((bl, td, cl, mo, pd) ->
-                        bl.method(ElementMatchers.named(ann.methodName()))
-                        .intercept(ann.isAdvice() ? Advice.to(patch) : MethodDelegation.to(patch))
-                        );
+                .type(ElementMatchers.named(className))
+                .transform((bl, td, cl, mo, pd) -> {
+                    var result = bl;
+                    
+                    // Apply stacked Advice patches per method
+                    for (var entry : methodAdvices.entrySet()) {
+                        String methodName = entry.getKey();
+                        List<Class<?>> advices = entry.getValue();
+                        
+                        System.out.println("[ZB] patching " + className + "." + methodName + 
+                            " with " + advices.size() + " advice(s)");
+                        
+                        // Apply each advice via separate .visit() calls - they stack
+                        for (Class<?> adviceClass : advices) {
+                            result = result.visit(Advice.to(adviceClass).on(ElementMatchers.named(methodName)));
+                        }
+                    }
+                    
+                    // Apply MethodDelegation patches (only one per method)
+                    for (var entry : methodDelegations.entrySet()) {
+                        String methodName = entry.getKey();
+                        Class<?> delegationClass = entry.getValue();
+                        
+                        System.out.println("[ZB] patching " + className + "." + methodName + 
+                            " with delegation");
+                        
+                        result = result
+                            .method(ElementMatchers.named(methodName))
+                            .intercept(MethodDelegation.to(delegationClass));
+                    }
+                    
+                    return result;
+                });
         }
 
         builder.installOn(g_instrumentation);

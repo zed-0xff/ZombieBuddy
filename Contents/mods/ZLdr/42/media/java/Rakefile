@@ -29,3 +29,16 @@ namespace :run do
     sh "~/Zomboid/_steam/Contents/MacOS/JavaAppLauncher -javaagent:ZombieBuddy.jar=debug -- --debug -debug"
   end
 end
+
+desc "loop"
+task :loop do
+  loop do
+    Rake::Task[:build].invoke
+    Rake::Task[:install].invoke
+    Rake::Task[:run].invoke
+    puts
+    puts "[press any key]"
+    puts
+    STDIN.getch
+  end
+end
