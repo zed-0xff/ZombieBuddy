@@ -10,4 +10,5 @@ import java.lang.annotation.Target;
 public @interface Patch {
   String className();
   String methodName();
+  boolean isAdvice() default false; // true → Advice, false → MethodDelegation
 }

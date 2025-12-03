@@ -17,3 +17,15 @@ end
 task :clean do
   sh "gradle clean"
 end
+
+desc "run the game"
+task :run do
+  sh "~/Zomboid/_steam/Contents/MacOS/JavaAppLauncher -javaagent:ZombieBuddy.jar --"
+end
+
+namespace :run do
+  desc "debug the game"
+  task :debug do
+    sh "~/Zomboid/_steam/Contents/MacOS/JavaAppLauncher -javaagent:ZombieBuddy.jar=debug -- --debug -debug"
+  end
+end

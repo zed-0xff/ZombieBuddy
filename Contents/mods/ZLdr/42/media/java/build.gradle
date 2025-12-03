@@ -2,6 +2,10 @@ plugins {
     id 'java'
 }
 
+def HOME_DIR = System.getProperty("user.home")
+def GAME_DIR = "${HOME_DIR}/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app"
+def GAME_JAVA_DIR = "${GAME_DIR}/Contents/Java"
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
@@ -17,16 +21,29 @@ dependencies {
     implementation 'net.bytebuddy:byte-buddy:1.18.2'
     implementation 'net.bytebuddy:byte-buddy-agent:1.18.2'
     implementation 'io.github.classgraph:classgraph:4.8.184'
+
+    compileOnly files(GAME_JAVA_DIR) // only for compilation, not runtime
 }
 
 jar {
     archiveBaseName.set("ZombieBuddy")
     manifest {
         attributes(
-            'Premain-Class': 'me.zed_0xff.zombie_buddy.Agent',
+            'Premain-Class': 'me.zed_0xff.zombie_buddy.ZombieBuddy',
             'Can-Redefine-Classes': 'true',
             'Can-Retransform-Classes': 'true'
         )
+    }
+}
+
+// place all .java files in the 'src' directory
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src']
+            include '**/*.java'
+        }
+        java.destinationDirectory.set(file('build'))
     }
 }
 
@@ -36,3 +53,23 @@ task copyDependencies(type: Copy) {
     into "$buildDir/libs"
 }
 build.dependsOn(copyDependencies)
+tasks.named('copyDependencies') {
+    mustRunAfter(jar)
+}
+
+// disable annotation processing, JNI headers, and incremental compilation
+tasks.withType(JavaCompile).configureEach {
+    options.annotationProcessorPath = files()
+    options.generatedSourceOutputDirectory.set(provider { null })
+    options.headerOutputDirectory.set(provider { null })
+    options.incremental = false
+
+    doLast {
+        delete "${buildDir}/tmp"
+    }
+}
+
+// disable tests for now
+tasks.named('compileTestJava') { enabled = false }
+tasks.named('test') { enabled = false }
+tasks.named('processTestResources') { enabled = false }
