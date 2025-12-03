@@ -4,7 +4,7 @@ import me.zed_0xff.zombie_buddy.Patch;
 import net.bytebuddy.asm.Advice;
 
 public class Patch_LuaManager {
-    @Patch(className = "zombie.Lua.LuaManager", methodName = "init", isAdvice = true)
+    @Patch(className = "zombie.Lua.LuaManager", methodName = "init")
     public class Patch_init {
         @Advice.OnMethodEnter
         public static void enter() {
