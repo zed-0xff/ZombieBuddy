@@ -111,7 +111,11 @@ Previously, Java mods for Project Zomboid required bundling `.class` files and m
    - **Loading screen**: The `[ZB]` indicator appears at the bottom right corner during game loading
    - **Main menu**: The `[ZB]` indicator is visible at the bottom right corner of the main menu screen
 
-> **Note**: A screenshot showing how to configure Steam launch options will be added here.
+**Steam Launch Options Configuration:**
+
+![Steam Launch Options](common/media/ui/zb_steam_options_800.png)
+
+> **Note**: The installation dialog will also display this image when ZombieBuddy is not properly installed.
 
 ### For Modders
 
