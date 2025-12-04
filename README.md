@@ -12,6 +12,12 @@ ZombieBuddy is a Java agent-based framework that allows modders to:
 
 Built on top of [ByteBuddy](https://bytebuddy.net/), ZombieBuddy provides a clean, annotation-based API for intercepting and modifying game behavior without requiring access to the game's source code.
 
+## ☕ Support the Project
+
+If you find ZombieBuddy useful and would like to support its development, consider buying me a coffee! Your support helps keep this project maintained and improved.
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/zed_0xff)
+
 ### Why ZombieBuddy?
 
 Previously, Java mods for Project Zomboid required bundling `.class` files and manually replacing game files to work. ZombieBuddy makes this process much better:
