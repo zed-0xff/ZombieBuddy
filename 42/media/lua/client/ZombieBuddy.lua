@@ -30,15 +30,15 @@ local function checkZombieBuddyInstallation()
         end
         
         -- Determine the Java directory path based on OS
-        local javaDir = ""
+        local dstDir = ""
         if isSystemMacOS() then
-            javaDir = "~/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app/Contents/Java/"
+            dstDir = "~/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app/Contents/Java/"
         elseif isSystemWindows() then
             -- Windows path - adjust based on your Steam installation
-            javaDir = "%USERPROFILE%\\AppData\\Local\\Steam\\steamapps\\common\\ProjectZomboid\\Project Zomboid\\java\\"
+            dstDir = "%USERPROFILE%\\AppData\\Local\\Steam\\steamapps\\common\\ProjectZomboid\\Project Zomboid\\java\\"
         else
             -- Linux path
-            javaDir = "~/.steam/steam/steamapps/common/ProjectZomboid/projectzomboid/java/"
+            dstDir = "~/.steam/steam/steamapps/common/ProjectZomboid/projectzomboid/java/"
         end
         
         -- Get the mod directory to find JAR files
@@ -53,10 +53,11 @@ local function checkZombieBuddyInstallation()
             end
         end
         
-        local jarPath = modDir .. "/42/media/java/build/libs/"
+        local srcDir = modDir .. string.gsub("/42/media/java/build/libs/", "/", getFileSeparator())
+        print("[ZombieBuddy] please copy jars from " .. srcDir .. " to " .. dstDir)
         
         -- Get the message template and replace placeholders with actual paths
-        local message = getText("UI_ZB_Install", jarPath, javaDir)
+        local message = getText("UI_ZB_Install", srcDir, dstDir)
         
         -- Show modal dialog using ISModalRichText
         local windowWidth = 900 + (core:getOptionFontSizeReal() * 100)
