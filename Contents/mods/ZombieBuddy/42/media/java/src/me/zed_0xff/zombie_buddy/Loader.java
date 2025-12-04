@@ -259,6 +259,7 @@ public class Loader {
         }
 
         ArrayList<String> mainClasses = new ArrayList<>();
+        ArrayList<File> newlyAddedJars = new ArrayList<>();
 
         try (var reader = new java.io.BufferedReader(new java.io.FileReader(modinfo_file))) {
             String line;
@@ -286,6 +287,7 @@ public class Loader {
                                 JarFile jarFile = new JarFile(f);
                                 g_instrumentation.appendToSystemClassLoaderSearch(jarFile);
                                 g_known_jars.add(f);
+                                newlyAddedJars.add(f);
                                 System.out.println("[ZB] added to classpath: " + f);
                             } else {
                                 System.err.println("[ZB] classpath not found: " + f);
@@ -326,6 +328,56 @@ public class Loader {
             ApplyPatchesFromPackage(cls.getPackageName(), null, false);
 
             System.out.println("[ZB] loaded " + clsName);
+        }
+        
+        // If no mainClasses specified but JARs were added in this call, scan packages in those JARs for patches
+        if (mainClasses.isEmpty() && !newlyAddedJars.isEmpty()) {
+            System.out.println("[ZB] No mainClasses specified, scanning packages in newly loaded JARs for patches...");
+            scanAllPackagesForPatches(newlyAddedJars);
+        }
+    }
+    
+    private static void scanAllPackagesForPatches(List<File> jarsToScan) {
+        var classGraph = new ClassGraph()
+                .enableAllInfo(); // Scan all packages (don't call acceptPackages to accept everything)
+        
+        // Add only the specified JARs to classpath
+        if (!jarsToScan.isEmpty()) {
+            String[] jarPaths = jarsToScan.stream()
+                    .map(File::getAbsolutePath)
+                    .toArray(String[]::new);
+            classGraph = classGraph.overrideClasspath((Object[]) jarPaths);
+        }
+        
+        try (ScanResult scanResult = classGraph.scan()) {
+            // Find all classes annotated with @Patch directly
+            List<ClassInfo> patchClasses = scanResult.getClassesWithAnnotation(Patch.class.getName());
+            
+            if (patchClasses.isEmpty()) {
+                System.out.println("[ZB] No patches found in loaded JARs");
+                return;
+            }
+            
+            System.out.println("[ZB] Found " + patchClasses.size() + " patch class(es) in JARs");
+            
+            // Collect all unique packages that contain patches
+            Set<String> packagesWithPatches = new HashSet<>();
+            for (ClassInfo classInfo : patchClasses) {
+                String packageName = classInfo.getPackageName();
+                if (packageName == null || packageName.isEmpty()) {
+                    packageName = ""; // Default package
+                }
+                packagesWithPatches.add(packageName);
+                System.out.println("[ZB] Found patch class: " + classInfo.getName());
+            }
+            
+            // Apply patches from each package
+            for (String packageName : packagesWithPatches) {
+                ApplyPatchesFromPackage(packageName, null, false);
+            }
+        } catch (Exception e) {
+            System.err.println("[ZB] Error scanning packages for patches: " + e);
+            e.printStackTrace();
         }
     }
 
