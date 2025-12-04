@@ -7,6 +7,7 @@ import java.util.ArrayList;
 public class Exposer {
     private static final HashSet<Class<?>> g_exposed_classes = new HashSet<>();
 
+    // just call me once and the class will be exposed forever (until the game app is closed/restarted ofcourse)
     public static void exposeClassToLua(Class<?> cls) {
         g_exposed_classes.add(cls);
     }

@@ -85,7 +85,7 @@ public class Loader {
                 loadedClasses.add(className);
             }
         }
-        if (!loadedClasses.isEmpty()) {
+        if (!loadedClasses.isEmpty() && g_verbosity > 0) {
             System.out.println("[ZB] Already loaded classes to retransform: " + loadedClasses);
         }
 
