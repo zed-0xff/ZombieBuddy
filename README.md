@@ -136,7 +136,7 @@ javaMainClass=com.yourname.yourmod.YourMainClass
 
 - `require=\ZombieBuddy`: Declares dependency on ZombieBuddy framework
 - `javaJarFile`: Path to your JAR file relative to the mod version directory. **Note**: Classes must be packaged in a JAR file - plain class directories are not supported.
-- `javaMainClass`: Fully qualified name of your main class. The `main(String[])` method is optional, but if it exists, it will be automatically executed when the mod loads.
+- `javaMainClass`: Fully qualified name of your main class. The `main(String[])` method is optional, but if it exists, it will be automatically executed when the mod loads. **Note**: `javaMainClass` is optional - if you only have patches and no initialization code, you can omit it. ZombieBuddy will automatically scan the JAR for `@Patch` annotated classes.
 
 **Multiple JAR files and main classes**: To load multiple JAR files or main classes, simply repeat the `javaJarFile` and `javaMainClass` lines:
 
@@ -182,6 +182,8 @@ public class YourMainClass {
 
 **Note**: Even without a `main()` method, your class will still be loaded, and any `@Patch` annotated classes in the same package will be discovered and applied automatically.
 
+**Alternative: Patches-only mods**: If your mod only contains patches and doesn't need any initialization code, you can omit the `javaMainClass` entry entirely. ZombieBuddy will automatically scan all packages in your JAR file for `@Patch` annotated classes and apply them. This is useful for simple mods that only patch game behavior without requiring a main class.
+
 #### 5. Create Patches
 
 Use the `@Patch` annotation to patch game methods:
@@ -206,7 +208,9 @@ public static class MyPatch {
 }
 ```
 
-**Important**: Place patch classes in the same package as your main class. ZombieBuddy will automatically discover and apply all `@Patch` annotated classes in your package.
+**Important**: 
+- If you have a `javaMainClass` specified: Place patch classes in the same package as your main class. ZombieBuddy will automatically discover and apply all `@Patch` annotated classes in that package.
+- If you don't have a `javaMainClass` specified: ZombieBuddy will automatically scan all packages in your JAR file for `@Patch` annotated classes, so you can organize your patches in any package structure you prefer.
 
 #### 6. Expose Classes to Lua
 
@@ -241,6 +245,12 @@ cp build/libs/YourMod.jar ~/Zomboid/mods/YourMod/[version]/media/java/
 - **Warm-up classes**: Some game classes need to be "warmed up" before patching. Set `warmUp = true` in your `@Patch` annotation
 - **Advice vs Delegation**: Use `isAdvice = true` (default) for intercepting methods. Use `isAdvice = false` for complete method replacement (only one delegation per method)
 - **Retransformation**: Patches can be applied to already-loaded classes, but MethodDelegation patches work best on classes that haven't loaded yet
+
+#### Example Mods
+
+Looking for examples to learn from? Check out these mods built with ZombieBuddy:
+
+- **[ZBHelloWorld](https://github.com/zed-0xff/ZBHelloWorld)**: A simple example mod demonstrating patches-only mods (no main class required). Shows how to patch UI rendering methods and automatically discover patches from JAR files.
 
 #### Sharing Your Source Code
 
@@ -325,6 +335,7 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 ## Links
 
 - **GitHub**: https://github.com/zed-0xff/ZombieBuddy
+- **Example Mod**: [ZBHelloWorld](https://github.com/zed-0xff/ZBHelloWorld) - A simple example mod demonstrating patches-only mods
 - **Author**: zed-0xff
 
 ## Disclaimer
