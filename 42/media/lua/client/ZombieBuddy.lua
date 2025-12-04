@@ -60,7 +60,7 @@ local function checkZombieBuddyInstallation()
         
         -- Show modal dialog using ISModalRichText
         local windowWidth = 900 + (core:getOptionFontSizeReal() * 100)
-        local windowHeight = 800
+        local windowHeight = 250 + getTextManager():getFontHeight(UIFont.Medium) * 20
         local screenWidth = core:getScreenWidth()
         local screenHeight = core:getScreenHeight()
         local x = (screenWidth - windowWidth) / 2
