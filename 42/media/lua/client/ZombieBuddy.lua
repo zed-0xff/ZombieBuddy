@@ -35,7 +35,7 @@ local function checkZombieBuddyInstallation()
             dstDir = "~/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app/Contents/Java/"
         elseif isSystemWindows() then
             -- Windows path - adjust based on your Steam installation
-            dstDir = "%USERPROFILE%\\AppData\\Local\\Steam\\steamapps\\common\\ProjectZomboid\\Project Zomboid\\java\\"
+            dstDir = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\ProjectZomboid\\Project Zomboid\\"
         else
             -- Linux path
             dstDir = "~/.steam/steam/steamapps/common/ProjectZomboid/projectzomboid/java/"
