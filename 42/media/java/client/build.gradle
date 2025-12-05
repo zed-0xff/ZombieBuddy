@@ -18,7 +18,7 @@ if (osName.contains("mac")) {
     def programFiles = System.getenv("ProgramFiles(x86)") ?: System.getenv("ProgramFiles")
     def steamPath = System.getenv("SteamPath") ?: "${programFiles}\\Steam"
     GAME_DIR = "${steamPath}\\steamapps\\common\\ProjectZomboid"
-    GAME_JAVA_DIR = "${GAME_DIR}\\java"
+    GAME_JAVA_DIR = "${GAME_DIR}"
 } else {
     // Linux
     GAME_DIR = "${HOME_DIR}/.steam/steam/steamapps/common/ProjectZomboid"
