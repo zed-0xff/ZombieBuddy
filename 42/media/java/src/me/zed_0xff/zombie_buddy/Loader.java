@@ -177,7 +177,9 @@ public class Loader {
                         
                         // Apply each advice via separate .visit() calls - they stack
                         for (Class<?> adviceClass : advices) {
-                            result = result.visit(Advice.to(adviceClass).on(ElementMatchers.named(methodName))); // TODO: use SyntaxSugar.name2matcher
+                            // Transform patch class to replace Patch.* annotations with ByteBuddy's
+                            Class<?> transformedClass = PatchTransformer.transformPatchClass(adviceClass, g_instrumentation, g_verbosity);
+                            result = result.visit(Advice.to(transformedClass).on(ElementMatchers.named(methodName))); // TODO: use SyntaxSugar.name2matcher
                         }
                     }
                     
@@ -209,6 +211,7 @@ public class Loader {
             }
         }
     }
+
 
     public static List<Class<?>> CollectPatches(String packageName, ClassLoader modLoader) {
         List<Class<?>> patches = new ArrayList<>();

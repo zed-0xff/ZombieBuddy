@@ -14,4 +14,26 @@ public @interface Patch {
                                    // warning! advices can be chained, delegations can't, so only one delegation per method EVER
   boolean warmUp() default false;  // mandatory for some internal classes like LuaManager$Exposer or the patch will not be applied
   boolean IKnowWhatIAmDoing() default false; // if true, the patch will be applied even if it is risky
+  
+  /** Alias for net.bytebuddy.asm.Advice.OnMethodEnter - mods should use Patch.OnEnter instead */
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target(ElementType.METHOD)
+  public @interface OnEnter {
+    Class<? extends Throwable>[] skipOn() default {};
+  }
+  
+  /** Alias for net.bytebuddy.asm.Advice.OnMethodExit - mods should use Patch.OnExit instead */
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target(ElementType.METHOD)
+  public @interface OnExit {
+    Class<? extends Throwable>[] onThrowable() default {};
+    Class<? extends Throwable>[] skipOn() default {};
+  }
+  
+  /** Alias for net.bytebuddy.asm.Advice.Return - mods should use Patch.Return instead */
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target(ElementType.PARAMETER)
+  public @interface Return {
+    boolean readOnly() default true;
+  }
   }

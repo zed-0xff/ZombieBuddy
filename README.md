@@ -196,22 +196,19 @@ public class YourMainClass {
 
 #### 5. Create Patches
 
-Use the `@Patch` annotation to patch game methods:
-
 ```java
 package com.yourname.yourmod.patches;
 
 import me.zed_0xff.zombie_buddy.Patch;
-import net.bytebuddy.asm.Advice;
 
 @Patch(className = "zombie.SomeGameClass", methodName = "someMethod", warmUp = true)
 public static class MyPatch {
-    @Advice.OnMethodEnter
+    @Patch.OnEnter
     public static void enter() {
         System.out.println("[YourMod] Intercepted method call!");
     }
     
-    @Advice.OnMethodExit
+    @Patch.OnExit
     public static void exit() {
         System.out.println("[YourMod] Method finished!");
     }
@@ -303,14 +300,16 @@ ZombieBuddy operates as a Java agent that:
 ### Creating a Patch
 
 ```java
+import me.zed_0xff.zombie_buddy.Patch;
+
 @Patch(className = "zombie.SomeGameClass", methodName = "someMethod", warmUp = true)
 public static class MyPatch {
-    @Advice.OnMethodEnter
+    @Patch.OnEnter
     public static void enter() {
         System.out.println("Method called!");
     }
     
-    @Advice.OnMethodExit
+    @Patch.OnExit
     public static void exit() {
         System.out.println("Method finished!");
     }
