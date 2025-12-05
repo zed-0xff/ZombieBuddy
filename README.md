@@ -108,8 +108,8 @@ Previously, Java mods for Project Zomboid required bundling `.class` files and m
 
 7. **Verify installation**: You can confirm ZombieBuddy is working by checking:
    - **Game version string**: Look for `[ZB]` appended to the game version (e.g., "Build 42.30.16 [ZB]")
-   - **Loading screen**: The `[ZB]` indicator appears at the bottom right corner during game loading
-   - **Main menu**: The `[ZB]` indicator is visible at the bottom right corner of the main menu screen
+   - **Loading screen**: The ZombieBuddy version (e.g., "ZB 1.0.2") appears at the bottom right corner during game loading
+   - **Main menu**: The ZombieBuddy version is visible at the bottom right corner of the main menu screen
 
 **Steam Launch Options Configuration:**
 

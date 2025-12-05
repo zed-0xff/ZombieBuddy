@@ -6,6 +6,10 @@ def HOME_DIR = System.getProperty("user.home")
 def GAME_DIR = "${HOME_DIR}/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app"
 def GAME_JAVA_DIR = "${GAME_DIR}/Contents/Java"
 
+// Read version from VERSION file
+def versionFile = file('VERSION')
+def version = versionFile.exists() ? versionFile.text.trim() : '1.0.0'
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
@@ -31,7 +35,8 @@ jar {
         attributes(
             'Premain-Class': 'me.zed_0xff.zombie_buddy.Agent',
             'Can-Redefine-Classes': 'true',
-            'Can-Retransform-Classes': 'true'
+            'Can-Retransform-Classes': 'true',
+            'Implementation-Version': version
         )
     }
 }
@@ -69,3 +74,46 @@ tasks.withType(JavaCompile).configureEach {
 tasks.named('compileTestJava') { enabled = false }
 tasks.named('test') { enabled = false }
 tasks.named('processTestResources') { enabled = false }
+
+// Task to increment patch version after successful build (only if compilation/JAR changed)
+task incrementVersion {
+    dependsOn jar
+    doLast {
+        // Check if compileJava task was up-to-date (source files didn't change)
+        // This is the key check - we only increment if source code actually changed
+        def compileTask = tasks.named('compileJava').get()
+        if (compileTask.state.upToDate) {
+            println "Compilation was up-to-date (no source changes), version not incremented"
+            return
+        }
+        
+        // Source code changed, so increment version
+        def vFile = file('VERSION')
+        if (!vFile.exists()) {
+            vFile.text = '1.0.0\n'
+            return
+        }
+        
+        def currentVersion = vFile.text.trim()
+        def parts = currentVersion.split('\\.')
+        if (parts.length >= 3) {
+            try {
+                def major = parts[0] as int
+                def minor = parts[1] as int
+                def patch = (parts[2] as int) + 1
+                def newVersion = "${major}.${minor}.${patch}"
+                vFile.text = "${newVersion}\n"
+                println "Version incremented: ${currentVersion} -> ${newVersion} (source code changed)"
+            } catch (NumberFormatException e) {
+                println "Warning: Could not parse version ${currentVersion}, skipping increment"
+            }
+        } else {
+            println "Warning: Invalid version format ${currentVersion}, expected MAJOR.MINOR.PATCH"
+        }
+    }
+}
+
+// Increment version after successful build
+tasks.named('build').configure {
+    finalizedBy incrementVersion
+}

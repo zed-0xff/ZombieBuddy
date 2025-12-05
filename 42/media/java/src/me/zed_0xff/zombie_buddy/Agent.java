@@ -4,7 +4,7 @@ import java.lang.instrument.Instrumentation;
 
 public class Agent {
     public static void premain(String agentArgs, Instrumentation inst) {
-        System.out.println("[ZB] installing Agent ..");
+        System.out.println("[ZB] activating " + ZombieBuddy.getFullVersionString());
         Loader.g_instrumentation = inst;
 
         if (agentArgs != null && !agentArgs.isEmpty()) {

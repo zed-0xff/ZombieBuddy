@@ -1,25 +1,24 @@
 package me.zed_0xff.zombie_buddy.patches;
 
-import me.zed_0xff.zombie_buddy.Patch;
-import me.zed_0xff.zombie_buddy.Loader;
+import me.zed_0xff.zombie_buddy.*;
 import net.bytebuddy.asm.Advice;
 
 import zombie.core.Core;
 import zombie.ui.TextManager;
 import zombie.ui.UIFont;
 
-public class Patch_Loading_Screen {
-    public static final String WATERMARK = "[ZB]";
+ public class Patch_Loading_Screen {
     public static boolean m_draw_watermark = false;
 
     public static void draw_watermark() {
+        String watermark = "ZB " + ZombieBuddy.getVersion();
         var font = UIFont.Small;
         var textMgr = TextManager.instance;
-        var textW = textMgr.MeasureStringX(font, WATERMARK);
-        var textH = textMgr.MeasureStringY(font, WATERMARK);
+        var textW = textMgr.MeasureStringX(font, watermark);
+        var textH = textMgr.MeasureStringY(font, watermark);
         var scrW = Core.getInstance().getScreenWidth();
         var scrH = Core.getInstance().getScreenHeight();
-        textMgr.DrawString(font, scrW - textW, scrH - textH, WATERMARK, 1.0, 1.0, 1.0, 0.25);
+        textMgr.DrawString(font, scrW - textW, scrH - textH, watermark, 1.0, 1.0, 1.0, 0.25);
     }
 
     @Patch(className = "zombie.GameWindow", methodName = "init")
