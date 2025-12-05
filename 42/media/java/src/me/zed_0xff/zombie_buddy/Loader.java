@@ -19,6 +19,8 @@ import net.bytebuddy.asm.Advice;
 import net.bytebuddy.implementation.MethodDelegation;
 import net.bytebuddy.matcher.ElementMatchers;
 
+import zombie.ZomboidFileSystem;
+
 public class Loader {
     public static Instrumentation g_instrumentation;
     public static int g_verbosity = 0;
@@ -30,6 +32,112 @@ public class Loader {
 
     // Key for grouping patches by class+method
     private static record PatchTarget(String className, String methodName) {}
+
+    public static void loadMods(ArrayList<String> mods) {
+        ArrayList<JavaModInfo> jModInfos = new ArrayList<>();
+
+        for (String mod_id : mods) {
+            String modDir = ZomboidFileSystem.instance.getModDir(mod_id);
+            if (modDir == null) continue;
+            
+            var mod = ZomboidFileSystem.instance.getModInfoForDir(modDir);
+            if (mod == null) continue;
+
+            // follow lua engine logic, load common dir first, then version dir
+            // so version dir could override common dir
+            JavaModInfo jModInfoCommon = JavaModInfo.parse(mod.getCommonDir());
+            JavaModInfo jModInfoVersion = JavaModInfo.parse(mod.getVersionDir());
+
+            if (jModInfoCommon != null) jModInfos.add(jModInfoCommon);
+            if (jModInfoVersion != null) jModInfos.add(jModInfoVersion);
+        }
+
+        System.out.println("[ZB] java mod list to load:");
+        printModList(jModInfos);
+
+        // Find the last occurrence index for each main class
+        Map<String, Integer> lastMainClassIndex = new HashMap<>();
+        for (int i = 0; i < jModInfos.size(); i++) {
+            JavaModInfo jModInfo = jModInfos.get(i);
+            for (String mainClass : jModInfo.mainClasses()) {
+                lastMainClassIndex.put(mainClass, i);
+            }
+        }
+
+        // Process the list to determine which mods should be skipped
+        ArrayList<Boolean> shouldSkipList = new ArrayList<>();
+        for (int i = 0; i < jModInfos.size(); i++) {
+            JavaModInfo jModInfo = jModInfos.get(i);
+            boolean shouldSkip = false;
+            
+            if (!jModInfo.mainClasses().isEmpty()) {
+                // Check if any of this mod's main classes appear in a later mod
+                for (String mainClass : jModInfo.mainClasses()) {
+                    Integer lastIndex = lastMainClassIndex.get(mainClass);
+                    if (lastIndex != null && lastIndex > i) {
+                        shouldSkip = true;
+                        break;
+                    }
+                }
+            }
+            
+            shouldSkipList.add(shouldSkip);
+        }
+        
+        if (!shouldSkipList.isEmpty()) {
+            // Print excluded mods first
+            for (int i = 0; i < jModInfos.size(); i++) {
+                if (shouldSkipList.get(i)) {
+                    JavaModInfo jModInfo = jModInfos.get(i);
+                    String reason = "";
+                    
+                    if (!jModInfo.mainClasses().isEmpty()) {
+                        // Find which main class caused the skip
+                        for (String mainClass : jModInfo.mainClasses()) {
+                            Integer lastIndex = lastMainClassIndex.get(mainClass);
+                            if (lastIndex != null && lastIndex > i) {
+                                reason = " (mainClass " + mainClass + " is overridden by later mod)";
+                                break;
+                            }
+                        }
+                    }
+                    
+                    System.out.println("[ZB] Excluded: " + jModInfo.modDirectory().getAbsolutePath() + reason);
+                }
+            }
+            
+            // Build list of mods that will be loaded
+            ArrayList<JavaModInfo> modsToLoad = new ArrayList<>();
+            for (int i = 0; i < jModInfos.size(); i++) {
+                if (!shouldSkipList.get(i)) {
+                    modsToLoad.add(jModInfos.get(i));
+                }
+            }
+            System.out.println("[ZB] java mod list after processing:");
+            printModList(modsToLoad);
+        }
+
+        // Load only the mods that should be loaded
+        for (int i = 0; i < jModInfos.size(); i++) {
+            if (!shouldSkipList.get(i)) {
+                loadJavaMod(jModInfos.get(i));
+            }
+        }
+    }
+
+    public static void printModList(ArrayList<JavaModInfo> jModInfos) {
+        int longestPathLength = 0;
+        for (JavaModInfo jModInfo : jModInfos) {
+            if (jModInfo.modDirectory().getAbsolutePath().length() > longestPathLength) {
+                longestPathLength = jModInfo.modDirectory().getAbsolutePath().length();
+            }
+        }
+
+        String formatString = "[ZB]     %-" + longestPathLength + "s %s";
+        for (JavaModInfo jModInfo : jModInfos) {
+            System.out.println(String.format(formatString, jModInfo.modDirectory().getAbsolutePath(), jModInfo.mainClasses()));
+        }
+    }
 
     public static void ApplyPatchesFromPackage(String packageName, ClassLoader modLoader, boolean isPreMain) {
         List<Class<?>> patches = CollectPatches(packageName, modLoader);
@@ -261,7 +369,6 @@ public class Loader {
         }
     }
 
-
     public static List<Class<?>> CollectPatches(String packageName, ClassLoader modLoader) {
         List<Class<?>> patches = new ArrayList<>();
 
@@ -300,17 +407,8 @@ public class Loader {
         return patches;
     }
 
-    public static void maybe_load_java(String dir) {
-        if (dir == null || dir.isEmpty())
-            return;
-
-        File modDirectory = new File(dir);
-        JavaModInfo modInfo = JavaModInfo.parse(modDirectory);
-        if (modInfo == null) {
-            // No mod.info file found
-            return;
-        }
-
+    public static void loadJavaMod(JavaModInfo modInfo) {
+        System.out.println("[ZB] ------------------------------------------- loading Java mod: " + modInfo.modDirectory());
         ArrayList<File> newlyAddedJars = new ArrayList<>();
 
         // Load JAR files
@@ -363,6 +461,7 @@ public class Loader {
             System.out.println("[ZB] No mainClasses specified, scanning packages in newly loaded JARs for patches...");
             scanAllPackagesForPatches(newlyAddedJars);
         }
+        System.out.println("[ZB] -------------------------------------------");
     }
     
     private static void scanAllPackagesForPatches(List<File> jarsToScan) {

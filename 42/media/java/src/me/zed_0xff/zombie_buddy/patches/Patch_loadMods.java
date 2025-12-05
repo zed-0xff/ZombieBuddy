@@ -17,16 +17,6 @@ public class Patch_loadMods {
     public static void enter(ArrayList<String> mods) {
         System.out.println("[ZB] before ZomboidFileSystem.loadMods: " + mods.size() + " mods");
 
-        for (String mod_id : mods) {
-            String modDir = ZomboidFileSystem.instance.getModDir(mod_id);
-            if (modDir == null) return;
-            
-            var mod = ZomboidFileSystem.instance.getModInfoForDir(modDir);
-            if (mod == null) return;
-            
-            // follow lua engine logic, load common dir first, then version dir
-            Loader.maybe_load_java(mod.getCommonDir());
-            Loader.maybe_load_java(mod.getVersionDir());
-        }
+        Loader.loadMods(mods);
     }
 }
