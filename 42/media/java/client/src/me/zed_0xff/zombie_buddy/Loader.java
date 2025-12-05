@@ -144,7 +144,7 @@ public class Loader {
                                 System.err.println("[ZB] Error verifying JAR signature: " + e.getMessage());
                             }
                         } else {
-                            reason += " (" + jarFile.getAbsolutePath() + " not found)";
+                            reason += " (" + (jarFile != null ? jarFile.getAbsolutePath() : "null") + " not found)";
                         }
                     } else {
                         Integer lastIndex = lastPkgNameIndex.get(jModInfo.javaPkgName());
@@ -191,6 +191,7 @@ public class Loader {
     }
 
     public static void ApplyPatchesFromPackage(String packageName, ClassLoader modLoader, boolean isPreMain) {
+        // Note: isPreMain parameter is reserved for future use
         List<Class<?>> patches = CollectPatches(packageName, modLoader);
         if (patches.isEmpty()) {
             System.out.println("[ZB] no patches in package " + packageName);
@@ -464,6 +465,12 @@ public class Loader {
         
         // Load JAR file
         File jarFile = modInfo.getJarFileAsFile();
+        if (jarFile == null) {
+            System.err.println("[ZB] Error! No JAR file specified for mod: " + modInfo.modDirectory());
+            System.out.println("[ZB] -------------------------------------------");
+            return;
+        }
+        
         try {
             if (jarFile.exists()) {
                 if (g_known_jars.contains(jarFile)) {
@@ -647,8 +654,10 @@ public class Loader {
     }
 
     public static Manifest getJarManifest(File jarFile){
-        try {
-            JarFile jar = new JarFile(jarFile, true);
+        if (jarFile == null) {
+            return null;
+        }
+        try (JarFile jar = new JarFile(jarFile, true)) {
             return jar.getManifest();
         } catch (Exception e) {
             System.err.println("[ZB] Error getting JAR manifest: " + e);
@@ -740,6 +749,10 @@ public class Loader {
      * @return true if the package exists in the JAR, false otherwise
      */
     private static boolean validatePackageInJar(File jarFile, String packageName) {
+        if (jarFile == null || packageName == null || packageName.isEmpty()) {
+            return false;
+        }
+        
         try {
             String packagePath = packageName.replace('.', '/');
             
@@ -773,11 +786,7 @@ public class Loader {
             return;
         }
 
-        if (main == null) {
-            System.err.println("[ZB] " + cls + ": main == null");
-            return;
-        }
-
+        // main cannot be null here if getMethod() succeeded
         try {
             String[] args = {}; // no arguments for now
             main.invoke(null, (Object) args);

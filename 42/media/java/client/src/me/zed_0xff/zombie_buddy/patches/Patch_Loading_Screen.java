@@ -6,7 +6,7 @@ import zombie.core.Core;
 import zombie.ui.TextManager;
 import zombie.ui.UIFont;
 
- public class Patch_Loading_Screen {
+public class Patch_Loading_Screen {
     public static boolean m_draw_watermark = false;
 
     public static void draw_watermark() {
