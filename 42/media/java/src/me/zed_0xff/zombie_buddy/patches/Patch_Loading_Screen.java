@@ -1,7 +1,6 @@
 package me.zed_0xff.zombie_buddy.patches;
 
 import me.zed_0xff.zombie_buddy.*;
-import net.bytebuddy.asm.Advice;
 
 import zombie.core.Core;
 import zombie.ui.TextManager;
@@ -23,12 +22,12 @@ import zombie.ui.UIFont;
 
     @Patch(className = "zombie.GameWindow", methodName = "init")
     class Patch_GameWindow {
-        @Advice.OnMethodEnter
+        @Patch.OnEnter
         static void enter() {
             m_draw_watermark = true;
         }
 
-        @Advice.OnMethodExit
+        @Patch.OnExit
         static void exit() {
             m_draw_watermark = false;
 
@@ -41,7 +40,7 @@ import zombie.ui.UIFont;
     
     @Patch(className = "zombie.ui.TextManager", methodName = "DrawStringCentre")
     class Patch_DrawStringCentre {
-        @Advice.OnMethodExit
+        @Patch.OnExit
         static void exit() {
             if (m_draw_watermark)
                 draw_watermark();
@@ -50,7 +49,7 @@ import zombie.ui.UIFont;
     
     @Patch(className = "zombie.gameStates.MainScreenState", methodName = "renderBackground")
     class Patch_MainScreenState {
-        @Advice.OnMethodExit
+        @Patch.OnExit
         static void exit() {
             draw_watermark();
         }
