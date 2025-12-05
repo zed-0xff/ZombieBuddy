@@ -338,7 +338,18 @@ public class Loader {
                         // Apply each advice via separate .visit() calls - they stack
                         for (Class<?> adviceClass : advices) {
                             // Transform patch class to replace Patch.* annotations with ByteBuddy's
-                            Class<?> transformedClass = PatchTransformer.transformPatchClass(adviceClass, g_instrumentation, g_verbosity);
+                            Class<?> transformedClass;
+                            try {
+                                transformedClass = PatchTransformer.transformPatchClass(adviceClass, g_instrumentation, g_verbosity);
+                                if (transformedClass == null) {
+                                    System.err.println("[ZB] ERROR: PatchTransformer returned null for " + adviceClass.getName());
+                                    continue;
+                                }
+                            } catch (Exception e) {
+                                System.err.println("[ZB] ERROR: Failed to transform patch class " + adviceClass.getName() + ": " + e.getMessage());
+                                e.printStackTrace();
+                                continue;
+                            }
                             
                             // Build method matcher - if advice class has parameter-annotated methods, 
                             // use those to determine which overload to match
@@ -416,6 +427,9 @@ public class Loader {
                 builder = builder.warmUp(cls);
             } catch (ClassNotFoundException e) {
                 System.err.println("[ZB] Could not find class for warm-up: " + className);
+            } catch (Exception e) {
+                System.err.println("[ZB] Error warming up class " + className + ": " + e.getMessage());
+                e.printStackTrace();
             }
         }
         
@@ -449,9 +463,14 @@ public class Loader {
 
             // Find all classes annotated with @Patch
             for (ClassInfo classInfo : scanResult.getClassesWithAnnotation(Patch.class.getName())) {
-                Class<?> patchClass = classInfo.loadClass();
-                System.out.println("[ZB] Found patch class: " + patchClass.getName());
-                patches.add(patchClass);
+                try {
+                    Class<?> patchClass = classInfo.loadClass();
+                    System.out.println("[ZB] Found patch class: " + patchClass.getName());
+                    patches.add(patchClass);
+                } catch (Exception e) {
+                    System.err.println("[ZB] Error loading patch class " + classInfo.getName() + ": " + e.getMessage());
+                    e.printStackTrace();
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -501,22 +520,24 @@ public class Loader {
         
         // Load and invoke Main class (optional)
         String mainClassName = modInfo.getMainClassName();
-        if (g_known_classes.contains(mainClassName)) {
-            System.out.println("[ZB] Java class " + mainClassName + " already loaded, skipping.");
-        } else {
-            g_known_classes.add(mainClassName);
+        if (mainClassName != null) {
+            if (g_known_classes.contains(mainClassName)) {
+                System.out.println("[ZB] Java class " + mainClassName + " already loaded, skipping.");
+            } else {
+                g_known_classes.add(mainClassName);
 
-            System.out.println("[ZB] loading class " + mainClassName);
-            Class<?> cls = null;
-            try {
-                cls = Class.forName(mainClassName);
-                try_call_main(cls);
-                System.out.println("[ZB] loaded " + mainClassName);
-            } catch (ClassNotFoundException e) {
-                // Main class is optional - if it doesn't exist, that's fine
-                System.out.println("[ZB] Main class " + mainClassName + " not found (optional, skipping)");
-            } catch (Exception e) {
-                System.err.println("[ZB] failed to load Java class " + mainClassName + ": " + e);
+                System.out.println("[ZB] loading class " + mainClassName);
+                Class<?> cls = null;
+                try {
+                    cls = Class.forName(mainClassName);
+                    try_call_main(cls);
+                    System.out.println("[ZB] loaded " + mainClassName);
+                } catch (ClassNotFoundException e) {
+                    // Main class is optional - if it doesn't exist, that's fine
+                    System.out.println("[ZB] Main class " + mainClassName + " not found (optional, skipping)");
+                } catch (Exception e) {
+                    System.err.println("[ZB] failed to load Java class " + mainClassName + ": " + e);
+                }
             }
         }
         
@@ -763,7 +784,11 @@ public class Loader {
                     var entry = entries.nextElement();
                     String entryName = entry.getName();
                     // Check if entry is in the package (either a class file or a directory)
-                    if (entryName.startsWith(packagePath + "/") || entryName.equals(packagePath + "/")) {
+                    // Match entries that start with packagePath + "/" to ensure we match files/dirs in the package
+                    // Also match the package directory itself if it exists as an entry
+                    if (entryName.startsWith(packagePath + "/") || 
+                        entryName.equals(packagePath) || 
+                        entryName.equals(packagePath + "/")) {
                         return true;
                     }
                 }
