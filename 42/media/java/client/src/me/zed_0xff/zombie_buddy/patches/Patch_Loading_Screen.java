@@ -11,6 +11,10 @@ import zombie.ui.UIFont;
 
     public static void draw_watermark() {
         String watermark = "ZB " + ZombieBuddy.getVersion();
+        String newVersion = Loader.getNewVersion();
+        if (newVersion != null) {
+            watermark += " (New version " + newVersion + " installed. Please restart the game)";
+        }
         var font = UIFont.Small;
         var textMgr = TextManager.instance;
         var textW = textMgr.MeasureStringX(font, watermark);

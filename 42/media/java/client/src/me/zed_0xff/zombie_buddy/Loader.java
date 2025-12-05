@@ -1,13 +1,21 @@
 package me.zed_0xff.zombie_buddy;
 
 import java.io.File;
+import java.io.InputStream;
 import java.lang.ClassLoader;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,6 +37,14 @@ public class Loader {
 
     static Set<String> g_known_classes = new HashSet<>();
     static Set<File> g_known_jars = new HashSet<>();
+    static String g_new_version = null;
+
+    private static final byte[] EXPECTED_FINGERPRINT = {
+        (byte)0xA7, (byte)0x75, (byte)0x10, (byte)0x1B, (byte)0xFB, (byte)0x6C, (byte)0x33, (byte)0xA9,
+        (byte)0x2C, (byte)0xDF, (byte)0x25, (byte)0x20, (byte)0xAC, (byte)0x8D, (byte)0x02, (byte)0x95,
+        (byte)0xCE, (byte)0xBF, (byte)0x89, (byte)0x0C, (byte)0x84, (byte)0x05, (byte)0x97, (byte)0x37,
+        (byte)0x7F, (byte)0xD0, (byte)0x9B, (byte)0x17, (byte)0xD0, (byte)0xEA, (byte)0xDD, (byte)0x97
+    };
 
     // Key for grouping patches by class+method
     private static record PatchTarget(String className, String methodName) {}
@@ -63,10 +79,16 @@ public class Loader {
         }
 
         // Process the list to determine which mods should be skipped
+        String myPackageName = Loader.class.getPackage().getName();
         ArrayList<Boolean> shouldSkipList = new ArrayList<>();
         for (int i = 0; i < jModInfos.size(); i++) {
             JavaModInfo jModInfo = jModInfos.get(i);
             boolean shouldSkip = false;
+            
+            // Skip ZombieBuddy itself - it's loaded as a Java agent, not through normal mod loading
+            if (jModInfo.javaPkgName().equals(myPackageName)) {
+                shouldSkip = true;
+            }
             
             // Check if this mod's package name appears in a later mod
             Integer lastIndex = lastPkgNameIndex.get(jModInfo.javaPkgName());
@@ -84,9 +106,51 @@ public class Loader {
                     JavaModInfo jModInfo = jModInfos.get(i);
                     String reason = "";
                     
-                    Integer lastIndex = lastPkgNameIndex.get(jModInfo.javaPkgName());
-                    if (lastIndex != null && lastIndex > i) {
-                        reason = " (package " + jModInfo.javaPkgName() + " is overridden by later mod)";
+                    // Skip ZombieBuddy itself - it's loaded as a Java agent
+                    if (jModInfo.javaPkgName().equals(myPackageName)) {
+                        reason = " (loaded as Java agent, skipping normal mod loading)";
+                        
+                        // Read signature and version from JAR manifest
+                        File jarFile = jModInfo.getJarFileAsFile();
+                        if (jarFile != null && jarFile.exists()) {
+                            try {
+                                Certificate[] certs = verifyJarAndGetCerts(jarFile);
+                                if (certs != null && certs.length > 0) {
+                                    System.out.println("[ZB] " + jarFile + " is signed with " + certs.length + " certificate(s)");
+                                    for (int certIdx = 0; certIdx < certs.length; certIdx++) {
+                                        if (certs[certIdx] instanceof X509Certificate) {
+                                            X509Certificate x509Cert = (X509Certificate) certs[certIdx];
+                                            byte[] fingerprint = getCertFingerprint(x509Cert, certIdx + 1);
+                                            if (fingerprint != null && java.util.Arrays.equals(fingerprint, EXPECTED_FINGERPRINT)) {
+                                                // get version from manifest
+                                                Manifest manifest = getJarManifest(jarFile);
+                                                if (manifest != null) {
+                                                    String manifestVersion = manifest.getMainAttributes().getValue("Implementation-Version");
+                                                    if (manifestVersion != null) {
+                                                        reason += " (version " + manifestVersion + ")";
+                                                        
+                                                        // Compare with current version
+                                                        String currentVersion = ZombieBuddy.getVersion();
+                                                        if (isVersionNewer(manifestVersion, currentVersion)) {
+                                                            updateSelf(jarFile, manifestVersion);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (Exception e) {
+                                System.err.println("[ZB] Error verifying JAR signature: " + e.getMessage());
+                            }
+                        } else {
+                            reason += " (" + jarFile.getAbsolutePath() + " not found)";
+                        }
+                    } else {
+                        Integer lastIndex = lastPkgNameIndex.get(jModInfo.javaPkgName());
+                        if (lastIndex != null && lastIndex > i) {
+                            reason = " (package " + jModInfo.javaPkgName() + " is overridden by later mod)";
+                        }
                     }
                     
                     System.out.println("[ZB] Excluded: " + jModInfo.modDirectory().getAbsolutePath() + reason);
@@ -454,6 +518,220 @@ public class Loader {
         System.out.println("[ZB] -------------------------------------------");
     }
     
+    /**
+     * Prints detailed information about an X.509 certificate including fingerprints.
+     * @param cert The X.509 certificate to print
+     * @param certNumber The certificate number (for display purposes)
+     */
+    private static byte[] getCertFingerprint(X509Certificate cert, int certNumber) {
+        if (g_verbosity > 0) {
+            System.out.println("[ZB]   Certificate " + certNumber + ":");
+            System.out.println("[ZB]     Subject: " + cert.getSubjectDN());
+            System.out.println("[ZB]     Issuer: " + cert.getIssuerDN());
+            System.out.println("[ZB]     Serial Number: " + cert.getSerialNumber().toString(16).toUpperCase());
+            System.out.println("[ZB]     Valid From: " + cert.getNotBefore());
+            System.out.println("[ZB]     Valid Until: " + cert.getNotAfter());
+        }
+        
+        try {
+            MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+            byte[] sha256Bytes = sha256.digest(cert.getEncoded());
+            if (g_verbosity > 0) {
+                String sha256Fingerprint = bytesToHex(sha256Bytes);
+                System.out.println("[ZB]     SHA-256 Fingerprint: " + sha256Fingerprint);
+            }
+            return sha256Bytes;
+        } catch (Exception e) {
+            System.err.println("[ZB]     Error computing certificate fingerprints: " + e.getMessage());
+        }
+        return null;
+    }
+    
+    /**
+     * Converts a hexadecimal string with colons to a byte array.
+     * @param hexString The hexadecimal string (e.g., "A7:75:10:1B:...")
+     * @return The byte array representation
+     */
+    private static byte[] hexToBytes(String hexString) {
+        // Remove colons and convert to bytes
+        String cleanHex = hexString.replace(":", "").replace(" ", "");
+        if (cleanHex.length() % 2 != 0) {
+            throw new IllegalArgumentException("Hex string must have even length");
+        }
+        byte[] bytes = new byte[cleanHex.length() / 2];
+        for (int i = 0; i < bytes.length; i++) {
+            int index = i * 2;
+            bytes[i] = (byte) Integer.parseInt(cleanHex.substring(index, index + 2), 16);
+        }
+        return bytes;
+    }
+    
+    /**
+     * Compares two semantic version strings to determine if version1 is newer than version2.
+     * Supports formats like "1.0.0", "1.2.3", "2.0.0-beta", etc.
+     * @param version1 The first version to compare
+     * @param version2 The second version to compare
+     * @return true if version1 is newer than version2, false otherwise
+     */
+    private static boolean isVersionNewer(String version1, String version2) {
+        if (version1 == null || version2 == null) {
+            return false;
+        }
+        
+        // Handle "unknown" version
+        if ("unknown".equals(version2)) {
+            return true; // Any version is newer than unknown
+        }
+        
+        try {
+            // Split versions by dots and compare each segment
+            String[] v1Parts = version1.split("\\.");
+            String[] v2Parts = version2.split("\\.");
+            
+            int maxLength = Math.max(v1Parts.length, v2Parts.length);
+            
+            for (int i = 0; i < maxLength; i++) {
+                int v1Part = 0;
+                int v2Part = 0;
+                
+                // Parse numeric part (ignore suffixes like "-beta", "-alpha", etc.)
+                if (i < v1Parts.length) {
+                    String v1Str = v1Parts[i].replaceAll("[^0-9].*", "");
+                    if (!v1Str.isEmpty()) {
+                        v1Part = Integer.parseInt(v1Str);
+                    }
+                }
+                
+                if (i < v2Parts.length) {
+                    String v2Str = v2Parts[i].replaceAll("[^0-9].*", "");
+                    if (!v2Str.isEmpty()) {
+                        v2Part = Integer.parseInt(v2Str);
+                    }
+                }
+                
+                if (v1Part > v2Part) {
+                    return true;
+                } else if (v1Part < v2Part) {
+                    return false;
+                }
+                // If equal, continue to next segment
+            }
+            
+            // If all segments are equal, check if one has more segments
+            if (v1Parts.length > v2Parts.length) {
+                return true;
+            }
+            
+            return false; // versions are equal or version1 is not newer
+        } catch (Exception e) {
+            // If parsing fails, do string comparison as fallback
+            return version1.compareTo(version2) > 0;
+        }
+    }
+    
+    /**
+     * Converts a byte array to a hexadecimal string with colons (standard fingerprint format).
+     * @param bytes The byte array to convert
+     * @return The hexadecimal string representation
+     */
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < bytes.length; i++) {
+            if (i > 0) {
+                sb.append(":");
+            }
+            sb.append(String.format("%02X", bytes[i]));
+        }
+        return sb.toString();
+    }
+
+    public static Manifest getJarManifest(File jarFile){
+        try {
+            JarFile jar = new JarFile(jarFile, true);
+            return jar.getManifest();
+        } catch (Exception e) {
+            System.err.println("[ZB] Error getting JAR manifest: " + e);
+            return null;
+        }
+    }
+    
+    public static Certificate[] verifyJarAndGetCerts(File jarPath) throws Exception {
+        Manifest mf = getJarManifest(jarPath);
+        if (mf == null)
+            return null;
+
+        try (JarFile jar = new JarFile(jarPath, true)) {
+            Certificate[] signer = null;
+    
+            var entries = jar.entries();
+            while (entries.hasMoreElements()) {
+                JarEntry e = entries.nextElement();
+                if (e.isDirectory()) continue;
+    
+                try (InputStream is = jar.getInputStream(e)) {
+                    // Read the entire entry to force verification.
+                    is.readAllBytes();
+                }
+    
+                // If this entry was signed, it will have certs here.
+                Certificate[] certs = e.getCertificates();
+                if (certs != null) {
+                    signer = certs;
+                }
+            }
+    
+            if (signer == null)
+                throw new SecurityException("No signed entries found");
+    
+            return signer;
+        }
+    }    
+
+    public static String getNewVersion() {
+        return g_new_version;
+    }
+
+    /**
+     * Gets the File object representing the JAR file that contains the currently running code.
+     * @return The JAR file, or null if not found or not running from a JAR
+     */
+    public static File getCurrentJarFile() {
+        try {
+            java.security.CodeSource codeSource = Loader.class.getProtectionDomain().getCodeSource();
+            if (codeSource != null) {
+                java.net.URL location = codeSource.getLocation();
+                if (location != null) {
+                    // Convert URL to File, handling file:// URLs
+                    java.net.URI uri = location.toURI();
+                    File jarFile = new File(uri);
+                    if (jarFile.exists() && jarFile.getName().endsWith(".jar")) {
+                        return jarFile;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[ZB] Error getting current JAR file path: " + e.getMessage());
+        }
+        return null;
+    }
+    
+    private static void updateSelf(File jarFile, String manifestVersion) {
+        File currentJarFile = getCurrentJarFile();
+        if (currentJarFile == null) {
+            return;
+        }
+        g_new_version = manifestVersion;
+        System.out.println("[ZB] replacing " + currentJarFile + " with " + jarFile);
+        try {
+            // Copy the newer JAR from mod directory to replace the current running JAR
+            Files.copy(jarFile.toPath(), currentJarFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            System.out.println("[ZB] Successfully replaced JAR file");
+        } catch (Exception e) {
+            System.err.println("[ZB] Error replacing JAR file: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     /**
      * Validates that a JAR file contains the specified package.
      * @param jarFile The JAR file to check
