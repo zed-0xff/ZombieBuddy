@@ -304,64 +304,39 @@ public class Loader {
         if (dir == null || dir.isEmpty())
             return;
 
-        String modinfo_fname = dir + File.separator + "mod.info";
-        File modinfo_file = new File(modinfo_fname);
-        if (!modinfo_file.exists()){
-            // System.out.println("[ZB] no mod.info in " + dir);
+        File modDirectory = new File(dir);
+        JavaModInfo modInfo = JavaModInfo.parse(modDirectory);
+        if (modInfo == null) {
+            // No mod.info file found
             return;
         }
 
-        ArrayList<String> mainClasses = new ArrayList<>();
         ArrayList<File> newlyAddedJars = new ArrayList<>();
 
-        try (var reader = new java.io.BufferedReader(new java.io.FileReader(modinfo_file))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.length() < 15)
-                    continue;
-
-                String prefix = line.substring(0, 14).toLowerCase();
-                if (prefix.startsWith("javajarfile=")) {
-                    String classPath = line.split("=", 2)[1].trim();
-                    if (!classPath.isEmpty()) {
-                        if (!classPath.endsWith(".jar")) {
-                            System.err.println("[ZB] Error! javaJarFile entry must end with \".jar\": " + classPath);
-                            continue;
-                        }
-
-                        File f = new File(dir, classPath);
-                        try {
-                            if (f.exists()) {
-                                if (g_known_jars.contains(f)) {
-                                    System.out.println("[ZB] " + f + " already added, skipping.");
-                                    continue;
-                                }
-
-                                JarFile jarFile = new JarFile(f);
-                                g_instrumentation.appendToSystemClassLoaderSearch(jarFile);
-                                g_known_jars.add(f);
-                                newlyAddedJars.add(f);
-                                System.out.println("[ZB] added to classpath: " + f);
-                            } else {
-                                System.err.println("[ZB] classpath not found: " + f);
-                            }
-                        } catch (Exception e) {
-                            System.err.println("[ZB] Error! invalid classpath: " + f + " " + e);
-                        }
+        // Load JAR files
+        for (File jarFile : modInfo.getJarFilesAsFiles()) {
+            try {
+                if (jarFile.exists()) {
+                    if (g_known_jars.contains(jarFile)) {
+                        System.out.println("[ZB] " + jarFile + " already added, skipping.");
+                        continue;
                     }
-                } else if (prefix.startsWith("javamainclass=")) {
-                    String mainClass = line.split("=", 2)[1].trim();
-                    if (!mainClass.isEmpty())
-                        mainClasses.add(mainClass);
+
+                    JarFile jf = new JarFile(jarFile);
+                    g_instrumentation.appendToSystemClassLoaderSearch(jf);
+                    g_known_jars.add(jarFile);
+                    newlyAddedJars.add(jarFile);
+                    System.out.println("[ZB] added to classpath: " + jarFile);
+                } else {
+                    System.err.println("[ZB] classpath not found: " + jarFile);
                 }
+            } catch (Exception e) {
+                System.err.println("[ZB] Error! invalid classpath: " + jarFile + " " + e);
             }
-        } catch (Exception e) {
-            System.err.println("[ZB] error reading " + modinfo_fname + ": " + e);
-            return;
         }
         
         // Load and invoke main classes
-        for (String clsName : mainClasses) {
+        for (String clsName : modInfo.mainClasses()) {
             if (g_known_classes.contains(clsName)) {
                 System.out.println("[ZB] Java class " +  clsName + " already loaded, skipping.");
                 continue;
@@ -384,7 +359,7 @@ public class Loader {
         }
         
         // If no mainClasses specified but JARs were added in this call, scan packages in those JARs for patches
-        if (mainClasses.isEmpty() && !newlyAddedJars.isEmpty()) {
+        if (modInfo.mainClasses().isEmpty() && !newlyAddedJars.isEmpty()) {
             System.out.println("[ZB] No mainClasses specified, scanning packages in newly loaded JARs for patches...");
             scanAllPackagesForPatches(newlyAddedJars);
         }
