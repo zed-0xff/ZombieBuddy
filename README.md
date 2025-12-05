@@ -237,7 +237,7 @@ Exposer.exposeClassToLua(MyCustomClass.class);
 Build your JAR file and place it in the location specified in `mod.info`:
 
 ```bash
-./gradlew build
+gradle build
 cp build/libs/YourMod.jar ~/Zomboid/mods/YourMod/[version]/media/java/
 ```
 

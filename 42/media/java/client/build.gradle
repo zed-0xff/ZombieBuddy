@@ -3,9 +3,27 @@ plugins {
     id 'signing'
 }
 
+// Detect OS and set game paths accordingly
+def osName = System.getProperty("os.name").toLowerCase()
 def HOME_DIR = System.getProperty("user.home")
-def GAME_DIR = "${HOME_DIR}/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app"
-def GAME_JAVA_DIR = "${GAME_DIR}/Contents/Java"
+def GAME_DIR
+def GAME_JAVA_DIR
+
+if (osName.contains("mac")) {
+    // macOS
+    GAME_DIR = "${HOME_DIR}/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app"
+    GAME_JAVA_DIR = "${GAME_DIR}/Contents/Java"
+} else if (osName.contains("win")) {
+    // Windows - try common Steam installation paths
+    def programFiles = System.getenv("ProgramFiles(x86)") ?: System.getenv("ProgramFiles")
+    def steamPath = System.getenv("SteamPath") ?: "${programFiles}\\Steam"
+    GAME_DIR = "${steamPath}\\steamapps\\common\\ProjectZomboid"
+    GAME_JAVA_DIR = "${GAME_DIR}\\java"
+} else {
+    // Linux
+    GAME_DIR = "${HOME_DIR}/.steam/steam/steamapps/common/ProjectZomboid"
+    GAME_JAVA_DIR = "${GAME_DIR}/projectzomboid/java"
+}
 
 // Read version from VERSION file
 def versionFile = file('VERSION')
@@ -68,9 +86,10 @@ if (useKeychain) {
         def jarFile = jar.archiveFile.get().asFile
         
         // Use jarsigner from PATH or find it from JAVA_HOME
+        def jarsignerExe = osName.contains("win") ? "jarsigner.exe" : "jarsigner"
         def jarsignerPath = System.getenv('JAVA_HOME') ? 
-            new File(System.getenv('JAVA_HOME'), "bin/jarsigner").absolutePath : 
-            'jarsigner'
+            new File(System.getenv('JAVA_HOME'), "bin/${jarsignerExe}").absolutePath : 
+            jarsignerExe
         
         commandLine jarsignerPath,
             '-keystore', 'NONE',
