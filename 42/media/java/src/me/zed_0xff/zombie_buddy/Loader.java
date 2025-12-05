@@ -179,7 +179,56 @@ public class Loader {
                         for (Class<?> adviceClass : advices) {
                             // Transform patch class to replace Patch.* annotations with ByteBuddy's
                             Class<?> transformedClass = PatchTransformer.transformPatchClass(adviceClass, g_instrumentation, g_verbosity);
-                            result = result.visit(Advice.to(transformedClass).on(ElementMatchers.named(methodName))); // TODO: use SyntaxSugar.name2matcher
+                            
+                            // Build method matcher - if advice class has parameter-annotated methods, 
+                            // use those to determine which overload to match
+                            net.bytebuddy.matcher.ElementMatcher.Junction<net.bytebuddy.description.method.MethodDescription> methodMatcher = 
+                                ElementMatchers.named(methodName);
+                            
+                            // Try to infer parameter types from the advice class methods
+                            // This helps ByteBuddy match the correct overload when there are multiple
+                            for (Method adviceMethod : transformedClass.getDeclaredMethods()) {
+                                // Check if this method has advice annotations
+                                boolean hasAdviceAnnotation = false;
+                                for (java.lang.annotation.Annotation ann : adviceMethod.getAnnotations()) {
+                                    String annType = ann.annotationType().getName();
+                                    if (annType.contains("Advice$OnMethodEnter") || 
+                                        annType.contains("Advice$OnMethodExit")) {
+                                        hasAdviceAnnotation = true;
+                                        break;
+                                    }
+                                }
+                                
+                                if (hasAdviceAnnotation && adviceMethod.getParameterCount() > 0) {
+                                    // Build parameter type matcher from the advice method signature
+                                    Class<?>[] paramTypes = adviceMethod.getParameterTypes();
+                                    // Skip @Return annotated parameters (they're for return values, not method params)
+                                    List<Class<?>> methodParamTypes = new ArrayList<>();
+                                    java.lang.annotation.Annotation[][] paramAnns = adviceMethod.getParameterAnnotations();
+                                    for (int i = 0; i < paramTypes.length; i++) {
+                                        // Check if this parameter has @Return annotation (skip it)
+                                        boolean isReturnParam = false;
+                                        for (java.lang.annotation.Annotation ann : paramAnns[i]) {
+                                            if (ann.annotationType().getName().contains("Advice$Return")) {
+                                                isReturnParam = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!isReturnParam) {
+                                            methodParamTypes.add(paramTypes[i]);
+                                        }
+                                    }
+                                    
+                                    if (!methodParamTypes.isEmpty()) {
+                                        // Match method with these parameter types
+                                        methodMatcher = ElementMatchers.named(methodName)
+                                            .and(ElementMatchers.takesArguments(methodParamTypes.toArray(new Class<?>[0])));
+                                        break; // Use first matching method's signature
+                                    }
+                                }
+                            }
+                            
+                            result = result.visit(Advice.to(transformedClass).on(methodMatcher));
                         }
                     }
                     
