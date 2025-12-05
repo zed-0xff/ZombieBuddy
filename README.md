@@ -141,22 +141,19 @@ Add the following entries to your `mod.info` file:
 ```ini
 require=\ZombieBuddy
 javaJarFile=media/java/YourMod.jar
-javaMainClass=com.yourname.yourmod.YourMainClass
+javaPkgName=com.yourname.yourmod
 ```
 
 - `require=\ZombieBuddy`: Declares dependency on ZombieBuddy framework
-- `javaJarFile`: Path to your JAR file relative to the mod version directory. **Note**: Classes must be packaged in a JAR file - plain class directories are not supported.
-- `javaMainClass`: Fully qualified name of your main class. The `main(String[])` method is optional, but if it exists, it will be automatically executed when the mod loads. **Note**: `javaMainClass` is optional - if you only have patches and no initialization code, you can omit it. ZombieBuddy will automatically scan the JAR for `@Patch` annotated classes.
+- `javaJarFile`: Path to your JAR file relative to the mod version directory. **Required** if you want to load Java code. **Note**: Only a single JAR file is supported per mod. Classes must be packaged in a JAR file - plain class directories are not supported.
+- `javaPkgName`: The package name where your Main class is located (if present) and where patches will be discovered. **Mandatory** if `javaJarFile` is specified. The Main class (if present) must be named `Main` and located in this package (e.g., if `javaPkgName=com.yourname.yourmod`, the Main class must be `com.yourname.yourmod.Main`). The JAR file must contain this package. **Note**: The Main class is optional - if you only have patches and no initialization code, you can omit it. ZombieBuddy will still apply patches from the package.
 
-**Multiple JAR files and main classes**: To load multiple JAR files or main classes, simply repeat the `javaJarFile` and `javaMainClass` lines:
-
-```ini
-require=\ZombieBuddy
-javaJarFile=media/java/YourMod.jar
-javaMainClass=com.yourname.yourmod.YourMainClass
-javaJarFile=media/java/YourModLib.jar
-javaMainClass=com.yourname.yourmod.AnotherMainClass
-```
+**Important**: 
+- `javaPkgName` is **mandatory** when `javaJarFile` is specified
+- The Main class is always named `Main` (if present)
+- The Main class is **optional** - patches will be applied even if Main class doesn't exist
+- The JAR file must contain the package specified in `javaPkgName`
+- Only one `javaJarFile` and one `javaPkgName` entry per mod (multiple entries are not supported)
 
 #### 3. Create Your Java Project
 
@@ -174,12 +171,14 @@ dependencies {
 
 #### 4. Write Your Mod Code
 
-Create a main class that will be loaded when the mod is enabled. The `main(String[])` method is optional - if it exists, it will be automatically executed when the mod loads:
+**Option A: With Main class** (for initialization code)
+
+Create a Main class in the package specified by `javaPkgName`. The `main(String[])` method is optional - if it exists, it will be automatically executed when the mod loads:
 
 ```java
 package com.yourname.yourmod;
 
-public class YourMainClass {
+public class Main {
     // Optional: main() method will be executed if present
     public static void main(String[] args) {
         System.out.println("[YourMod] Initializing...");
@@ -190,9 +189,13 @@ public class YourMainClass {
 }
 ```
 
-**Note**: Even without a `main()` method, your class will still be loaded, and any `@Patch` annotated classes in the same package will be discovered and applied automatically.
+**Option B: Patches-only mod** (no Main class required)
 
-**Alternative: Patches-only mods**: If your mod only contains patches and doesn't need any initialization code, you can omit the `javaMainClass` entry entirely. ZombieBuddy will automatically scan all packages in your JAR file for `@Patch` annotated classes and apply them. This is useful for simple mods that only patch game behavior without requiring a main class.
+If your mod only contains patches and doesn't need any initialization code, you can omit the Main class entirely. ZombieBuddy will automatically discover and apply all `@Patch` annotated classes in the package specified by `javaPkgName`.
+
+**Important**: 
+- The Main class is **optional** - if present, it must be named `Main` and be in the package specified by `javaPkgName` in `mod.info`
+- Even without a Main class, any `@Patch` annotated classes in the package will be discovered and applied automatically
 
 #### 5. Create Patches
 
@@ -216,8 +219,7 @@ public static class MyPatch {
 ```
 
 **Important**: 
-- If you have a `javaMainClass` specified: Place patch classes in the same package as your main class. ZombieBuddy will automatically discover and apply all `@Patch` annotated classes in that package.
-- If you don't have a `javaMainClass` specified: ZombieBuddy will automatically scan all packages in your JAR file for `@Patch` annotated classes, so you can organize your patches in any package structure you prefer.
+- Place patch classes in the same package as your Main class (specified by `javaPkgName`). ZombieBuddy will automatically discover and apply all `@Patch` annotated classes in that package.
 
 #### 6. Expose Classes to Lua
 
@@ -257,7 +259,7 @@ cp build/libs/YourMod.jar ~/Zomboid/mods/YourMod/[version]/media/java/
 
 Looking for examples to learn from? Check out these mods built with ZombieBuddy:
 
-- **[ZBHelloWorld](https://github.com/zed-0xff/ZBHelloWorld)**: A simple example mod demonstrating patches-only mods (no main class required). Shows how to patch UI rendering methods and automatically discover patches from JAR files.
+- **[ZBHelloWorld](https://github.com/zed-0xff/ZBHelloWorld)**: A simple example mod demonstrating how to patch UI rendering methods. Shows the basic structure with `javaPkgName` and a Main class.
 
 #### Sharing Your Source Code
 

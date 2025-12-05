@@ -55,13 +55,11 @@ public class Loader {
         System.out.println("[ZB] java mod list to load:");
         printModList(jModInfos);
 
-        // Find the last occurrence index for each main class
-        Map<String, Integer> lastMainClassIndex = new HashMap<>();
+        // Find the last occurrence index for each package name
+        Map<String, Integer> lastPkgNameIndex = new HashMap<>();
         for (int i = 0; i < jModInfos.size(); i++) {
             JavaModInfo jModInfo = jModInfos.get(i);
-            for (String mainClass : jModInfo.mainClasses()) {
-                lastMainClassIndex.put(mainClass, i);
-            }
+            lastPkgNameIndex.put(jModInfo.javaPkgName(), i);
         }
 
         // Process the list to determine which mods should be skipped
@@ -70,15 +68,10 @@ public class Loader {
             JavaModInfo jModInfo = jModInfos.get(i);
             boolean shouldSkip = false;
             
-            if (!jModInfo.mainClasses().isEmpty()) {
-                // Check if any of this mod's main classes appear in a later mod
-                for (String mainClass : jModInfo.mainClasses()) {
-                    Integer lastIndex = lastMainClassIndex.get(mainClass);
-                    if (lastIndex != null && lastIndex > i) {
-                        shouldSkip = true;
-                        break;
-                    }
-                }
+            // Check if this mod's package name appears in a later mod
+            Integer lastIndex = lastPkgNameIndex.get(jModInfo.javaPkgName());
+            if (lastIndex != null && lastIndex > i) {
+                shouldSkip = true;
             }
             
             shouldSkipList.add(shouldSkip);
@@ -91,15 +84,9 @@ public class Loader {
                     JavaModInfo jModInfo = jModInfos.get(i);
                     String reason = "";
                     
-                    if (!jModInfo.mainClasses().isEmpty()) {
-                        // Find which main class caused the skip
-                        for (String mainClass : jModInfo.mainClasses()) {
-                            Integer lastIndex = lastMainClassIndex.get(mainClass);
-                            if (lastIndex != null && lastIndex > i) {
-                                reason = " (mainClass " + mainClass + " is overridden by later mod)";
-                                break;
-                            }
-                        }
+                    Integer lastIndex = lastPkgNameIndex.get(jModInfo.javaPkgName());
+                    if (lastIndex != null && lastIndex > i) {
+                        reason = " (package " + jModInfo.javaPkgName() + " is overridden by later mod)";
                     }
                     
                     System.out.println("[ZB] Excluded: " + jModInfo.modDirectory().getAbsolutePath() + reason);
@@ -135,7 +122,7 @@ public class Loader {
 
         String formatString = "[ZB]     %-" + longestPathLength + "s %s";
         for (JavaModInfo jModInfo : jModInfos) {
-            System.out.println(String.format(formatString, jModInfo.modDirectory().getAbsolutePath(), jModInfo.mainClasses()));
+            System.out.println(String.format(formatString, jModInfo.modDirectory().getAbsolutePath(), jModInfo.javaPkgName()));
         }
     }
 
@@ -409,102 +396,90 @@ public class Loader {
 
     public static void loadJavaMod(JavaModInfo modInfo) {
         System.out.println("[ZB] ------------------------------------------- loading Java mod: " + modInfo.modDirectory());
-        ArrayList<File> newlyAddedJars = new ArrayList<>();
-
-        // Load JAR files
-        for (File jarFile : modInfo.getJarFilesAsFiles()) {
-            try {
-                if (jarFile.exists()) {
-                    if (g_known_jars.contains(jarFile)) {
-                        System.out.println("[ZB] " + jarFile + " already added, skipping.");
-                        continue;
+        
+        // Load JAR file
+        File jarFile = modInfo.getJarFileAsFile();
+        try {
+            if (jarFile.exists()) {
+                if (g_known_jars.contains(jarFile)) {
+                    System.out.println("[ZB] " + jarFile + " already added, skipping.");
+                } else {
+                    // Validate that JAR contains the specified package
+                    if (!validatePackageInJar(jarFile, modInfo.javaPkgName())) {
+                        System.err.println("[ZB] Error! JAR does not contain package " + modInfo.javaPkgName() + ": " + jarFile);
+                        System.out.println("[ZB] -------------------------------------------");
+                        return;
                     }
-
+                    
                     JarFile jf = new JarFile(jarFile);
                     g_instrumentation.appendToSystemClassLoaderSearch(jf);
                     g_known_jars.add(jarFile);
-                    newlyAddedJars.add(jarFile);
                     System.out.println("[ZB] added to classpath: " + jarFile);
-                } else {
-                    System.err.println("[ZB] classpath not found: " + jarFile);
                 }
-            } catch (Exception e) {
-                System.err.println("[ZB] Error! invalid classpath: " + jarFile + " " + e);
+            } else {
+                System.err.println("[ZB] classpath not found: " + jarFile);
+                System.out.println("[ZB] -------------------------------------------");
+                return;
             }
+        } catch (Exception e) {
+            System.err.println("[ZB] Error! invalid classpath: " + jarFile + " " + e);
+            System.out.println("[ZB] -------------------------------------------");
+            return;
         }
         
-        // Load and invoke main classes
-        for (String clsName : modInfo.mainClasses()) {
-            if (g_known_classes.contains(clsName)) {
-                System.out.println("[ZB] Java class " +  clsName + " already loaded, skipping.");
-                continue;
-            } 
-            g_known_classes.add(clsName);
+        // Load and invoke Main class (optional)
+        String mainClassName = modInfo.getMainClassName();
+        if (g_known_classes.contains(mainClassName)) {
+            System.out.println("[ZB] Java class " + mainClassName + " already loaded, skipping.");
+        } else {
+            g_known_classes.add(mainClassName);
 
-            System.out.println("[ZB] loading class " + clsName);
+            System.out.println("[ZB] loading class " + mainClassName);
             Class<?> cls = null;
             try {
-                cls = Class.forName(clsName);
+                cls = Class.forName(mainClassName);
+                try_call_main(cls);
+                System.out.println("[ZB] loaded " + mainClassName);
+            } catch (ClassNotFoundException e) {
+                // Main class is optional - if it doesn't exist, that's fine
+                System.out.println("[ZB] Main class " + mainClassName + " not found (optional, skipping)");
             } catch (Exception e) {
-                System.err.println("[ZB] failed to load Java class " + clsName + ": " + e);
-                continue;
+                System.err.println("[ZB] failed to load Java class " + mainClassName + ": " + e);
             }
-
-            try_call_main(cls);
-            ApplyPatchesFromPackage(cls.getPackageName(), null, false);
-
-            System.out.println("[ZB] loaded " + clsName);
         }
         
-        // If no mainClasses specified but JARs were added in this call, scan packages in those JARs for patches
-        if (modInfo.mainClasses().isEmpty() && !newlyAddedJars.isEmpty()) {
-            System.out.println("[ZB] No mainClasses specified, scanning packages in newly loaded JARs for patches...");
-            scanAllPackagesForPatches(newlyAddedJars);
-        }
+        // Always apply patches from the package, regardless of whether Main class exists
+        ApplyPatchesFromPackage(modInfo.javaPkgName(), null, false);
+        
         System.out.println("[ZB] -------------------------------------------");
     }
     
-    private static void scanAllPackagesForPatches(List<File> jarsToScan) {
-        var classGraph = new ClassGraph()
-                .enableAllInfo(); // Scan all packages (don't call acceptPackages to accept everything)
-        
-        // Add only the specified JARs to classpath
-        if (!jarsToScan.isEmpty()) {
-            String[] jarPaths = jarsToScan.stream()
-                    .map(File::getAbsolutePath)
-                    .toArray(String[]::new);
-            classGraph = classGraph.overrideClasspath((Object[]) jarPaths);
-        }
-        
-        try (ScanResult scanResult = classGraph.scan()) {
-            // Find all classes annotated with @Patch directly
-            List<ClassInfo> patchClasses = scanResult.getClassesWithAnnotation(Patch.class.getName());
+    /**
+     * Validates that a JAR file contains the specified package.
+     * @param jarFile The JAR file to check
+     * @param packageName The package name to verify (e.g., "com.example.mymod")
+     * @return true if the package exists in the JAR, false otherwise
+     */
+    private static boolean validatePackageInJar(File jarFile, String packageName) {
+        try {
+            String packagePath = packageName.replace('.', '/');
             
-            if (patchClasses.isEmpty()) {
-                System.out.println("[ZB] No patches found in loaded JARs");
-                return;
-            }
-            
-            System.out.println("[ZB] Found " + patchClasses.size() + " patch class(es) in JARs");
-            
-            // Collect all unique packages that contain patches
-            Set<String> packagesWithPatches = new HashSet<>();
-            for (ClassInfo classInfo : patchClasses) {
-                String packageName = classInfo.getPackageName();
-                if (packageName == null || packageName.isEmpty()) {
-                    packageName = ""; // Default package
+            // Check if any entry in the JAR starts with the package path
+            try (JarFile jf = new JarFile(jarFile)) {
+                var entries = jf.entries();
+                while (entries.hasMoreElements()) {
+                    var entry = entries.nextElement();
+                    String entryName = entry.getName();
+                    // Check if entry is in the package (either a class file or a directory)
+                    if (entryName.startsWith(packagePath + "/") || entryName.equals(packagePath + "/")) {
+                        return true;
+                    }
                 }
-                packagesWithPatches.add(packageName);
-                System.out.println("[ZB] Found patch class: " + classInfo.getName());
             }
-            
-            // Apply patches from each package
-            for (String packageName : packagesWithPatches) {
-                ApplyPatchesFromPackage(packageName, null, false);
-            }
+            return false;
         } catch (Exception e) {
-            System.err.println("[ZB] Error scanning packages for patches: " + e);
-            e.printStackTrace();
+            System.err.println("[ZB] Error validating package in JAR: " + e);
+            return false;
         }
     }
 

@@ -1,80 +1,56 @@
 package me.zed_0xff.zombie_buddy;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 /**
  * Represents Java mod information parsed from a mod.info file.
- * Contains JAR file paths and main class names for a Java mod.
+ * Contains JAR file path and package name for a Java mod.
  */
 public record JavaModInfo(
     /** The directory containing the mod.info file */
     File modDirectory,
     /** The mod.info file itself */
     File modInfoFile,
-    /** List of JAR file paths relative to modDirectory (from javaJarFile entries) */
-    List<String> jarFiles,
-    /** List of main class names (from javaMainClass entries) */
-    List<String> mainClasses
+    /** JAR file path relative to modDirectory (from javaJarFile entry) */
+    String jarFile,
+    /** Package name (from javaPkgName entry) */
+    String javaPkgName
 ) {
     /**
-     * Creates a JavaModInfo with empty lists.
+     * Creates a JavaModInfo with null values.
      */
     public JavaModInfo(File modDirectory, File modInfoFile) {
-        this(modDirectory, modInfoFile, new ArrayList<>(), new ArrayList<>());
+        this(modDirectory, modInfoFile, null, null);
     }
     
     /**
-     * Returns an unmodifiable view of the jarFiles list.
+     * Checks if this mod has a JAR file specified.
      */
-    @Override
-    public List<String> jarFiles() {
-        return Collections.unmodifiableList(jarFiles);
+    public boolean hasJarFile() {
+        return jarFile != null && !jarFile.isEmpty();
     }
     
     /**
-     * Returns an unmodifiable view of the mainClasses list.
+     * Gets the JAR file as a File object relative to the mod directory.
      */
-    @Override
-    public List<String> mainClasses() {
-        return Collections.unmodifiableList(mainClasses);
-    }
-    
-    /**
-     * Checks if this mod has any JAR files specified.
-     */
-    public boolean hasJarFiles() {
-        return !jarFiles.isEmpty();
-    }
-    
-    /**
-     * Checks if this mod has any main classes specified.
-     */
-    public boolean hasMainClasses() {
-        return !mainClasses.isEmpty();
-    }
-    
-    /**
-     * Gets a JAR file as a File object relative to the mod directory.
-     */
-    public File getJarFile(int index) {
-        if (index < 0 || index >= jarFiles.size()) {
-            throw new IndexOutOfBoundsException("JAR file index out of bounds: " + index);
+    public File getJarFileAsFile() {
+        if (jarFile == null || jarFile.isEmpty()) {
+            return null;
         }
-        return new File(modDirectory, jarFiles.get(index));
+        return new File(modDirectory, jarFile);
     }
     
     /**
-     * Gets all JAR files as File objects relative to the mod directory.
+     * Gets the fully qualified Main class name.
+     * The Main class is always named "Main" in the package specified by javaPkgName.
+     * javaPkgName is mandatory when jarFile is present, so this should never return null
+     * for a valid Java mod.
      */
-    public List<File> getJarFilesAsFiles() {
-        List<File> files = new ArrayList<>();
-        for (String jarPath : jarFiles) {
-            files.add(new File(modDirectory, jarPath));
+    public String getMainClassName() {
+        if (javaPkgName == null || javaPkgName.isEmpty()) {
+            return null;
         }
-        return files;
+        return javaPkgName + ".Main";
     }
     
     /**
@@ -94,30 +70,38 @@ public record JavaModInfo(
             return null;
         }
         
-        List<String> jarFiles = new ArrayList<>();
-        List<String> mainClasses = new ArrayList<>();
+        String jarFile = null;
+        String javaPkgName = null;
         
         try (var reader = new java.io.BufferedReader(new java.io.FileReader(modInfoFile))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                if (line.length() < 15) {
+                if (line.length() < 13) {
                     continue;
                 }
                 
-                String prefix = line.substring(0, 14).toLowerCase();
-                if (prefix.startsWith("javajarfile=")) {
+                String lowerLine = line.toLowerCase();
+                if (lowerLine.startsWith("javajarfile=")) {
+                    if (jarFile != null) {
+                        System.err.println("[ZB] Warning! Multiple javaJarFile entries found, only the first one will be used: " + modInfoFile);
+                        continue;
+                    }
                     String jarPath = line.split("=", 2)[1].trim();
                     if (!jarPath.isEmpty()) {
                         if (!jarPath.endsWith(".jar")) {
                             System.err.println("[ZB] Error! javaJarFile entry must end with \".jar\": " + jarPath);
                             continue;
                         }
-                        jarFiles.add(jarPath);
+                        jarFile = jarPath;
                     }
-                } else if (prefix.startsWith("javamainclass=")) {
-                    String mainClass = line.split("=", 2)[1].trim();
-                    if (!mainClass.isEmpty()) {
-                        mainClasses.add(mainClass);
+                } else if (lowerLine.startsWith("javapkgname=")) {
+                    if (javaPkgName != null) {
+                        System.err.println("[ZB] Warning! Multiple javaPkgName entries found, only the first one will be used: " + modInfoFile);
+                        continue;
+                    }
+                    String pkgName = line.split("=", 2)[1].trim();
+                    if (!pkgName.isEmpty()) {
+                        javaPkgName = pkgName;
                     }
                 }
             }
@@ -126,7 +110,18 @@ public record JavaModInfo(
             return null;
         }
         
-        return new JavaModInfo(modDirectory, modInfoFile, jarFiles, mainClasses);
+        // Both javaJarFile and javaPkgName are required - return null if either is missing or invalid
+        if (jarFile == null || jarFile.isEmpty()) {
+            // No Java mod configuration found, return null
+            return null;
+        }
+        
+        if (javaPkgName == null || javaPkgName.isEmpty()) {
+            System.err.println("[ZB] Error! Mod has javaJarFile but missing required javaPkgName: " + modInfoFile);
+            return null;
+        }
+        
+        return new JavaModInfo(modDirectory, modInfoFile, jarFile, javaPkgName);
     }
     
     /**
