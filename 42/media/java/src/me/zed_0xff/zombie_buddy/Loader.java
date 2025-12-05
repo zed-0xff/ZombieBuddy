@@ -22,7 +22,8 @@ import net.bytebuddy.matcher.ElementMatchers;
 public class Loader {
     public static Instrumentation g_instrumentation;
     public static int g_verbosity = 0;
-    public static boolean g_exit_after_game_load = false;
+    public static boolean g_dump_env = false;
+    public static boolean g_exit_after_game_init = false;
 
     static Set<String> g_known_classes = new HashSet<>();
     static Set<File> g_known_jars = new HashSet<>();

@@ -25,9 +25,14 @@ public class Agent {
                         }
                         break;
 
-                    case "exit_after_game_load":
-                        Loader.g_exit_after_game_load = true;
-                        System.err.println("[ZB] will exit after game load");
+                    case "exit_after_game_init":
+                        Loader.g_exit_after_game_init = true;
+                        System.err.println("[ZB] will exit after game init");
+                        break;
+
+                    case "dump_env":
+                        Loader.g_dump_env = true;
+                        dumpEnv();
                         break;
 
                     default:
@@ -39,5 +44,22 @@ public class Agent {
 
         Loader.ApplyPatchesFromPackage(ZombieBuddy.class.getPackage().getName() + ".patches", null, true);
         System.out.println("[ZB] Agent installed.");
+    }
+
+    public static void dumpEnv() {
+        System.out.println("[ZB] environment variables:");
+        // find the longest key and pad all keys to that length
+        int maxKeyLength = 0;
+        for (var entry : System.getenv().entrySet()) {
+            if (entry.getKey().length() > maxKeyLength) {
+                maxKeyLength = entry.getKey().length();
+            }
+        }
+        String keyFormat = "%-" + maxKeyLength + "s";
+        String valueFormat = "%s";
+
+        for (var entry : System.getenv().entrySet()) {
+            System.out.println("    " + String.format(keyFormat, entry.getKey()) + " = " + String.format(valueFormat, entry.getValue()));
+        }
     }
 }

@@ -32,8 +32,8 @@ import zombie.ui.UIFont;
         static void exit() {
             m_draw_watermark = false;
 
-            if (Loader.g_exit_after_game_load) {
-                System.out.println("[ZB] Exiting after loading as requested.");
+            if (Loader.g_exit_after_game_init) {
+                System.out.println("[ZB] Exiting after game init as requested.");
                 Core.getInstance().quit();
             }
         }
