@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'signing'
 }
 
 def HOME_DIR = System.getProperty("user.home")
@@ -38,6 +39,75 @@ jar {
             'Can-Retransform-Classes': 'true',
             'Implementation-Version': version
         )
+    }
+}
+
+// Configure signing
+// Supports:
+// 1. KeychainStore - Direct access to Apple Keychain (no export needed)
+// 2. PKCS12 (.p12) - Exported from Keychain
+// 3. JKS - Traditional Java keystore
+//
+// To use KeychainStore (recommended on macOS):
+//   - Set signing.storeType=KeychainStore
+//   - Set signing.keyAlias to your certificate's common name
+//   - Find certificate name: security find-identity -p codesigning -v
+//   - No storeFile or passwords needed
+def useKeychain = project.findProperty('signing.storeType') == 'KeychainStore'
+def hasStoreFile = project.hasProperty('signing.storeFile')
+
+if (useKeychain) {
+    // Use KeychainStore - create a custom signing task
+    def keyAlias = project.findProperty('signing.keyAlias')
+    
+    // Create a custom task that uses jarsigner with KeychainStore
+    task signJar(type: Exec) {
+        dependsOn jar
+        onlyIf { keyAlias != null }
+        
+        def jarFile = jar.archiveFile.get().asFile
+        
+        // Use jarsigner from PATH or find it from JAVA_HOME
+        def jarsignerPath = System.getenv('JAVA_HOME') ? 
+            new File(System.getenv('JAVA_HOME'), "bin/jarsigner").absolutePath : 
+            'jarsigner'
+        
+        commandLine jarsignerPath,
+            '-keystore', 'NONE',
+            '-storetype', 'KeychainStore',
+            '-storepass', '',
+            '-keypass', '',
+            jarFile.absolutePath,
+            keyAlias
+    }
+    
+    // Make the build depend on signing
+    build.dependsOn signJar
+} else if (hasStoreFile) {
+    // Use file-based keystore (JKS or PKCS12)
+    signing {
+        required = true
+        
+        def storeFilePath = project.findProperty('signing.storeFile')
+        def storeFileObj = file(storeFilePath)
+        def storeType = project.findProperty('signing.storeType')
+        
+        // Auto-detect keystore type if not specified
+        if (storeType == null) {
+            def fileName = storeFileObj.name.toLowerCase()
+            if (fileName.endsWith('.p12') || fileName.endsWith('.pfx')) {
+                storeType = 'PKCS12'
+            } else if (fileName.endsWith('.jks')) {
+                storeType = 'JKS'
+            }
+        }
+        
+        storeFile = storeFileObj
+        storePassword = project.findProperty('signing.storePassword')
+        keyAlias = project.findProperty('signing.keyAlias')
+        keyPassword = project.findProperty('signing.keyPassword')
+        
+        sign jar
     }
 }
 
