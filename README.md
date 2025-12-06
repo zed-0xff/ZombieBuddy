@@ -1,8 +1,10 @@
-# <img src="42/icon.svg" alt="ZombieBuddy Icon" width="64" height="64"> ZombieBuddy
+# ZombieBuddy
 
 A powerful framework for Project Zomboid modders that enables Java bytecode manipulation and runtime patching of game classes using ByteBuddy.
 
 ## What is ZombieBuddy?
+
+<img src="42/icon.svg" align="right" alt="ZombieBuddy Icon" width="128" height="128">
 
 ZombieBuddy is a Java agent-based framework that allows modders to:
 - **Patch game classes at runtime** using bytecode manipulation
