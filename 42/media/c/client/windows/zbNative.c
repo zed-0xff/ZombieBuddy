@@ -29,6 +29,27 @@ void init_instrument_dll() {
     *(void**)&pAgent_OnUnload = GetProcAddress(hOrig, "Agent_OnUnload");
 }
 
+void check_and_apply_update(const char* jarPath) {
+    char newJarPath[1024];
+    wsprintf(newJarPath, "%s.new", jarPath);
+
+    // Check if .new file exists
+    DWORD attrs = GetFileAttributesA(newJarPath);
+    if (attrs == INVALID_FILE_ATTRIBUTES || (attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+        return; // No update pending
+    }
+
+    // Update is pending - apply it
+    WriteConsoleA(GetStdHandle(STD_OUTPUT_HANDLE), "[zbNative] Pending update detected, applying...\n", 50, NULL, NULL);
+
+    // Rename .new file to JAR file, replacing existing file if it exists
+    if (MoveFileExA(newJarPath, jarPath, MOVEFILE_REPLACE_EXISTING)) {
+        WriteConsoleA(GetStdHandle(STD_OUTPUT_HANDLE), "[zbNative] Successfully applied update\n", 40, NULL, NULL);
+    } else {
+        WriteConsoleA(GetStdHandle(STD_OUTPUT_HANDLE), "[zbNative] Error: Failed to apply update\n", 42, NULL, NULL);
+    }
+}
+
 __declspec(dllexport) int Agent_OnLoad(void* jvm, char* tail, void* reserved) {
     if (hOrig == NULL) {
         init_instrument_dll();
@@ -37,7 +58,11 @@ __declspec(dllexport) int Agent_OnLoad(void* jvm, char* tail, void* reserved) {
         return -1;
     }
 
-    return pAgent_OnLoad(jvm, tail == NULL ? "ZombieBuddy.jar" : tail, reserved);
+    // Check for pending update before loading the agent
+    const char* jarPath = tail == NULL ? "ZombieBuddy.jar" : tail;
+    check_and_apply_update(jarPath);
+
+    return pAgent_OnLoad(jvm, (char*)jarPath, reserved);
 }
 
 __declspec(dllexport) int Agent_OnAttach(void* jvm, char* args, void* reserved) {

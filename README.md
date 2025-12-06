@@ -40,15 +40,6 @@ Previously, Java mods for Project Zomboid required bundling `.class` files and m
 - ⚡ **Advice and Method Delegation**: Support for both advice-based and delegation-based patching
 - 🔍 **Verbose logging**: Configurable verbosity levels for debugging
 
-## Screenshots
-
-<!-- Add screenshots here showing:
-- Steam launch options configuration (showing -javaagent:ZombieBuddy.jar --)
-- Example of a patch in action
-- Console output showing patches being applied
-- Any UI elements if applicable
--->
-
 ## Installation
 
 ### For End Users
@@ -91,6 +82,7 @@ The solution is `zbNative.dll`, a native library that:
 1. Adds `jre64\bin` to the DLL load path
 2. Proxies calls to `instrument.dll`
 3. Automatically loads `ZombieBuddy.jar` as a Java agent
+4. **Handles automatic updates**: On startup, `zbNative.dll` checks if `ZombieBuddy.jar.new` exists (created when a newer version is detected via Steam mod update but the JAR couldn't be replaced during runtime). If found, it automatically replaces `ZombieBuddy.jar` with the new version before loading it.
 
 This is why Windows users must:
 - Copy both `ZombieBuddy.jar` and `zbNative.dll` to the game directory

@@ -771,11 +771,33 @@ public class Loader {
         g_new_version = manifestVersion;
         System.out.println("[ZB] replacing " + currentJarFile + " with " + jarFile);
         try {
-            // Copy the newer JAR from mod directory to replace the current running JAR
+            // Try to rename existing JAR to .bak before replacing
+            File backupFile = new File(currentJarFile.getAbsolutePath() + ".bak");
+            if (currentJarFile.exists()) {
+                try {
+                    Files.move(currentJarFile.toPath(), backupFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    System.out.println("[ZB] Renamed existing JAR to " + backupFile);
+                } catch (Exception e) {
+                    // On Windows, this might fail if JAR is still locked - continue anyway
+                    System.out.println("[ZB] Could not rename existing JAR (may be locked): " + e.getMessage());
+                }
+            }
+            
+            // Try to replace the current JAR with the new one
             Files.copy(jarFile.toPath(), currentJarFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
             System.out.println("[ZB] Successfully replaced JAR file");
         } catch (Exception e) {
+            // If replacement failed (e.g., JAR is locked on Windows), copy to .new as fallback
             System.err.println("[ZB] Error replacing JAR file: " + e.getMessage());
+            System.err.println("[ZB] JAR may be locked (e.g., on Windows). Copying to .new file for deferred update...");
+            try {
+                File newJarFile = new File(currentJarFile.getAbsolutePath() + ".new");
+                Files.copy(jarFile.toPath(), newJarFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                System.out.println("[ZB] Copied new JAR to " + newJarFile + " - update will be applied on next game launch");
+            } catch (Exception e2) {
+                System.err.println("[ZB] Error copying to .new file: " + e2.getMessage());
+                e2.printStackTrace();
+            }
             e.printStackTrace();
         }
     }
