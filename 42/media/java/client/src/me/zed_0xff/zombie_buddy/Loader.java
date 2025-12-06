@@ -572,8 +572,8 @@ public class Loader {
     private static byte[] getCertFingerprint(X509Certificate cert, int certNumber) {
         if (g_verbosity > 0) {
             System.out.println("[ZB]   Certificate " + certNumber + ":");
-            System.out.println("[ZB]     Subject: " + cert.getSubjectDN());
-            System.out.println("[ZB]     Issuer: " + cert.getIssuerDN());
+            System.out.println("[ZB]     Subject: " + cert.getSubjectX500Principal().getName());
+            System.out.println("[ZB]     Issuer: " + cert.getIssuerX500Principal().getName());
             System.out.println("[ZB]     Serial Number: " + cert.getSerialNumber().toString(16).toUpperCase());
             System.out.println("[ZB]     Valid From: " + cert.getNotBefore());
             System.out.println("[ZB]     Valid Until: " + cert.getNotAfter());
