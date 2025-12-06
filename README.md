@@ -1,4 +1,4 @@
-# ZombieBuddy
+# <img src="42/icon.svg" alt="ZombieBuddy Icon" width="64" height="64"> ZombieBuddy
 
 A powerful framework for Project Zomboid modders that enables Java bytecode manipulation and runtime patching of game classes using ByteBuddy.
 
