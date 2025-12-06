@@ -448,11 +448,28 @@ public class Loader {
         } else {
             // When modLoader is null, we're scanning the system classloader
             // Explicitly add known JARs so ClassGraph can find classes in dynamically added JARs
+            ArrayList<String> jarPaths = new ArrayList<>();
+            
+            // Always include the current JAR (ZombieBuddy's own JAR) so ClassGraph can scan it
+            // This is especially important on Windows with fat JARs
+            File currentJar = getCurrentJarFile();
+            if (currentJar != null && currentJar.exists()) {
+                jarPaths.add(currentJar.getAbsolutePath());
+            }
+            
+            // Also add any other known JARs
             if (!g_known_jars.isEmpty()) {
-                String[] jarPaths = g_known_jars.stream()
-                        .map(File::getAbsolutePath)
-                        .toArray(String[]::new);
-                classGraph = classGraph.overrideClasspath((Object[]) jarPaths);
+                for (File jar : g_known_jars) {
+                    String jarPath = jar.getAbsolutePath();
+                    // Avoid duplicates
+                    if (!jarPaths.contains(jarPath)) {
+                        jarPaths.add(jarPath);
+                    }
+                }
+            }
+            
+            if (!jarPaths.isEmpty()) {
+                classGraph = classGraph.overrideClasspath((Object[]) jarPaths.toArray(new String[0]));
             }
         }
 

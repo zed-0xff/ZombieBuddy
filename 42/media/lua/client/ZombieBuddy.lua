@@ -29,16 +29,20 @@ local function checkZombieBuddyInstallation()
             return
         end
         
-        -- Determine the Java directory path based on OS
+        -- Determine the destination directory and screenshot image based on OS
         local dstDir = ""
+        local screenshotImage = ""
         if isSystemMacOS() then
             dstDir = "~/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app/Contents/Java/"
+            screenshotImage = "media/ui/zb_steam_options_osx.png"
         elseif isSystemWindows() then
             -- Windows path - adjust based on your Steam installation
             dstDir = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\ProjectZomboid\\"
+            screenshotImage = "media/ui/zb_steam_options_win.png"
         else
             -- Linux path
             dstDir = "~/.steam/steam/steamapps/common/ProjectZomboid/projectzomboid/java/"
+            screenshotImage = "media/ui/zb_steam_options_osx.png"
         end
         
         -- Get the mod directory to find JAR files
@@ -54,14 +58,31 @@ local function checkZombieBuddyInstallation()
         end
         
         local srcDir = modDir .. string.gsub("/42/media/java/build/libs/", "/", getFileSeparator())
-        print("[ZombieBuddy] please copy jars from " .. srcDir .. " to " .. dstDir)
+        print("[ZombieBuddy] please copy files from " .. srcDir .. " to " .. dstDir)
         
-        -- Get the message template and replace placeholders with actual paths
-        local message = getText("UI_ZB_Install", srcDir, dstDir)
+        -- Determine the command line based on OS
+        local cmdLine = ""
+        if isSystemWindows() then
+            cmdLine = "-agentlib:zbNative --"
+        else
+            cmdLine = "-javaagent:ZombieBuddy.jar --"
+        end
         
-        -- Show modal dialog using ISModalRichText
-        local windowWidth = 900 + (core:getOptionFontSizeReal() * 100)
-        local windowHeight = 250 + getTextManager():getFontHeight(UIFont.Medium) * 20
+        -- Build the file list (zbNative.dll only for Windows)
+        local fileList = " - ZombieBuddy.jar <LINE>"
+        if isSystemWindows() then
+            fileList = fileList .. " - zbNative.dll <LINE>"
+        end
+        
+        -- Get the message template and replace placeholders with actual paths, command line, and file list
+        local message = getText("UI_ZB_Install", srcDir, dstDir, cmdLine, fileList)
+        
+        -- Replace screenshot placeholder with actual image path
+        message = string.gsub(message, "SCREENSHOT_PLACEHOLDER", screenshotImage)
+        
+        -- Show modal dialog like the one in media/lua/client/OptionScreens/MainScreen.lua
+        local windowWidth = 600 + (core:getOptionFontSizeReal() * 100)
+        local windowHeight = 600
         local screenWidth = core:getScreenWidth()
         local screenHeight = core:getScreenHeight()
         local x = (screenWidth - windowWidth) / 2

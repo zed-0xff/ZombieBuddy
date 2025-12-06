@@ -3,10 +3,7 @@ UI_EN = {
                     "<LINE> " ..
                     "<H2> Please copy the following files: <LINE> " ..
                     "<INDENT:40><TEXT>" ..
-                        " - ZombieBuddy.jar <LINE> " ..
-                        " - byte-buddy-1.18.2.jar <LINE> " ..
-                        " - byte-buddy-agent-1.18.2.jar <LINE> " ..
-                        " - classgraph-4.8.184.jar <BR>" .. 
+                        " %4 <LINE>" ..
                     "<INDENT:0>" ..
                     "<H2> from <LINE> " ..
                     "<INDENT:40><TEXT>" ..
@@ -18,6 +15,10 @@ UI_EN = {
                     "<INDENT:0>" ..
                     "<LINE> " ..
                     "<H2> Then add to Steam launch options: <LINE>" ..
+                    "<INDENT:40><TEXT>" ..
+                        " %3 <BR>" ..
+                    "<INDENT:0>" ..
+                    "<LINE> " ..
                     "<TEXT><LINE> " ..
-                        "<IMAGECENTRE:media/ui/zb_steam_options_800.png>",
+                        "<IMAGECENTRE:SCREENSHOT_PLACEHOLDER>",
 }

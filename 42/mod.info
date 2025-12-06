@@ -2,8 +2,8 @@ name=ZombieBuddy
 id=ZombieBuddy
 author=zed_0xff
 url=https://github.com/zed-0xff/ZombieBuddy
-poster=poster.png
-icon=modIcon.png
+poster=icon_256.png
+icon=icon_128.png
 
 javaJarFile=media/java/client/build/libs/ZombieBuddy.jar
 javaPkgName=me.zed_0xff.zombie_buddy

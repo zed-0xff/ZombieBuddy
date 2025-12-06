@@ -1,0 +1,28 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="128" height="128" rx="20" fill="#0d1b2a"/>
+  
+  <!-- Zombie head shape -->
+  <ellipse cx="64" cy="55" rx="35" ry="40" fill="#4a9b3a" opacity="0.9"/>
+  
+  <!-- Zombie eyes -->
+  <circle cx="54" cy="50" r="6" fill="#ff0000"/>
+  <circle cx="74" cy="50" r="6" fill="#ff0000"/>
+  <circle cx="54" cy="50" r="3" fill="#ffffff"/>
+  <circle cx="74" cy="50" r="3" fill="#ffffff"/>
+  <circle cx="55" cy="48" r="1.5" fill="#000000"/>
+  <circle cx="75" cy="48" r="1.5" fill="#000000"/>
+  
+  <!-- Mouth/teeth -->
+  <path d="M 54 65 Q 64 70 74 65" stroke="#2d5a3d" stroke-width="2" fill="none"/>
+  <rect x="60" y="63" width="3" height="4" fill="#ffffff" rx="1"/>
+  <rect x="65" y="63" width="3" height="4" fill="#ffffff" rx="1"/>
+  
+  <!-- Code brackets around head -->
+  <text x="13" y="65" font-family="monospace" font-size="32" fill="#6bcf7f" opacity="0.7" font-weight="bold">{</text>
+  <text x="96" y="65" font-family="monospace" font-size="32" fill="#6bcf7f" opacity="0.7" font-weight="bold">}</text>
+  
+  <!-- @Patch -->
+  <text x="64" y="115" font-family="monospace" font-size="28" fill="#6bcf7f" opacity="0.8" text-anchor="middle" font-weight="bold">@Patch</text>
+</svg>
+

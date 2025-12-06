@@ -67,24 +67,41 @@ Previously, Java mods for Project Zomboid required bundling `.class` files and m
    - **Windows**: `%USERPROFILE%\Zomboid\mods\ZombieBuddy\`
    - **Linux/Mac**: `~/Zomboid/mods/ZombieBuddy/`
 
-3. **Copy JAR files to the game's Java directory**:
-   - **macOS**: Copy all JAR files from the mod's `build/libs/` directory to:
-     ```
-     ~/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app/Contents/Java/
-     ```
-   - **Linux**: Copy to the equivalent Java directory in your Steam installation
-   - **Windows**: Copy to the Java directory in your Steam installation
+3. **Copy files to the game directory**:
    
-   Required JAR files:
-   - `ZombieBuddy.jar`
-   - `byte-buddy-1.18.2.jar`
-   - `byte-buddy-agent-1.18.2.jar`
-   - `classgraph-4.8.184.jar`
+   **macOS and Linux**:
+   - Copy `ZombieBuddy.jar` from the mod's `build/libs/` directory to:
+     - **macOS**: `~/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app/Contents/Java/`
+     - **Linux**: The equivalent Java directory in your Steam installation (typically `~/.steam/steam/steamapps/common/ProjectZomboid/projectzomboid/java/`)
+   
+   **Windows**:
+   - Copy **both** `ZombieBuddy.jar` and `zbNative.dll` from the mod's `build/libs/` directory to the game directory:
+     - Typically: `C:\Program Files (x86)\Steam\steamapps\common\ProjectZomboid\`
+     - Or wherever your Steam installation is located
+   
+   > **Note**: On Windows, `zbNative.dll` is required because the JRE hardcodes the path to `jre64\bin\instrument.dll`, which depends on `java.dll` and `jli.dll` that are not on the DLL load path. The native loader adds `jre64\bin` to the DLL load path and then proxies calls to `instrument.dll`. Source code for `zbNative.dll` is provided in the repository.
+
+### Why is zbNative.dll needed on Windows?
+
+On Windows, when using `-javaagent:ZombieBuddy.jar`, the JRE attempts to load `jre64\bin\instrument.dll` (the path is hardcoded in the JRE). However, this DLL depends on `java.dll` and `jli.dll`, which are also located in `jre64\bin` but are not on the DLL load path. This causes the loading of `instrument.dll` to fail.
+
+The solution is `zbNative.dll`, a native library that:
+1. Adds `jre64\bin` to the DLL load path
+2. Proxies calls to `instrument.dll`
+3. Automatically loads `ZombieBuddy.jar` as a Java agent
+
+This is why Windows users must:
+- Copy both `ZombieBuddy.jar` and `zbNative.dll` to the game directory
+- Use only `-agentlib:zbNative --` in launch options (it automatically loads `ZombieBuddy.jar`)
+
+On macOS and Linux, this workaround is not needed, so only `ZombieBuddy.jar` is required and you use `-javaagent:ZombieBuddy.jar --` directly.
 
 4. **Modify game launch options**:
    - Open Steam and go to Project Zomboid properties
    - Navigate to "Launch Options" or "Set Launch Options"
    - Add one of the following (see screenshot below):
+   
+   **macOS and Linux**:
      ```
      -javaagent:ZombieBuddy.jar --
      ```
@@ -96,7 +113,23 @@ Previously, Java mods for Project Zomboid required bundling `.class` files and m
      ```
      -javaagent:ZombieBuddy.jar=verbosity=2 --
      ```
+   
+   **Windows**:
+     ```
+     -agentlib:zbNative --
+     ```
+     Or with verbosity for debugging:
+     ```
+     -agentlib:zbNative=verbosity=1 --
+     ```
+     Or with maximum verbosity:
+     ```
+     -agentlib:zbNative=verbosity=2 --
+     ```
+     > **Note**: `zbNative.dll` automatically loads `ZombieBuddy.jar` as a Java agent, so you don't need to specify `-javaagent:ZombieBuddy.jar` separately.
+   
    - **⚠️ IMPORTANT**: The `--` at the end is **mandatory** - do not omit it!
+   - **Windows users**: Only `-agentlib:zbNative --` is required (it automatically loads `ZombieBuddy.jar`)
    - **Verbosity levels**:
      - `verbosity=0` (default): Errors only
      - `verbosity=1`: Shows patch transformations
@@ -113,7 +146,11 @@ Previously, Java mods for Project Zomboid required bundling `.class` files and m
 
 **Steam Launch Options Configuration:**
 
-![Steam Launch Options](common/media/ui/zb_steam_options_800.png)
+**macOS/Linux:**
+![Steam Launch Options (macOS/Linux)](common/media/ui/zb_steam_options_osx.png)
+
+**Windows:**
+![Steam Launch Options (Windows)](common/media/ui/zb_steam_options_win.png)
 
 > **Note**: The installation dialog will also display this image when ZombieBuddy is not properly installed.
 

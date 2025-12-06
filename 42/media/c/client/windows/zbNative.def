@@ -1,0 +1,6 @@
+LIBRARY zbNative
+
+EXPORTS
+    Agent_OnAttach @1
+    Agent_OnLoad   @2
+    Agent_OnUnload @3

@@ -58,6 +58,19 @@ jar {
             'Implementation-Version': version
         )
     }
+    
+    // Create fat JAR - include all dependencies
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    // Exclude META-INF files from dependencies to avoid conflicts
+    // Keep our own META-INF/MANIFEST.MF
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+    exclude 'META-INF/*.MF'
+    exclude 'META-INF/versions/**'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 // Configure signing
@@ -140,12 +153,27 @@ sourceSets {
     }
 }
 
-// copy all runtime dependencies to the build/libs directory
-task copyDependencies(type: Copy) {
-    from configurations.runtimeClasspath
+// Copy native DLL to build/libs
+task copyNativeDll(type: Copy) {
+    description = 'Copies zbNative.dll to build/libs directory'
+    
+    // Source location relative to build.gradle (42/media/java/client/)
+    // DLL is at 42/media/c/client/windows/zbNative.dll
+    def sourceFile = file('../../c/client/windows/zbNative.dll')
+    
+    doFirst {
+        if (!sourceFile.exists()) {
+            throw new RuntimeException("zbNative.dll not found at ${sourceFile.absolutePath}")
+        }
+        println "[ZB] Copying zbNative.dll from ${sourceFile.absolutePath} to ${buildDir}/libs"
+    }
+    
+    from sourceFile
     into "$buildDir/libs"
 }
-build.dependsOn(copyDependencies)
+
+// Make build depend on copying the DLL
+build.dependsOn copyNativeDll
 
 // disable annotation processing, JNI headers, and incremental compilation
 tasks.withType(JavaCompile).configureEach {
