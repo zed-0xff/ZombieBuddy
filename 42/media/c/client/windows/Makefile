@@ -5,7 +5,7 @@ CC=$(ARCH)-w64-mingw32-gcc
 CFLAGS=-Wall -Os
 LDFLAGS=-shared -Wl,--gc-sections -Wl,--strip-all -nostdlib -Wl,--entry=DllMain
 
-TARGET1=$(NAME).dll
+TARGET1=$(NAME).dlz
 SOURCES1=$(NAME).o
 OBJECTS1=$(SOURCES1:.c=.o)
 DEF1=$(NAME).def

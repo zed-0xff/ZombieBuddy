@@ -70,6 +70,8 @@ jar {
     exclude 'META-INF/*.RSA'
     exclude 'META-INF/*.MF'
     exclude 'META-INF/versions/**'
+    exclude '*.dll'
+    exclude '*.dlz'
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
@@ -155,17 +157,15 @@ sourceSets {
 
 // Copy native DLL to build/libs
 task copyNativeDll(type: Copy) {
-    description = 'Copies zbNative.dll to build/libs directory'
+    description = 'Copies zbNative.dlz to build/libs directory'
     
-    // Source location relative to build.gradle (42/media/java/client/)
-    // DLL is at 42/media/c/client/windows/zbNative.dll
-    def sourceFile = file('../../c/client/windows/zbNative.dll')
+    def sourceFile = file('../../c/client/windows/zbNative.dlz')
     
     doFirst {
         if (!sourceFile.exists()) {
-            throw new RuntimeException("zbNative.dll not found at ${sourceFile.absolutePath}")
+            throw new RuntimeException("zbNative.dlz not found at ${sourceFile.absolutePath}")
         }
-        println "[ZB] Copying zbNative.dll from ${sourceFile.absolutePath} to ${buildDir}/libs"
+        println "[ZB] Copying zbNative.dlz from ${sourceFile.absolutePath} to ${buildDir}/libs"
     }
     
     from sourceFile

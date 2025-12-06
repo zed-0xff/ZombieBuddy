@@ -71,7 +71,7 @@ local function checkZombieBuddyInstallation()
         -- Build the file list (zbNative.dll only for Windows)
         local fileList = " - ZombieBuddy.jar <LINE>"
         if isSystemWindows() then
-            fileList = fileList .. " - zbNative.dll <LINE>"
+            fileList = fileList .. " - zbNative.dlz (rename to zbNative.dll) <LINE>"
         end
         
         -- Get the message template and replace placeholders with actual paths, command line, and file list
