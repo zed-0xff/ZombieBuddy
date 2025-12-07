@@ -1,0 +1,25 @@
+[h1]ZombieBuddy[/h1]
+
+A powerful framework for Project Zomboid modders that enables Java bytecode manipulation and runtime patching of game classes using ByteBuddy.
+
+[b]Features:[/b]
+[list]
+[*] Annotation-based patching with [code]@Patch[/code] annotations
+[*] Runtime class transformation - patch classes that are already loaded
+[*] Automatic patch discovery - scans for patch classes automatically
+[*] Lua integration - expose Java classes to Lua scripting
+[*] Support for both advice-based and delegation-based patching
+[/list]
+
+[b]What it does:[/b]
+ZombieBuddy allows modders to patch game classes at runtime using bytecode manipulation, without requiring access to the game's source code. No manual file replacement needed - patches are applied automatically at game startup.
+
+[b]⚠️ Security Warning:[/b]
+Java mods enabled through ZombieBuddy have unrestricted access to your system and can execute arbitrary code. Only install Java mods from sources you trust completely. Review source code when available.
+
+[b]Links:[/b]
+[url=https://github.com/zed-0xff/ZombieBuddy]GitHub Repository[/url]
+
+[b]☕ Support the Project:[/b]
+If you find ZombieBuddy useful, consider supporting its development:
+[url=https://ko-fi.com/zed_0xff][img]https://i.imgur.com/Utx6OIH.png[/img][/url]
