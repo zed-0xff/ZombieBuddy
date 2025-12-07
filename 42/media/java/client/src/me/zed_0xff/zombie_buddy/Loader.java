@@ -318,7 +318,7 @@ public class Loader {
             }
 
             builder = builder
-                .type(SyntaxSugar.name2matcher(className))
+                .type(SyntaxSugar.typeMatcher(className))
                 .transform((bl, td, cl, mo, pd) -> {
                     var result = bl;
                     
