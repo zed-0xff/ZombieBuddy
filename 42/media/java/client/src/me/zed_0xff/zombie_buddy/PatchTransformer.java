@@ -39,7 +39,9 @@ final class PatchTransformer {
                 if (!needsTransformation) {
                     for (java.lang.annotation.Annotation[] paramAnns : method.getParameterAnnotations()) {
                         for (java.lang.annotation.Annotation ann : paramAnns) {
-                            if (ann.annotationType().getName().equals("me.zed_0xff.zombie_buddy.Patch$Return")) {
+                            String annName = ann.annotationType().getName();
+                            if (annName.equals("me.zed_0xff.zombie_buddy.Patch$Return") ||
+                                annName.equals("me.zed_0xff.zombie_buddy.Patch$This")) {
                                 needsTransformation = true;
                                 break;
                             }
@@ -181,6 +183,8 @@ final class PatchTransformer {
             return "Lnet/bytebuddy/asm/Advice$OnMethodExit;";
         } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$Return;")) {
             return "Lnet/bytebuddy/asm/Advice$Return;";
+        } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$This;")) {
+            return "Lnet/bytebuddy/asm/Advice$This;";
         }
         return descriptor;
     }

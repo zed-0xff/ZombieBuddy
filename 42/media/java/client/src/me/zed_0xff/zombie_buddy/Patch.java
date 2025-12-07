@@ -36,4 +36,11 @@ public @interface Patch {
   public @interface Return {
     boolean readOnly() default true;
   }
+  
+  /** Alias for net.bytebuddy.asm.Advice.This - mods should use Patch.This instead */
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target(ElementType.PARAMETER)
+  public @interface This {
+    boolean readOnly() default true;
+  }
   }
