@@ -419,7 +419,9 @@ public class Loader {
                 });
         }
         
-        // Warm up classes before installing the agent builder
+        builder.installOn(g_instrumentation);
+
+        // Warm up classes _AFTER_ installing the agent builder
         for (String className : classesToWarmUp) {
             System.out.println("[ZB] warming up class: " + className);
             try {
@@ -432,8 +434,6 @@ public class Loader {
                 e.printStackTrace();
             }
         }
-        
-        builder.installOn(g_instrumentation);
     }
 
     public static List<Class<?>> CollectPatches(String packageName, ClassLoader modLoader) {
