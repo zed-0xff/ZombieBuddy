@@ -330,7 +330,7 @@ public class Loader {
                         System.out.println("[ZB] patching " + className + "." + methodName + " with " + advices.size() + " advice(s)");
                         
                         // Check if method exists in the type description
-                        var methods = td.getDeclaredMethods().filter(ElementMatchers.named(methodName));
+                        var methods = td.getDeclaredMethods().filter(SyntaxSugar.methodMatcher(methodName));
                         if (methods.isEmpty()) {
                             System.err.println("[ZB] WARNING: Method " + methodName + " not found in " + td.getName());
                         }
@@ -353,8 +353,7 @@ public class Loader {
                             
                             // Build method matcher - if advice class has parameter-annotated methods, 
                             // use those to determine which overload to match
-                            net.bytebuddy.matcher.ElementMatcher.Junction<net.bytebuddy.description.method.MethodDescription> methodMatcher = 
-                                ElementMatchers.named(methodName);
+                            var methodMatcher = SyntaxSugar.methodMatcher(methodName);
                             
                             // Try to infer parameter types from the advice class methods
                             // This helps ByteBuddy match the correct overload when there are multiple
@@ -392,7 +391,7 @@ public class Loader {
                                     
                                     if (!methodParamTypes.isEmpty()) {
                                         // Match method with these parameter types
-                                        methodMatcher = ElementMatchers.named(methodName)
+                                        methodMatcher = SyntaxSugar.methodMatcher(methodName)
                                             .and(ElementMatchers.takesArguments(methodParamTypes.toArray(new Class<?>[0])));
                                         break; // Use first matching method's signature
                                     }
@@ -411,7 +410,7 @@ public class Loader {
                         System.out.println("[ZB] patching " + className + "." + methodName + " with delegation");
                         
                         result = result
-                            .method(ElementMatchers.named(methodName)) // TODO: use SyntaxSugar.name2matcher
+                            .method(SyntaxSugar.methodMatcher(methodName))
                             .intercept(MethodDelegation.to(delegationClass));
                     }
                     
