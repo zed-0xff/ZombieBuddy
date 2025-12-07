@@ -4,7 +4,7 @@ A powerful framework for Project Zomboid modders that enables Java bytecode mani
 
 [b]Features:[/b]
 [list]
-[*] Annotation-based patching with [code]@Patch[/code] annotations
+[*] Annotation-based patching with [code]@Patch(className = "...", methodName = "...")[/code] annotations
 [*] Runtime class transformation - patch classes that are already loaded
 [*] Automatic patch discovery - scans for patch classes automatically
 [*] Lua integration - expose Java classes to Lua scripting
