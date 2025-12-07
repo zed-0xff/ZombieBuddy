@@ -377,7 +377,9 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 ## Links
 
 - **GitHub**: https://github.com/zed-0xff/ZombieBuddy
-- **Example Mod**: [ZBHelloWorld](https://github.com/zed-0xff/ZBHelloWorld) - A simple example mod demonstrating patches-only mods
+- **Example Mods**:
+  - [ZBHelloWorld](https://github.com/zed-0xff/ZBHelloWorld) - A simple example mod demonstrating patches-only mods
+  - [ZBetterWorkshopUpload](https://github.com/zed-0xff/ZBetterWorkshopUpload) - A practical mod demonstrating workshop integration, Lua exposure, and complex patching
 - **Author**: zed-0xff
 
 ## Disclaimer
