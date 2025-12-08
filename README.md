@@ -291,6 +291,8 @@ cp build/libs/YourMod.jar ~/Zomboid/mods/YourMod/[version]/media/java/
 Looking for examples to learn from? Check out these mods built with ZombieBuddy:
 
 - **[ZBHelloWorld](https://github.com/zed-0xff/ZBHelloWorld)**: A simple example mod demonstrating how to patch UI rendering methods. Shows the basic structure with `javaPkgName` and a Main class.
+- **[ZBetterWorkshopUpload](https://github.com/zed-0xff/ZBetterWorkshopUpload)**: A practical mod demonstrating workshop integration, Lua exposure, and complex patching. Filters unwanted files from Steam Workshop uploads and provides upload previews.
+- **[ZBMacOSHideMenuBar](https://github.com/zed-0xff/ZBMacOSHideMenuBar)**: Fixes the macOS menu bar issue in borderless windowed mode. Demonstrates display patching and macOS-specific functionality.
 
 #### Sharing Your Source Code
 
@@ -380,6 +382,7 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 - **Example Mods**:
   - [ZBHelloWorld](https://github.com/zed-0xff/ZBHelloWorld) - A simple example mod demonstrating patches-only mods
   - [ZBetterWorkshopUpload](https://github.com/zed-0xff/ZBetterWorkshopUpload) - A practical mod demonstrating workshop integration, Lua exposure, and complex patching
+  - [ZBMacOSHideMenuBar](https://github.com/zed-0xff/ZBMacOSHideMenuBar) - Fixes macOS menu bar issue in borderless windowed mode
 - **Author**: zed-0xff
 
 ## Disclaimer
