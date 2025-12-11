@@ -510,6 +510,8 @@ public class Loader {
             if (jarFile.exists()) {
                 if (g_known_jars.contains(jarFile)) {
                     System.out.println("[ZB] " + jarFile + " already added, skipping.");
+                    System.out.println("[ZB] -------------------------------------------");
+                    return;
                 } else {
                     // Validate that JAR contains the specified package
                     if (!validatePackageInJar(jarFile, modInfo.javaPkgName())) {
