@@ -11,6 +11,11 @@ local function checkZombieBuddyInstallation()
         -- ZombieBuddy is properly installed
         return
     end
+    if not ZombieBuddy then
+        print("[ZombieBuddy] ZombieBuddy global is nil.")
+    else
+        print("[ZombieBuddy] ZombieBuddy.getVersion is nil.")
+    end
     print("[ZombieBuddy] showing installation notification.")
     
     -- ZombieBuddy is not installed - show notification
