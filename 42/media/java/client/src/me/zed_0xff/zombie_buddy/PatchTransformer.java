@@ -41,7 +41,8 @@ final class PatchTransformer {
                         for (java.lang.annotation.Annotation ann : paramAnns) {
                             String annName = ann.annotationType().getName();
                             if (annName.equals("me.zed_0xff.zombie_buddy.Patch$Return") ||
-                                annName.equals("me.zed_0xff.zombie_buddy.Patch$This")) {
+                                annName.equals("me.zed_0xff.zombie_buddy.Patch$This") ||
+                                annName.equals("me.zed_0xff.zombie_buddy.Patch$Argument")) {
                                 needsTransformation = true;
                                 break;
                             }
@@ -108,11 +109,14 @@ final class PatchTransformer {
                         @Override
                         public AnnotationVisitor visitParameterAnnotation(int parameter, String descriptor, boolean visible) {
                             String newDescriptor = rewriteAnnotationDescriptor(descriptor);
-                            AnnotationVisitor av = super.visitParameterAnnotation(parameter, newDescriptor, visible);
                             if (!newDescriptor.equals(descriptor)) {
+                                // We need to rewrite the annotation - create the new annotation and forward values
+                                AnnotationVisitor av = super.visitParameterAnnotation(parameter, newDescriptor, visible);
+                                // Return a wrapper that forwards all annotation values from the original to the new
                                 return new AnnotationVisitor(Opcodes.ASM9, av) {
                                     @Override
                                     public void visit(String name, Object value) {
+                                        // Forward all annotation values (readOnly, value, etc.)
                                         super.visit(name, value);
                                     }
                                     @Override
@@ -127,9 +131,14 @@ final class PatchTransformer {
                                     public AnnotationVisitor visitArray(String name) {
                                         return super.visitArray(name);
                                     }
+                                    @Override
+                                    public void visitEnd() {
+                                        super.visitEnd();
+                                    }
                                 };
                             }
-                            return av;
+                            // No rewrite needed, use original
+                            return super.visitParameterAnnotation(parameter, descriptor, visible);
                         }
                     };
                 }
@@ -185,6 +194,10 @@ final class PatchTransformer {
             return "Lnet/bytebuddy/asm/Advice$Return;";
         } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$This;")) {
             return "Lnet/bytebuddy/asm/Advice$This;";
+        } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$Argument;")) {
+            return "Lnet/bytebuddy/asm/Advice$Argument;";
+        } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$AllArguments;")) {
+            return "Lnet/bytebuddy/asm/Advice$AllArguments;";
         }
         return descriptor;
     }

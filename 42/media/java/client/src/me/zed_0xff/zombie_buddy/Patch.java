@@ -43,4 +43,19 @@ public @interface Patch {
   public @interface This {
     boolean readOnly() default true;
   }
+  
+  /** Alias for net.bytebuddy.asm.Advice.Argument - mods should use Patch.Argument instead */
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target(ElementType.PARAMETER)
+  public @interface Argument {
+    int value() default 0;
+    boolean readOnly() default true;
+  }
+  
+  /** Alias for net.bytebuddy.asm.Advice.AllArguments - mods should use Patch.AllArguments instead */
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target(ElementType.PARAMETER)
+  public @interface AllArguments {
+    boolean readOnly() default true;
+  }
   }
