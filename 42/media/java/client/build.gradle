@@ -40,6 +40,12 @@ dependencies {
     implementation 'io.github.classgraph:classgraph:4.8.184'
 
     compileOnly files(GAME_JAR) // only for compilation, not runtime
+    
+    // Test dependencies
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.0'
+    testImplementation 'org.mockito:mockito-core:5.5.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.5.0'
 }
 
 jar {
@@ -147,6 +153,49 @@ sourceSets {
             include '**/*.java'
         }
     }
+    test {
+        java {
+            srcDirs = ['test']
+            include '**/*.java'
+        }
+        // Ensure test source set can access main source set classes
+        compileClasspath += main.output
+        runtimeClasspath += main.output
+    }
+    testVanilla {
+        java {
+            srcDirs = ['test_vanilla']
+            include '**/*.java'
+        }
+        // Ensure testVanilla source set can access main source set classes
+        compileClasspath += main.output
+        runtimeClasspath += main.output
+    }
+    testPatched {
+        java {
+            srcDirs = ['test_patched']
+            include '**/*.java'
+        }
+        // Ensure testPatched source set can access main source set classes
+        compileClasspath += main.output
+        runtimeClasspath += main.output
+    }
+    testjar {
+        java {
+            srcDirs = ['testjar/src']
+            include '**/*.java'
+        }
+        // testjar needs access to main classes for @Patch annotation
+        compileClasspath += main.output
+    }
+    testpatches {
+        java {
+            srcDirs = ['testpatches']
+            include '**/*.java'
+        }
+        // testpatches needs access to main classes for @Patch annotation
+        compileClasspath += main.output
+    }
 }
 
 // Copy native DLL to build/libs
@@ -181,7 +230,81 @@ tasks.withType(JavaCompile).configureEach {
     }
 }
 
-// disable tests for now
-tasks.named('compileTestJava') { enabled = false }
-tasks.named('test') { enabled = false }
-tasks.named('processTestResources') { enabled = false }
+// Create JAR for testjar source set (only TargetClass, no patches)
+task testJar(type: Jar) {
+    archiveBaseName.set("testjar")
+    from sourceSets.testjar.output
+    // Exclude patch classes - only include TargetClass
+    exclude 'testjar/TargetPatch.class'
+    dependsOn compileTestjarJava
+}
+
+// Create JAR for testpatches source set (contains patch classes)
+task testpatchesJar(type: Jar) {
+    archiveBaseName.set("testpatches")
+    from sourceSets.testpatches.output
+    dependsOn compileTestpatchesJava
+}
+
+// Add testjar JAR as test dependency
+dependencies {
+    testImplementation files(tasks.named('testJar'))
+    testVanillaImplementation files(tasks.named('testJar'))
+    testPatchedImplementation files(tasks.named('testJar'))
+    
+    // Test dependencies for vanilla and patched tests
+    testVanillaImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testVanillaRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.0'
+    testPatchedImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testPatchedRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.0'
+}
+
+// Vanilla tests - run without javaagent
+// Run with: gradle test_vanilla
+task test_vanilla(type: Test) {
+    description = 'Runs vanilla tests (without javaagent) from test_vanilla directory'
+    group = 'verification'
+    
+    useJUnitPlatform()
+    dependsOn testJar
+    
+    // Use testVanilla source set
+    testClassesDirs = sourceSets.testVanilla.output.classesDirs
+    classpath = sourceSets.testVanilla.runtimeClasspath
+}
+
+// Patched tests - run with javaagent
+// Run with: gradle test_patched
+task test_patched(type: Test) {
+    description = 'Runs patched tests (with javaagent) from test_patched directory'
+    group = 'verification'
+    
+    useJUnitPlatform()
+    dependsOn testJar
+    dependsOn testpatchesJar
+    dependsOn jar  // Ensure ZombieBuddy.jar is built before tests
+    
+    // Use testPatched source set
+    testClassesDirs = sourceSets.testPatched.output.classesDirs
+    classpath = sourceSets.testPatched.runtimeClasspath
+    
+    // Add javaagent JVM argument with patches_jar parameter
+    def patchesJarPath = testpatchesJar.archiveFile.get().asFile.absolutePath
+    jvmArgs = [
+        "-javaagent:${jar.archiveFile.get().asFile.absolutePath}=patches_jar=${patchesJarPath}"
+    ]
+}
+
+// Main test task - runs both vanilla and patched tests
+// Run with: gradle test
+test {
+    description = 'Runs both vanilla and patched tests'
+    // Don't discover tests from the default test source set
+    testClassesDirs = files()
+    classpath = files()
+    // Just depend on the actual test tasks
+    dependsOn test_vanilla
+    dependsOn test_patched
+    // Don't fail if no tests are discovered (since we're not running any here)
+    failOnNoDiscoveredTests = false
+}
