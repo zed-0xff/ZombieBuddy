@@ -4,7 +4,10 @@ AGENT_NAME = "ZombieBuddy"
 APP_ROOT   = File.expand_path("~/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app")
 
 task :build do
-  sh "gradle build"
+  env = {
+    "JAVA_HOME" => "/Library/Java/JavaVirtualMachines/openjdk-24.jdk/Contents/Home"
+  }
+  sh env, "gradle build"
 end
 
 task :install do

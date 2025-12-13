@@ -6,15 +6,8 @@ local function checkZombieBuddyInstallation()
         return
     end
     
-    local versionString = getCore():getVersion()
-    if not versionString then
-        return
-    end
-    
-    -- Check if version contains [ZB] substring
-    -- If it does, ZombieBuddy is installed, so we don't need to show notification
-    if string.find(versionString, "[ZB]", 1, true) then
-        print("[ZombieBuddy] Detected [ZB] in version string, assuming installation is correct.")
+    if ZombieBuddy and ZombieBuddy.getVersion then
+        print("[ZombieBuddy] ZombieBuddy.getVersion() = " .. ZombieBuddy.getVersion())
         -- ZombieBuddy is properly installed
         return
     end
