@@ -64,7 +64,13 @@ public class Loader {
             JavaModInfo jModInfoCommon = JavaModInfo.parse(mod.getCommonDir());
             JavaModInfo jModInfoVersion = JavaModInfo.parse(mod.getVersionDir());
 
-            if (jModInfoCommon != null) jModInfos.add(jModInfoCommon);
+            if (jModInfoCommon != null) {
+                jModInfos.add(jModInfoCommon);
+                if (jModInfoVersion == null) {
+                    // when mod.info is in common dir, but JAR is in version dir
+                    jModInfoVersion = JavaModInfo.parseMerged(mod.getCommonDir(), mod.getVersionDir());
+                }
+            }
             if (jModInfoVersion != null) jModInfos.add(jModInfoVersion);
         }
 

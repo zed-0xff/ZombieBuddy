@@ -54,19 +54,19 @@ public record JavaModInfo(
     }
     
     /**
-     * Parses a mod.info file and returns a JavaModInfo object.
-     * Returns null if the mod.info file doesn't exist or cannot be read.
-     * 
-     * @param modDirectory The directory containing the mod.info file
-     * @return JavaModInfo object, or null if the file doesn't exist or cannot be parsed
+     * Internal record to hold parsed values from a mod.info file.
      */
-    public static JavaModInfo parse(File modDirectory) {
-        if (modDirectory == null || !modDirectory.isDirectory()) {
-            return null;
-        }
-        
-        File modInfoFile = new File(modDirectory, "mod.info");
-        if (!modInfoFile.exists() || !modInfoFile.isFile()) {
+    private record ParsedValues(String jarFile, String javaPkgName) {}
+    
+    /**
+     * Parses a mod.info file and extracts jarFile and javaPkgName values.
+     * Returns null if the file doesn't exist, cannot be read, or parsing fails.
+     * 
+     * @param modInfoFile The mod.info file to parse
+     * @return ParsedValues containing jarFile and javaPkgName, or null if parsing fails
+     */
+    private static ParsedValues parseModInfoFile(File modInfoFile) {
+        if (modInfoFile == null || !modInfoFile.exists() || !modInfoFile.isFile()) {
             return null;
         }
         
@@ -110,6 +110,30 @@ public record JavaModInfo(
             return null;
         }
         
+        return new ParsedValues(jarFile, javaPkgName);
+    }
+    
+    /**
+     * Parses a mod.info file and returns a JavaModInfo object.
+     * Returns null if the mod.info file doesn't exist or cannot be read.
+     * 
+     * @param modDirectory The directory containing the mod.info file
+     * @return JavaModInfo object, or null if the file doesn't exist or cannot be parsed
+     */
+    public static JavaModInfo parse(File modDirectory) {
+        if (modDirectory == null || !modDirectory.isDirectory()) {
+            return null;
+        }
+        
+        File modInfoFile = new File(modDirectory, "mod.info");
+        ParsedValues parsed = parseModInfoFile(modInfoFile);
+        if (parsed == null) {
+            return null;
+        }
+        
+        String jarFile = parsed.jarFile();
+        String javaPkgName = parsed.javaPkgName();
+        
         // Both javaJarFile and javaPkgName are required - return null if either is missing or invalid
         if (jarFile == null || jarFile.isEmpty()) {
             // No Java mod configuration found, return null
@@ -135,6 +159,71 @@ public record JavaModInfo(
             return null;
         }
         return parse(new File(modDirectoryPath));
+    }
+    
+    /**
+     * Parses mod.info from commonDir and uses versionDir to locate the JAR file.
+     * This is useful when mod.info is in commonDir but the JAR file is in versionDir.
+     * Only reads mod.info from commonDir, not from versionDir.
+     * 
+     * @param commonDir The common directory containing mod.info
+     * @param versionDir The version directory where the JAR file may be located
+     * @return JavaModInfo object, or null if mod.info doesn't exist or cannot be parsed
+     */
+    public static JavaModInfo parseMerged(File commonDir, File versionDir) {
+        if (commonDir == null || !commonDir.isDirectory()) {
+            return null;
+        }
+        if (versionDir == null || !versionDir.isDirectory()) {
+            return null;
+        }
+        
+        File commonModInfoFile = new File(commonDir, "mod.info");
+        ParsedValues commonParsed = parseModInfoFile(commonModInfoFile);
+        
+        // Only read mod.info from commonDir
+        if (commonParsed == null) {
+            return null;
+        }
+        
+        String jarFile = commonParsed.jarFile();
+        String javaPkgName = commonParsed.javaPkgName();
+        
+        // Both javaJarFile and javaPkgName are required - return null if either is missing or invalid
+        if (jarFile == null || jarFile.isEmpty()) {
+            return null;
+        }
+        
+        if (javaPkgName == null || javaPkgName.isEmpty()) {
+            System.err.println("[ZB] Error! Mod has javaJarFile but missing required javaPkgName: " + commonModInfoFile);
+            return null;
+        }
+        
+        // Check if JAR exists in versionDir (using the same relative path from mod.info)
+        // If it does, use versionDir as modDirectory; otherwise use commonDir
+        File jarInVersion = new File(versionDir, jarFile);
+        File modDirectory = jarInVersion.exists() ? versionDir : commonDir;
+        
+        return new JavaModInfo(modDirectory, commonModInfoFile, jarFile, javaPkgName);
+    }
+    
+    /**
+     * Parses mod.info from commonDir path and uses versionDir path to locate the JAR file.
+     * This is useful when mod.info is in commonDir but the JAR file is in versionDir.
+     * Only reads mod.info from commonDir, not from versionDir.
+     * 
+     * @param commonDirPath The path to the common directory containing mod.info
+     * @param versionDirPath The path to the version directory where the JAR file may be located
+     * @return JavaModInfo object, or null if mod.info doesn't exist or cannot be parsed
+     */
+    public static JavaModInfo parseMerged(String commonDirPath, String versionDirPath) {
+        if (commonDirPath == null || commonDirPath.isEmpty()) {
+            return null;
+        }
+        if (versionDirPath == null || versionDirPath.isEmpty()) {
+            return null;
+        }
+        return parseMerged(new File(commonDirPath), new File(versionDirPath));
     }
 }
 
