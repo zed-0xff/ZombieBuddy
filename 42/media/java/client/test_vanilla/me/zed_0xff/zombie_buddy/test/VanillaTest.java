@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 import testjar.TargetClass;
+import testjar.CustomObject;
 
 public class VanillaTest {
     @Test
@@ -14,6 +15,13 @@ public class VanillaTest {
     @Test
     void testGetStringReturnsHello() {
         assertEquals("hello", TargetClass.getString());
+    }
+    
+    @Test
+    void testGetCustomObjectReturnsOriginal() {
+        CustomObject obj = TargetClass.getCustomObject();
+        assertNotNull(obj);
+        assertEquals("CustomObject{intValue=100, stringValue='original'}", obj.toString());
     }
 }
 

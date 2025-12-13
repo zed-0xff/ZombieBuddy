@@ -195,6 +195,8 @@ sourceSets {
         }
         // testpatches needs access to main classes for @Patch annotation
         compileClasspath += main.output
+        // testpatches needs access to testjar classes for CustomObject
+        compileClasspath += testjar.output
     }
 }
 

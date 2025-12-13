@@ -8,5 +8,9 @@ public class TargetClass {
     public static String getString() {
         return "hello";
     }
+    
+    public static CustomObject getCustomObject() {
+        return new CustomObject(100, "original");
+    }
 }
 
