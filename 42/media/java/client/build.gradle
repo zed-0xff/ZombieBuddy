@@ -215,8 +215,9 @@ task copyNativeDll(type: Copy) {
     into "$buildDir/libs"
 }
 
-// Make build depend on copying the DLL
-build.dependsOn copyNativeDll
+tasks.named("build") {
+    finalizedBy("copyNativeDll")
+}
 
 // disable annotation processing, JNI headers, and incremental compilation
 tasks.withType(JavaCompile).configureEach {
