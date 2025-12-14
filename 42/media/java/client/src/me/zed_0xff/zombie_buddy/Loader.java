@@ -267,9 +267,9 @@ public class Loader {
 
         var bbLogger = AgentBuilder.Listener.StreamWriting.toSystemOut().withErrorsOnly();
         if (g_verbosity > 0) {
-            if (g_verbosity == 1) {
+            if (g_verbosity <= 2) {
                 bbLogger = AgentBuilder.Listener.StreamWriting.toSystemOut().withTransformationsOnly();
-            } else {
+            } else { // 3+
                 bbLogger = AgentBuilder.Listener.StreamWriting.toSystemOut();
             }
         }
@@ -363,6 +363,7 @@ public class Loader {
                             
                             // Try to infer parameter types from the advice class methods
                             // This helps ByteBuddy match the correct overload when there are multiple
+                            boolean foundMethodSignature = false;
                             for (Method adviceMethod : transformedClass.getDeclaredMethods()) {
                                 // Check if this method has advice annotations
                                 boolean hasAdviceAnnotation = false;
@@ -378,19 +379,23 @@ public class Loader {
                                 if (hasAdviceAnnotation && adviceMethod.getParameterCount() > 0) {
                                     // Build parameter type matcher from the advice method signature
                                     Class<?>[] paramTypes = adviceMethod.getParameterTypes();
-                                    // Skip @Return annotated parameters (they're for return values, not method params)
+                                    // Skip @Return, @Argument, and @AllArguments annotated parameters
+                                    // @Return is for return values, @Argument/@AllArguments reference existing params
                                     List<Class<?>> methodParamTypes = new ArrayList<>();
                                     java.lang.annotation.Annotation[][] paramAnns = adviceMethod.getParameterAnnotations();
                                     for (int i = 0; i < paramTypes.length; i++) {
-                                        // Check if this parameter has @Return annotation (skip it)
-                                        boolean isReturnParam = false;
+                                        // Check if this parameter has @Return, @Argument, or @AllArguments annotation (skip it)
+                                        boolean shouldSkip = false;
                                         for (java.lang.annotation.Annotation ann : paramAnns[i]) {
-                                            if (ann.annotationType().getName().contains("Advice$Return")) {
-                                                isReturnParam = true;
+                                            String annType = ann.annotationType().getName();
+                                            if (annType.contains("Advice$Return") || 
+                                                annType.contains("Advice$Argument") ||
+                                                annType.contains("Advice$AllArguments")) {
+                                                shouldSkip = true;
                                                 break;
                                             }
                                         }
-                                        if (!isReturnParam) {
+                                        if (!shouldSkip) {
                                             methodParamTypes.add(paramTypes[i]);
                                         }
                                     }
@@ -399,12 +404,120 @@ public class Loader {
                                         // Match method with these parameter types
                                         methodMatcher = SyntaxSugar.methodMatcher(methodName)
                                             .and(ElementMatchers.takesArguments(methodParamTypes.toArray(new Class<?>[0])));
+                                        foundMethodSignature = true;
                                         break; // Use first matching method's signature
+                                    } else if (methodParamTypes.isEmpty() && adviceMethod.getParameterCount() > 0) {
+                                        // All parameters are @Argument, @AllArguments, or @Return
+                                        // Check if we have @AllArguments - if so, we can't infer signature, use name-based matching
+                                        boolean hasAllArguments = false;
+                                        for (int i = 0; i < paramAnns.length; i++) {
+                                            for (java.lang.annotation.Annotation ann : paramAnns[i]) {
+                                                String annType = ann.annotationType().getName();
+                                                if (annType.contains("Advice$AllArguments")) {
+                                                    hasAllArguments = true;
+                                                    break;
+                                                }
+                                            }
+                                            if (hasAllArguments) break;
+                                        }
+                                        
+                                        if (hasAllArguments) {
+                                            // @AllArguments doesn't provide signature info - use name-based matching
+                                            if (g_verbosity > 0) {
+                                                System.out.println("[ZB] Using name-based matching for " + methodName + " (has @AllArguments)");
+                                            }
+                                            foundMethodSignature = true;
+                                            break;
+                                        }
+                                        
+                                        // Check if all parameters are @Return - if so, use name-based matching
+                                        boolean allReturn = true;
+                                        for (int i = 0; i < paramAnns.length; i++) {
+                                            boolean hasReturn = false;
+                                            for (java.lang.annotation.Annotation ann : paramAnns[i]) {
+                                                String annType = ann.annotationType().getName();
+                                                if (annType.contains("Advice$Return")) {
+                                                    hasReturn = true;
+                                                    break;
+                                                }
+                                            }
+                                            if (!hasReturn) {
+                                                allReturn = false;
+                                                break;
+                                            }
+                                        }
+                                        
+                                        if (allReturn && paramAnns.length > 0) {
+                                            // All parameters are @Return - use name-based matching (method has no parameters)
+                                            if (g_verbosity > 0) {
+                                                System.out.println("[ZB] Using name-based matching for " + methodName + " (all parameters are @Return)");
+                                            }
+                                            foundMethodSignature = true;
+                                            break;
+                                        }
+                                        
+                                        // Try to infer signature from @Argument annotations
+                                        // Parameters with @Argument are in order, so we can infer the signature
+                                        List<Class<?>> inferredTypes = new ArrayList<>();
+                                        for (int i = 0; i < paramAnns.length; i++) {
+                                            boolean isArgument = false;
+                                            boolean isReturn = false;
+                                            for (java.lang.annotation.Annotation ann : paramAnns[i]) {
+                                                String annType = ann.annotationType().getName();
+                                                if (annType.contains("Advice$Argument")) {
+                                                    isArgument = true;
+                                                    Class<?> paramType = paramTypes[i];
+                                                    if (paramType.isArray()) {
+                                                        // Array type means it's modifiable - use the component type for matching
+                                                        inferredTypes.add(paramType.getComponentType());
+                                                    } else {
+                                                        inferredTypes.add(paramType);
+                                                    }
+                                                    break;
+                                                } else if (annType.contains("Advice$Return")) {
+                                                    isReturn = true;
+                                                    break;
+                                                }
+                                            }
+                                            // If this parameter is not @Argument or @Return, include it
+                                            if (!isArgument && !isReturn) {
+                                                inferredTypes.add(paramTypes[i]);
+                                            }
+                                        }
+                                        if (!inferredTypes.isEmpty()) {
+                                            methodMatcher = SyntaxSugar.methodMatcher(methodName)
+                                                .and(ElementMatchers.takesArguments(inferredTypes.toArray(new Class<?>[0])));
+                                            System.out.println("[ZB] Inferred method signature for " + methodName + 
+                                                " from @Argument annotations: " + inferredTypes);
+                                            foundMethodSignature = true;
+                                            break;
+                                        }
+                                        // If we still can't infer, just use name-based matching
+                                        System.out.println("[ZB] Could not infer signature from @Argument annotations, using name-based matching for " + methodName);
+                                        foundMethodSignature = true;
+                                        break;
                                     }
                                 }
                             }
                             
-                            result = result.visit(Advice.to(transformedClass).on(methodMatcher));
+                            // If we couldn't infer signature and there are multiple overloads, log a warning
+                            if (!foundMethodSignature && g_verbosity > 0) {
+                                System.out.println("[ZB] Could not infer method signature for " + methodName + 
+                                    " from advice class " + transformedClass.getName() + 
+                                    " - using name-based matching only");
+                            }
+                            
+                            try {
+                                result = result.visit(Advice.to(transformedClass).on(methodMatcher));
+                                if (g_verbosity > 1) {
+                                    System.out.println("[ZB] Applied advice to " + className + "." + methodName);
+                                }
+                            } catch (Exception e) {
+                                System.err.println("[ZB] ERROR: Failed to apply advice to " + className + "." + methodName + ": " + e.getMessage());
+                                if (g_verbosity > 0) {
+                                    e.printStackTrace();
+                                }
+                            }
                         }
                     }
                     

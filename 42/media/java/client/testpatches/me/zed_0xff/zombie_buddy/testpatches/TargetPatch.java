@@ -27,3 +27,14 @@ class TargetPatchCustomObject {
     }
 }
 
+// should trigger warnings:
+//  - not existing method
+//  - non-void return type
+@Patch(className = "testjar.Class", methodName = "notExistingMethod")
+class BadTargetPatch {
+    @Patch.OnExit
+    public static int exit() {
+        return 0;
+    }
+}
+

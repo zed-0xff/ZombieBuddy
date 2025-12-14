@@ -294,7 +294,7 @@ task test_patched(type: Test) {
     // Add javaagent JVM argument with patches_jar parameter
     def patchesJarPath = testpatchesJar.archiveFile.get().asFile.absolutePath
     jvmArgs = [
-        "-javaagent:${jar.archiveFile.get().asFile.absolutePath}=patches_jar=${patchesJarPath}"
+        "-javaagent:${jar.archiveFile.get().asFile.absolutePath}=patches_jar=${patchesJarPath},verbosity=1"
     ]
 }
 
