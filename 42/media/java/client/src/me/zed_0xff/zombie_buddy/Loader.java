@@ -267,9 +267,9 @@ public class Loader {
 
         var bbLogger = AgentBuilder.Listener.StreamWriting.toSystemOut().withErrorsOnly();
         if (g_verbosity > 0) {
-            if (g_verbosity == 1) {
+            if (g_verbosity <= 2) {
                 bbLogger = AgentBuilder.Listener.StreamWriting.toSystemOut().withTransformationsOnly();
-            } else {
+            } else { // 3+
                 bbLogger = AgentBuilder.Listener.StreamWriting.toSystemOut();
             }
         }
@@ -423,7 +423,9 @@ public class Loader {
                                         
                                         if (hasAllArguments) {
                                             // @AllArguments doesn't provide signature info - use name-based matching
-                                            System.out.println("[ZB] Using name-based matching for " + methodName + " (has @AllArguments)");
+                                            if (g_verbosity > 0) {
+                                                System.out.println("[ZB] Using name-based matching for " + methodName + " (has @AllArguments)");
+                                            }
                                             foundMethodSignature = true;
                                             break;
                                         }
@@ -447,7 +449,9 @@ public class Loader {
                                         
                                         if (allReturn && paramAnns.length > 0) {
                                             // All parameters are @Return - use name-based matching (method has no parameters)
-                                            System.out.println("[ZB] Using name-based matching for " + methodName + " (all parameters are @Return)");
+                                            if (g_verbosity > 0) {
+                                                System.out.println("[ZB] Using name-based matching for " + methodName + " (all parameters are @Return)");
+                                            }
                                             foundMethodSignature = true;
                                             break;
                                         }

@@ -25,32 +25,39 @@ final class PatchTransformer {
      */
     public static Class<?> transformPatchClass(Class<?> patchClass, Instrumentation instrumentation, int verbosity) {
         try {
-            // Check if transformation is needed
+            // Check if transformation is needed and warn about non-void return types
             boolean needsTransformation = false;
             for (Method method : patchClass.getDeclaredMethods()) {
-                for (java.lang.annotation.Annotation ann : method.getAnnotations()) {
-                    String annType = ann.annotationType().getName();
-                    if (annType.equals("me.zed_0xff.zombie_buddy.Patch$OnEnter") ||
-                        annType.equals("me.zed_0xff.zombie_buddy.Patch$OnExit")) {
-                        needsTransformation = true;
-                        break;
+                boolean hasOnEnter = method.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.OnEnter.class);
+                boolean hasOnExit = method.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.OnExit.class);
+                if (hasOnEnter || hasOnExit) {
+                    needsTransformation = true;
+                }
+                // Warn about non-void return types (check all methods, not just first one)
+                if (hasOnEnter || hasOnExit) {
+                    Class<?> returnType = method.getReturnType();
+                    if (returnType != void.class) {
+                        System.err.println("[ZB] !!!!!!!");
+                        System.err.println("[ZB] WARNING: Annotated method " + method.getName() + 
+                            "() in patch class " + patchClass.getName() + 
+                            " returns non-void. This may cause UB and diarrhea.");
+                        System.err.println("[ZB] !!!!!!!");
                     }
                 }
                 if (!needsTransformation) {
-                    for (java.lang.annotation.Annotation[] paramAnns : method.getParameterAnnotations()) {
-                        for (java.lang.annotation.Annotation ann : paramAnns) {
-                            String annName = ann.annotationType().getName();
-                            if (annName.equals("me.zed_0xff.zombie_buddy.Patch$Return") ||
-                                annName.equals("me.zed_0xff.zombie_buddy.Patch$This") ||
-                                annName.equals("me.zed_0xff.zombie_buddy.Patch$Argument")) {
-                                needsTransformation = true;
-                                break;
-                            }
+                    for (java.lang.reflect.Parameter param : method.getParameters()) {
+                        if (param.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.Return.class) ||
+                            param.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.This.class) ||
+                            param.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.Argument.class)) {
+                            needsTransformation = true;
+                            break;
                         }
-                        if (needsTransformation) break;
                     }
                 }
-                if (needsTransformation) break;
+            }
+
+            if (verbosity > 1) {
+                System.out.println("[ZB] class " + patchClass.getName() + " needs transformation: " + needsTransformation);
             }
             
             if (!needsTransformation) {
@@ -76,11 +83,24 @@ final class PatchTransformer {
                 @Override
                 public MethodVisitor visitMethod(int access, String name, String descriptor, 
                                                String signature, String[] exceptions) {
+                    int lastParen = descriptor.lastIndexOf(')');
+                    final boolean isNonVoid = lastParen >= 0 && lastParen < descriptor.length() - 1 && 
+                                             descriptor.charAt(lastParen + 1) != 'V';
+                    final boolean[] hasPatchAnnotation = {false};
+                    final String methodName = name;
+                    
                     MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
                     return new MethodVisitor(Opcodes.ASM9, mv) {
                         @Override
                         public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+                            String originalDescriptor = descriptor;
                             String newDescriptor = rewriteAnnotationDescriptor(descriptor);
+                            
+                            if (originalDescriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$OnEnter;") ||
+                                originalDescriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$OnExit;")) {
+                                hasPatchAnnotation[0] = true;
+                            }
+                            
                             AnnotationVisitor av = super.visitAnnotation(newDescriptor, visible);
                             // If we rewrote the descriptor, we need to forward all annotation values
                             if (!newDescriptor.equals(descriptor)) {
@@ -104,6 +124,16 @@ final class PatchTransformer {
                                 };
                             }
                             return av;
+                        }
+                        
+                        @Override
+                        public void visitEnd() {
+                            if (hasPatchAnnotation[0] && isNonVoid) {
+                                System.err.println("[ZB] WARNING: Method " + methodName + 
+                                    " in patch class " + patchClass.getName() + 
+                                    " is annotated with @Patch.OnEnter or @Patch.OnExit but returns non-void. This may cause UB and diarrhea.");
+                            }
+                            super.visitEnd();
                         }
 
                         @Override
