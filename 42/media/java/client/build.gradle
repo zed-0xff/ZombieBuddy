@@ -202,15 +202,15 @@ sourceSets {
 
 // Copy native DLL to build/libs
 task copyNativeDll(type: Copy) {
-    description = 'Copies zbNative.dlz to build/libs directory'
+    description = 'Copies zbNative.dll to build/libs directory'
     
-    def sourceFile = file('../../c/client/windows/zbNative.dlz')
+    def sourceFile = file('../../c/client/windows/zbNative.dll')
     
     doFirst {
         if (!sourceFile.exists()) {
-            throw new RuntimeException("zbNative.dlz not found at ${sourceFile.absolutePath}")
+            throw new RuntimeException("zbNative.dll not found at ${sourceFile.absolutePath}")
         }
-        println "[ZB] Copying zbNative.dlz from ${sourceFile.absolutePath} to ${buildDir}/libs"
+        println "[ZB] Copying zbNative.dll from ${sourceFile.absolutePath} to ${buildDir}/libs"
     }
     
     from sourceFile
@@ -292,9 +292,11 @@ task test_patched(type: Test) {
     classpath = sourceSets.testPatched.runtimeClasspath
     
     // Add javaagent JVM argument with patches_jar parameter
+    // Format: <path>:<package_name>
     def patchesJarPath = testpatchesJar.archiveFile.get().asFile.absolutePath
+    def patchesPackageName = "me.zed_0xff.zombie_buddy.testpatches"
     jvmArgs = [
-        "-javaagent:${jar.archiveFile.get().asFile.absolutePath}=patches_jar=${patchesJarPath},verbosity=1"
+        "-javaagent:${jar.archiveFile.get().asFile.absolutePath}=patches_jar=${patchesJarPath}:${patchesPackageName},verbosity=1"
     ]
 }
 

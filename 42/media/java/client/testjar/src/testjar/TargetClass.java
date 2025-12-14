@@ -12,5 +12,9 @@ public class TargetClass {
     public static CustomObject getCustomObject() {
         return new CustomObject(100, "original");
     }
+    
+    public static String getStringToNull() {
+        return "test";
+    }
 }
 

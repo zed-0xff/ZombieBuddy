@@ -11,7 +11,7 @@ public class Agent {
         System.out.println("[ZB] activating " + ZombieBuddy.getFullVersionString());
         Loader.g_instrumentation = inst;
 
-        List<String> patchesJarPaths = new ArrayList<>();
+        List<PatchesJarEntry> patchesJarEntries = new ArrayList<>();
 
         if (agentArgs != null && !agentArgs.isEmpty()) {
             System.out.println("[ZB] agentArgs: " + agentArgs);
@@ -42,15 +42,27 @@ public class Agent {
                         break;
 
                     case "patches_jar":
-                        // Support multiple JARs separated by colon
-                        String[] jarPaths = value.split(":");
-                        for (String jarPath : jarPaths) {
-                            jarPath = jarPath.trim();
-                            if (!jarPath.isEmpty()) {
-                                patchesJarPaths.add(jarPath);
+                        // Support multiple JARs separated by semicolon
+                        // Each entry must be in format <path>:<package_name>
+                        String[] entries = value.split(";");
+                        for (String entry : entries) {
+                            entry = entry.trim();
+                            if (!entry.isEmpty()) {
+                                String[] parts = entry.split(":", 2);
+                                if (parts.length != 2) {
+                                    System.err.println("[ZB] patches_jar entry must be in format <path>:<package_name>, got: " + entry);
+                                    continue;
+                                }
+                                String jarPath = parts[0].trim();
+                                String packageName = parts[1].trim();
+                                if (jarPath.isEmpty() || packageName.isEmpty()) {
+                                    System.err.println("[ZB] patches_jar entry must have non-empty path and package name, got: " + entry);
+                                    continue;
+                                }
+                                patchesJarEntries.add(new PatchesJarEntry(jarPath, packageName));
                             }
                         }
-                        System.out.println("[ZB] patches_jar specified: " + value + " (" + patchesJarPaths.size() + " JAR(s))");
+                        System.out.println("[ZB] patches_jar specified: " + value + " (" + patchesJarEntries.size() + " JAR(s))");
                         break;
 
                     default:
@@ -63,14 +75,14 @@ public class Agent {
         Loader.ApplyPatchesFromPackage(ZombieBuddy.class.getPackage().getName() + ".patches", null, true);
         
         // Load patches from external JAR(s) if specified
-        for (String jarPath : patchesJarPaths) {
-            loadPatchesFromJar(jarPath);
+        for (PatchesJarEntry entry : patchesJarEntries) {
+            loadPatchesFromJar(entry.jarPath, entry.packageName);
         }
         
         System.out.println("[ZB] Agent installed.");
     }
     
-    private static void loadPatchesFromJar(String jarPath) {
+    private static void loadPatchesFromJar(String jarPath, String packageName) {
         try {
             File jarFile = new File(jarPath);
             if (!jarFile.exists()) {
@@ -84,14 +96,22 @@ public class Agent {
             Loader.g_known_jars.add(jarFile);
             System.out.println("[ZB] added patches JAR to classpath: " + jarFile);
             
-            // Scan for patches in the JAR - look for packages containing "patches"
-            // We'll scan for the testpatches package specifically
-            String packageName = "me.zed_0xff.zombie_buddy.testpatches";
+            // Scan for patches in the specified package
             Loader.ApplyPatchesFromPackage(packageName, null, true);
             
         } catch (Exception e) {
             System.err.println("[ZB] Error loading patches from JAR " + jarPath + ": " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+    
+    private static class PatchesJarEntry {
+        final String jarPath;
+        final String packageName;
+        
+        PatchesJarEntry(String jarPath, String packageName) {
+            this.jarPath = jarPath;
+            this.packageName = packageName;
         }
     }
 

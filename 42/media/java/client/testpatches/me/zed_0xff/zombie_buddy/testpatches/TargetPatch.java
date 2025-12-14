@@ -27,6 +27,14 @@ class TargetPatchCustomObject {
     }
 }
 
+@Patch(className = "testjar.TargetClass", methodName = "getStringToNull")
+class TargetPatchStringToNull {
+    @Patch.OnExit
+    public static void exit(@Patch.Return(readOnly = false) String returnValue) {
+        returnValue = null;
+    }
+}
+
 // should trigger warnings:
 //  - not existing method
 //  - non-void return type

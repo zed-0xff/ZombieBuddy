@@ -23,5 +23,10 @@ public class VanillaTest {
         assertNotNull(obj);
         assertEquals("CustomObject{intValue=100, stringValue='original'}", obj.toString());
     }
+    
+    @Test
+    void testGetStringToNullReturnsTest() {
+        assertEquals("test", TargetClass.getStringToNull());
+    }
 }
 

@@ -23,5 +23,10 @@ public class PatchedTest {
         assertNotNull(obj);
         assertEquals("CustomObject{intValue=200, stringValue='patched'}", obj.toString());
     }
+    
+    @Test
+    void testGetStringToNullReturnsNull() {
+        assertNull(TargetClass.getStringToNull());
+    }
 }
 
