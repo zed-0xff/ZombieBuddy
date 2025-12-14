@@ -14,6 +14,42 @@ A powerful framework for Project Zomboid modders that enables Java bytecode mani
 [b]What it does:[/b]
 ZombieBuddy allows modders to patch game classes at runtime using bytecode manipulation, without requiring access to the game's source code. No manual file replacement needed - patches are applied automatically at game startup.
 
+[b]📦 Installation (One-Time Setup):[/b]
+
+[b]Step 1:[/b] Subscribe to ZombieBuddy on Steam Workshop
+
+[b]Step 2:[/b] Manual installation is required ONLY ONCE for ZombieBuddy itself. Follow the instructions for your platform:
+
+[b]🪟 Windows Installation:[/b]
+[list]
+[*] Copy both ZombieBuddy.jar and zbNative.dll from the mod's [code]build/libs/[/code] directory to your game directory (typically [code]C:\Program Files (x86)\Steam\steamapps\common\ProjectZomboid\[/code])
+[*] Open Project Zomboid's launch options in Steam
+[*] Add this JVM argument: [code]-agentlib:zbNative --[/code]
+[*] [b]⚠️ IMPORTANT:[/b] The -- at the end is mandatory - do not omit it!
+[/list]
+
+[b]🍎 macOS / 🐧 Linux Installation:[/b]
+[list]
+[*] Copy ZombieBuddy.jar from the mod's [code]build/libs/[/code] directory to:
+[list]
+[*] [b]macOS:[/b] [code]~/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app/Contents/Java/[/code]
+[*] [b]Linux:[/b] [code]~/.steam/steam/steamapps/common/ProjectZomboid/projectzomboid/java/[/code]
+[/list]
+[*] Open Project Zomboid's launch options in Steam
+[*] Add this JVM argument: [code]-javaagent:ZombieBuddy.jar --[/code]
+[*] [b]⚠️ IMPORTANT:[/b] The -- at the end is mandatory - do not omit it!
+[/list]
+
+[b]Step 3:[/b] After this one-time setup, all other mods that use the ZombieBuddy framework will work automatically - no additional manual installation needed!
+
+[b]✅ Why This Method is Better:[/b]
+[list]
+[*] [b]More Reliable:[/b] Runtime bytecode patching is more stable than manual file replacements
+[*] [b]Update-Proof:[/b] Minor game updates will NOT break your mods - patches are applied at runtime, so they adapt to game changes automatically
+[*] [b]No File Conflicts:[/b] Multiple mods can patch the same class without conflicts
+[*] [b]Easy Management:[/b] Once ZombieBuddy is set up, just subscribe to mods that use it - they'll work immediately
+[/list]
+
 [b]⚠️ Security Warning:[/b]
 Java mods enabled through ZombieBuddy have unrestricted access to your system and can execute arbitrary code. Only install Java mods from sources you trust completely. Review source code when available.
 
