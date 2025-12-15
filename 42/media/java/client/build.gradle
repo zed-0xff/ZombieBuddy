@@ -195,6 +195,7 @@ sourceSets {
 // Copy native DLL to build/libs
 task copyNativeDll(type: Copy) {
     description = 'Copies zbNative.dll to build/libs directory'
+    group = 'build'
     
     def sourceFile = file('../../c/client/windows/zbNative.dll')
     
@@ -207,6 +208,9 @@ task copyNativeDll(type: Copy) {
     
     from sourceFile
     into "$buildDir/libs"
+    
+    // Ensure task always runs
+    outputs.upToDateWhen { false }
 }
 
 tasks.named("check") {
@@ -215,8 +219,11 @@ tasks.named("check") {
 
 tasks.named("build") {
     dependsOn check
-    finalizedBy("copyNativeDll")
+    finalizedBy copyNativeDll
 }
+
+// Ensure copyNativeDll runs after jar is built
+copyNativeDll.mustRunAfter jar
 
 // disable annotation processing, JNI headers, and incremental compilation
 tasks.withType(JavaCompile).configureEach {
