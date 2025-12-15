@@ -559,7 +559,7 @@ public class Loader {
 
         var classGraph = new ClassGraph()
                 .enableAllInfo()              // Scan everything (annotations, methods, etc.)
-                .acceptPackages(packageName); // Limit scan to package
+                .acceptPackages(packageName); // Limit scan to package (includes subpackages)
 
         if (modLoader != null) {
             classGraph = classGraph.overrideClassLoaders(modLoader);
@@ -600,6 +600,11 @@ public class Loader {
             for (ClassInfo classInfo : scanResult.getClassesWithAnnotation(Patch.class.getName())) {
                 try {
                     Class<?> patchClass = classInfo.loadClass();
+                    // Only include classes from the exact package (exclude subpackages)
+                    String classPackage = patchClass.getPackage() != null ? patchClass.getPackage().getName() : "";
+                    if (!classPackage.equals(packageName)) {
+                        continue; // Skip classes from subpackages
+                    }
                     System.out.println("[ZB] Found patch class: " + patchClass.getName());
                     patches.add(patchClass);
                 } catch (Exception e) {

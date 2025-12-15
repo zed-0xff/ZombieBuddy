@@ -1,39 +1,42 @@
-package me.zed_0xff.zombie_buddy.patches;
+package me.zed_0xff.zombie_buddy.patches.experimental;
 
 import me.zed_0xff.zombie_buddy.Patch;
 import org.lwjgl.glfw.GLFW;
 
 // EXPERIMENTAL
 public class Patch_MacOSRetina {
-    public static final boolean IS_PATCH_NEEDED;
+    private static Boolean cachedPatchNeeded = null;
 
-    static {
-        if (System.getProperty("os.name").contains("OS X")) {
-            boolean is_fullscreen = false;
-            boolean is_window_retina_mode = false;
+    public static boolean isPatchNeeded() {
+        if (cachedPatchNeeded == null) {
+            if (System.getProperty("os.name").contains("OS X")) {
+                boolean is_fullscreen = false;
+                boolean is_window_retina_mode = false;
 
-            // read "~/Zomboid/options.ini" to check if "fullScreen=false" is set
-            String userHome = System.getProperty("user.home");
-            java.io.File optionsFile = new java.io.File(userHome + "/Zomboid/options.ini");
-            if (optionsFile.exists()) {
-                try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(optionsFile))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        if (line.trim().equalsIgnoreCase("fullScreen=true")) {
-                            is_fullscreen = true;
+                // read "~/Zomboid/options.ini" to check if "fullScreen=false" is set
+                String userHome = System.getProperty("user.home");
+                java.io.File optionsFile = new java.io.File(userHome + "/Zomboid/options.ini");
+                if (optionsFile.exists()) {
+                    try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(optionsFile))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            if (line.trim().equalsIgnoreCase("fullScreen=true")) {
+                                is_fullscreen = true;
+                            }
+                            if (line.trim().equalsIgnoreCase("windowRetinaMode=true")) {
+                                is_window_retina_mode = true;
+                            }
                         }
-                        if (line.trim().equalsIgnoreCase("windowRetinaMode=true")) {
-                            is_window_retina_mode = true;
-                        }
+                    } catch (java.io.IOException e) {
+                        e.printStackTrace();
                     }
-                } catch (java.io.IOException e) {
-                    e.printStackTrace();
                 }
+                cachedPatchNeeded = !is_fullscreen && is_window_retina_mode;
+            } else {
+                cachedPatchNeeded = false;
             }
-            IS_PATCH_NEEDED = !is_fullscreen && is_window_retina_mode;
-        } else {
-            IS_PATCH_NEEDED = false;
         }
+        return cachedPatchNeeded;
     }
 
     // Patch nglfwCreateWindow to set retina hint right before window creation
@@ -42,7 +45,7 @@ public class Patch_MacOSRetina {
     public static class Patch_nglfwCreateWindow {
         @Patch.OnEnter
         public static void enter(int width, int height, long title, long monitor, long share) {
-            if (IS_PATCH_NEEDED && monitor == 0) { // monitor == 0 means windowed mode
+            if (Patch_MacOSRetina.isPatchNeeded() && monitor == 0) { // monitor == 0 means windowed mode
                 // Set retina framebuffer hint right before window creation
                 GLFW.glfwWindowHint(GLFW.GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW.GLFW_TRUE);
             }
@@ -54,7 +57,7 @@ public class Patch_MacOSRetina {
     public static class Patch_DisplayGetWidth {
         @Patch.OnExit
         public static void exit(@Patch.Return(readOnly = false) int originalWidth) {
-            if (IS_PATCH_NEEDED) {
+            if (Patch_MacOSRetina.isPatchNeeded()) {
                 originalWidth = 3456;
             }
         }
@@ -66,7 +69,7 @@ public class Patch_MacOSRetina {
     public static class Patch_DisplayGetHeight {
         @Patch.OnExit
         public static void exit(@Patch.Return(readOnly = false) int originalHeight) {
-            if (IS_PATCH_NEEDED) {
+            if (Patch_MacOSRetina.isPatchNeeded()) {
                 originalHeight = 2234;
             }
         }
@@ -80,7 +83,7 @@ public class Patch_MacOSRetina {
     public static class Patch_DisplayGetDesktopDisplayMode {
         @Patch.OnExit
         public static void exit(@Patch.Return(readOnly = false) org.lwjglx.opengl.DisplayMode originalMode) {
-            if (IS_PATCH_NEEDED) {
+            if (Patch_MacOSRetina.isPatchNeeded()) {
                 originalMode = new org.lwjglx.opengl.DisplayMode(3456, 2234);
             }
         }
@@ -95,7 +98,7 @@ public class Patch_MacOSRetina {
         public static void addMoveEvent(@net.bytebuddy.implementation.bind.annotation.Argument(0) double mouseX, 
                                         @net.bytebuddy.implementation.bind.annotation.Argument(1) double mouseY,
                                         @net.bytebuddy.implementation.bind.annotation.SuperMethod java.lang.reflect.Method superMethod) throws Throwable {
-            if (IS_PATCH_NEEDED && org.lwjglx.opengl.Display.isCreated()) {
+            if (Patch_MacOSRetina.isPatchNeeded() && org.lwjglx.opengl.Display.isCreated()) {
                 long window = org.lwjglx.opengl.Display.getWindow();
                 float[] xscale = new float[1];
                 float[] yscale = new float[1];

@@ -12,6 +12,7 @@ public class Agent {
         Loader.g_instrumentation = inst;
 
         List<PatchesJarEntry> patchesJarEntries = new ArrayList<>();
+        boolean experimentalEnabled = false;
 
         if (agentArgs != null && !agentArgs.isEmpty()) {
             System.out.println("[ZB] agentArgs: " + agentArgs);
@@ -65,6 +66,11 @@ public class Agent {
                         System.out.println("[ZB] patches_jar specified: " + value + " (" + patchesJarEntries.size() + " JAR(s))");
                         break;
 
+                    case "experimental":
+                        experimentalEnabled = true;
+                        System.out.println("[ZB] experimental patches enabled");
+                        break;
+
                     default:
                         System.err.println("[ZB] unknown agent argument: " + key);
                         break;
@@ -73,6 +79,11 @@ public class Agent {
         }
 
         Loader.ApplyPatchesFromPackage(ZombieBuddy.class.getPackage().getName() + ".patches", null, true);
+        
+        // Load experimental patches if enabled
+        if (experimentalEnabled) {
+            Loader.ApplyPatchesFromPackage(ZombieBuddy.class.getPackage().getName() + ".patches.experimental", null, true);
+        }
         
         // Load patches from external JAR(s) if specified
         for (PatchesJarEntry entry : patchesJarEntries) {
