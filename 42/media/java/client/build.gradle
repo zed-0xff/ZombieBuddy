@@ -3,10 +3,17 @@ plugins {
     id 'signing'
 }
 
-// macOS game paths
-def HOME_DIR = System.getProperty("user.home")
-def GAME_DIR = "${HOME_DIR}/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app"
-def GAME_JAR = "${GAME_DIR}/Contents/Java/projectzomboid.jar"
+// Game classpath - list of JARs or directories provided via command line (-PgameClasspath=path1,path2,path3)
+// Optional: only needed for compilation, not for running tests
+def gameClasspathParam = project.findProperty('gameClasspath')
+def GAME_CLASSPATH = []
+
+if (gameClasspathParam) {
+    // Split by comma and convert to file objects
+    GAME_CLASSPATH = gameClasspathParam.split(',').collect { path ->
+        file(path.trim())
+    }
+}
 
 // Read version from VERSION file
 def versionFile = file('VERSION')
@@ -22,7 +29,10 @@ dependencies {
     implementation 'net.bytebuddy:byte-buddy-agent:1.18.2'
     implementation 'io.github.classgraph:classgraph:4.8.184'
 
-    compileOnly files(GAME_JAR) // only for compilation, not runtime
+    // Only add game classpath if provided (needed for compilation, not for running tests)
+    if (!GAME_CLASSPATH.isEmpty()) {
+        compileOnly files(GAME_CLASSPATH)
+    }
     
     // Test dependencies
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
@@ -199,7 +209,12 @@ task copyNativeDll(type: Copy) {
     into "$buildDir/libs"
 }
 
+tasks.named("check") {
+    dependsOn test
+}
+
 tasks.named("build") {
+    dependsOn check
     finalizedBy("copyNativeDll")
 }
 
@@ -212,6 +227,58 @@ tasks.withType(JavaCompile).configureEach {
 
     doLast {
         delete "${buildDir}/tmp"
+    }
+}
+
+// Helper to recursively check for .class files
+def hasClassFiles(File dir) {
+    if (!dir.exists() || !dir.isDirectory()) {
+        return false
+    }
+    def files = dir.listFiles()
+    if (files == null) {
+        return false
+    }
+    for (def file : files) {
+        if (file.isFile() && file.name.endsWith('.class')) {
+            return true
+        }
+        if (file.isDirectory() && hasClassFiles(file)) {
+            return true
+        }
+    }
+    return false
+}
+
+// Require gameClasspath for main source compilation, unless classes are already compiled
+def compileJavaTask = tasks.named('compileJava', JavaCompile).get()
+compileJavaTask.onlyIf {
+    if (!GAME_CLASSPATH.isEmpty()) {
+        return true // Always compile if gameClasspath is provided
+    }
+    
+    // Check if classes already exist - recursively search for .class files
+    def outputDir = compileJavaTask.destinationDirectory.get().asFile
+    if (hasClassFiles(outputDir)) {
+        return false // Skip compilation if classes exist
+    }
+    
+    // No classes found - will fail in doFirst
+    return true
+}
+
+compileJavaTask.doFirst {
+    if (GAME_CLASSPATH.isEmpty()) {
+        // Verify classes exist (in case onlyIf didn't work)
+        def outputDir = destinationDirectory.get().asFile
+        if (!hasClassFiles(outputDir)) {
+            throw new RuntimeException(
+                "gameClasspath must be provided for compilation via -PgameClasspath=<path1>,<path2>,... " +
+                "(comma-separated list of JARs or directories).\n" +
+                "Example: gradle build -PgameClasspath=../../../../../42_13/java/projectzomboid.jar\n" +
+                "Note: Tests can run without gameClasspath if classes are already compiled."
+            )
+        }
     }
 }
 
@@ -242,6 +309,19 @@ dependencies {
     testVanillaRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.0'
     testPatchedImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
     testPatchedRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.0'
+}
+
+// Configure all test tasks to always run and output test results
+tasks.withType(Test) {
+    // Always run tests, even if build is up-to-date
+    outputs.upToDateWhen { false }
+    
+    // Output test results summary
+    afterSuite { desc, result ->
+        if (!desc.parent) {
+            println "\n[=] ${name}: ${result.testCount} tests, ${result.successfulTestCount} successful, ${result.failedTestCount} failed"
+        }
+    }
 }
 
 // Vanilla tests - run without javaagent
@@ -284,14 +364,27 @@ task test_patched(type: Test) {
 
 // Main test task - runs both vanilla and patched tests
 // Run with: gradle test
-test {
+// Note: This is a coordinator task that runs test_vanilla and test_patched
+tasks.named('test', Test) {
     description = 'Runs both vanilla and patched tests'
+    group = 'verification'
+    
     // Don't discover tests from the default test source set
     testClassesDirs = files()
     classpath = files()
-    // Just depend on the actual test tasks
+    
+    // Depend on the actual test tasks - they will execute
     dependsOn test_vanilla
     dependsOn test_patched
+    
     // Don't fail if no tests are discovered (since we're not running any here)
     failOnNoDiscoveredTests = false
+    
+    // Force the task to always execute by making it produce output
+    outputs.file("${buildDir}/.test-completed")
+    
+    doLast {
+        // Create a marker file to indicate tests completed
+        file("${buildDir}/.test-completed").createNewFile()
+    }
 }
