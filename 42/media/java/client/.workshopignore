@@ -1,6 +1,5 @@
 # see https://github.com/zed-0xff/ZBetterWorkshopUpload
 
-classes
-reports
-test*
-tmp
+build/classes
+build/reports
+build/test*

@@ -3,7 +3,6 @@ package me.zed_0xff.zombie_buddy.patches.experimental;
 import me.zed_0xff.zombie_buddy.Patch;
 import org.lwjgl.glfw.GLFW;
 
-// EXPERIMENTAL
 public class Patch_MacOSRetina {
     private static Boolean cachedPatchNeeded = null;
 
@@ -11,7 +10,6 @@ public class Patch_MacOSRetina {
         if (cachedPatchNeeded == null) {
             if (System.getProperty("os.name").contains("OS X")) {
                 boolean is_fullscreen = false;
-                boolean is_window_retina_mode = false;
 
                 // read "~/Zomboid/options.ini" to check if "fullScreen=false" is set
                 String userHome = System.getProperty("user.home");
@@ -23,15 +21,12 @@ public class Patch_MacOSRetina {
                             if (line.trim().equalsIgnoreCase("fullScreen=true")) {
                                 is_fullscreen = true;
                             }
-                            if (line.trim().equalsIgnoreCase("windowRetinaMode=true")) {
-                                is_window_retina_mode = true;
-                            }
                         }
                     } catch (java.io.IOException e) {
                         e.printStackTrace();
                     }
                 }
-                cachedPatchNeeded = !is_fullscreen && is_window_retina_mode;
+                cachedPatchNeeded = !is_fullscreen;
             } else {
                 cachedPatchNeeded = false;
             }
@@ -82,9 +77,9 @@ public class Patch_MacOSRetina {
     @Patch(className = "org.lwjglx.opengl.Display", methodName = "getDesktopDisplayMode")
     public static class Patch_DisplayGetDesktopDisplayMode {
         @Patch.OnExit
-        public static void exit(@Patch.Return(readOnly = false) org.lwjglx.opengl.DisplayMode originalMode) {
+        public static void exit(@Patch.Return(readOnly = false) org.lwjglx.opengl.DisplayMode result) {
             if (Patch_MacOSRetina.isPatchNeeded()) {
-                originalMode = new org.lwjglx.opengl.DisplayMode(3456, 2234);
+                result = new org.lwjglx.opengl.DisplayMode(3456, 2234);
             }
         }
     }
