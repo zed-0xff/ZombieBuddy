@@ -323,6 +323,16 @@ tasks.withType(Test) {
     // Always run tests, even if build is up-to-date
     outputs.upToDateWhen { false }
     
+    // Don't capture stdout/stderr - show it directly in console
+    testLogging {
+        showStandardStreams = true
+    }
+    
+    // Disable HTML reports
+    reports {
+        html.required = false
+    }
+    
     // Output test results summary
     afterSuite { desc, result ->
         if (!desc.parent) {
