@@ -28,5 +28,20 @@ public class PatchedTest {
     void testGetStringToNullReturnsNull() {
         assertNull(TargetClass.getStringToNull());
     }
+    
+    @Test
+    void testAddMoveEventScalesCoordinates() {
+        // addMoveEvent should scale coordinates by 2.0 (simulating retina scaling)
+        // Original: stores (100.0, 200.0)
+        // Patched: stores (100.0 * 2.0, 200.0 * 2.0) = (200.0, 400.0)
+        testjar.MouseCoordinates.addMoveEvent(100.0, 200.0);
+        assertEquals(200.0, testjar.MouseCoordinates.getLastX(), 0.001);
+        assertEquals(400.0, testjar.MouseCoordinates.getLastY(), 0.001);
+        
+        // Test with different coordinates
+        testjar.MouseCoordinates.addMoveEvent(50.5, 75.5);
+        assertEquals(101.0, testjar.MouseCoordinates.getLastX(), 0.001); // 50.5 * 2.0
+        assertEquals(151.0, testjar.MouseCoordinates.getLastY(), 0.001); // 75.5 * 2.0
+    }
 }
 

@@ -28,5 +28,17 @@ public class VanillaTest {
     void testGetStringToNullReturnsTest() {
         assertEquals("test", TargetClass.getStringToNull());
     }
+    
+    @Test
+    void testAddMoveEventStoresCoordinates() {
+        // addMoveEvent should store coordinates as-is (unpatched)
+        testjar.MouseCoordinates.addMoveEvent(100.0, 200.0);
+        assertEquals(100.0, testjar.MouseCoordinates.getLastX(), 0.001);
+        assertEquals(200.0, testjar.MouseCoordinates.getLastY(), 0.001);
+        
+        testjar.MouseCoordinates.addMoveEvent(50.5, 75.5);
+        assertEquals(50.5, testjar.MouseCoordinates.getLastX(), 0.001);
+        assertEquals(75.5, testjar.MouseCoordinates.getLastY(), 0.001);
+    }
 }
 
