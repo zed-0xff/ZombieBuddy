@@ -50,6 +50,7 @@ final class PatchTransformer {
                         if (param.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.Return.class) ||
                             param.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.This.class) ||
                             param.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.Argument.class) ||
+                            param.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.Local.class) ||
                             param.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.SuperMethod.class) ||
                             param.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.SuperCall.class)) {
                             needsTransformation = true;
@@ -238,6 +239,8 @@ final class PatchTransformer {
             return "Lnet/bytebuddy/implementation/bind/annotation/SuperMethod;";
         } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$SuperCall;")) {
             return "Lnet/bytebuddy/implementation/bind/annotation/SuperCall;";
+        } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$Local;")) {
+            return "Lnet/bytebuddy/asm/Advice$Local;";
         }
         return descriptor;
     }

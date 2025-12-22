@@ -78,4 +78,11 @@ public @interface Patch {
   @Target(ElementType.PARAMETER)
   public @interface SuperCall {
   }
+  
+  /** Alias for net.bytebuddy.asm.Advice.Local - mods should use Patch.Local instead */
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target(ElementType.PARAMETER)
+  public @interface Local {
+    String value();
+  }
 }
