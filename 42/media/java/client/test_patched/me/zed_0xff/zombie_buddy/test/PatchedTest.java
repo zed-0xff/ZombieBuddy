@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import testjar.TargetClass;
 import testjar.CustomObject;
+import testjar.OverloadedMethodsB;
 
 public class PatchedTest {
     @Test
@@ -43,5 +44,6 @@ public class PatchedTest {
         assertEquals(101.0, testjar.MouseCoordinates.getLastX(), 0.001); // 50.5 * 2.0
         assertEquals(151.0, testjar.MouseCoordinates.getLastY(), 0.001); // 75.5 * 2.0
     }
+    
 }
 

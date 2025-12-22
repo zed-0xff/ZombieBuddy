@@ -357,13 +357,16 @@ public class Loader {
                                 continue;
                             }
                             
-                            // Build method matcher - if advice class has parameter-annotated methods, 
-                            // use those to determine which overload to match
+                            // KISS approach: Simple and predictable method matching
                             var methodMatcher = SyntaxSugar.methodMatcher(methodName);
                             
-                            // Try to infer parameter types from the advice class methods
-                            // This helps ByteBuddy match the correct overload when there are multiple
-                            boolean foundMethodSignature = false;
+                            boolean hasAllArguments = false;
+                            boolean hasNoParamMethod = false;
+                            List<Class<?>> inferredTypes = null;
+                            
+                            // Track all inferred signatures to detect multiple methods with different signatures
+                            java.util.Set<List<Class<?>>> allInferredSignatures = new java.util.HashSet<>();
+                            
                             for (Method adviceMethod : transformedClass.getDeclaredMethods()) {
                                 // Check if this method has advice annotations
                                 boolean hasAdviceAnnotation = false;
@@ -376,135 +379,176 @@ public class Loader {
                                     }
                                 }
                                 
-                                if (hasAdviceAnnotation && adviceMethod.getParameterCount() > 0) {
-                                    // Build parameter type matcher from the advice method signature
+                                if (!hasAdviceAnnotation) continue;
+                                
+                                java.lang.annotation.Annotation[][] paramAnns = adviceMethod.getParameterAnnotations();
+                                
+                                // Check for @AllArguments annotation
+                                for (int i = 0; i < paramAnns.length; i++) {
+                                    for (java.lang.annotation.Annotation ann : paramAnns[i]) {
+                                        String annType = ann.annotationType().getName();
+                                        if (annType.contains("Advice$AllArguments")) {
+                                            hasAllArguments = true;
+                                            break;
+                                        }
+                                    }
+                                    if (hasAllArguments) break;
+                                }
+                                
+                                // If method has no parameters (and no @AllArguments), match only methods with no parameters
+                                if (adviceMethod.getParameterCount() == 0 && !hasAllArguments) {
+                                    hasNoParamMethod = true;
+                                }
+                                
+                                // Try to infer signature from @Argument annotations
+                                if (inferredTypes == null && !hasAllArguments) {
                                     Class<?>[] paramTypes = adviceMethod.getParameterTypes();
-                                    // Skip @Return, @Argument, and @AllArguments annotated parameters
-                                    // @Return is for return values, @Argument/@AllArguments reference existing params
-                                    List<Class<?>> methodParamTypes = new ArrayList<>();
-                                    java.lang.annotation.Annotation[][] paramAnns = adviceMethod.getParameterAnnotations();
-                                    for (int i = 0; i < paramTypes.length; i++) {
-                                        // Check if this parameter has @Return, @Argument, or @AllArguments annotation (skip it)
-                                        boolean shouldSkip = false;
+                                    
+                                    // Map to collect argument indices and their types
+                                    java.util.Map<Integer, Class<?>> argumentMap = new java.util.HashMap<>();
+                                    boolean hasAnyArguments = false;
+                                    boolean allParamsAreSpecial = paramTypes.length > 0; // Will be set to false if we find a non-special param
+                                    
+                                    for (int i = 0; i < paramAnns.length; i++) {
+                                        boolean isArgument = false;
+                                        int argumentIndex = -1;
+                                        
                                         for (java.lang.annotation.Annotation ann : paramAnns[i]) {
                                             String annType = ann.annotationType().getName();
-                                            if (annType.contains("Advice$Return") || 
-                                                annType.contains("Advice$Argument") ||
-                                                annType.contains("Advice$AllArguments")) {
-                                                shouldSkip = true;
+                                            if (annType.contains("Advice$Argument")) {
+                                                isArgument = true;
+                                                hasAnyArguments = true;
+                                                allParamsAreSpecial = false; // @Argument is not "special" in this context
+                                                // Read the index from the annotation's value() method
+                                                try {
+                                                    java.lang.reflect.Method valueMethod = ann.annotationType().getMethod("value");
+                                                    argumentIndex = (Integer) valueMethod.invoke(ann);
+                                                } catch (Exception e) {
+                                                    // Fallback: if we can't read the value, assume sequential (old behavior)
+                                                    argumentIndex = i;
+                                                }
+                                                Class<?> paramType = paramTypes[i];
+                                                argumentMap.put(argumentIndex, paramType.isArray() ? paramType.getComponentType() : paramType);
                                                 break;
                                             }
                                         }
-                                        if (!shouldSkip) {
-                                            methodParamTypes.add(paramTypes[i]);
+                                        
+                                        // If not @Argument and not @Return/@AllArguments, include it as a regular parameter
+                                        if (!isArgument) {
+                                            boolean isSpecial = false;
+                                            for (java.lang.annotation.Annotation ann : paramAnns[i]) {
+                                                String annType = ann.annotationType().getName();
+                                                if (annType.contains("Advice$Return") || annType.contains("Advice$AllArguments")) {
+                                                    isSpecial = true;
+                                                    break;
+                                                }
+                                            }
+                                            if (!isSpecial) {
+                                                // Regular parameter (not annotated) - assume it's in order
+                                                allParamsAreSpecial = false;
+                                                argumentMap.put(i, paramTypes[i]);
+                                            }
                                         }
                                     }
                                     
-                                    if (!methodParamTypes.isEmpty()) {
-                                        // Match method with these parameter types
-                                        methodMatcher = SyntaxSugar.methodMatcher(methodName)
-                                            .and(ElementMatchers.takesArguments(methodParamTypes.toArray(new Class<?>[0])));
-                                        foundMethodSignature = true;
-                                        break; // Use first matching method's signature
-                                    } else if (methodParamTypes.isEmpty() && adviceMethod.getParameterCount() > 0) {
-                                        // All parameters are @Argument, @AllArguments, or @Return
-                                        // Check if we have @AllArguments - if so, we can't infer signature, use name-based matching
-                                        boolean hasAllArguments = false;
-                                        for (int i = 0; i < paramAnns.length; i++) {
-                                            for (java.lang.annotation.Annotation ann : paramAnns[i]) {
-                                                String annType = ann.annotationType().getName();
-                                                if (annType.contains("Advice$AllArguments")) {
-                                                    hasAllArguments = true;
-                                                    break;
-                                                }
-                                            }
-                                            if (hasAllArguments) break;
-                                        }
+                                    // If all parameters are special (e.g., only @Return), treat as matching methods with no parameters
+                                    if (allParamsAreSpecial && paramTypes.length > 0) {
+                                        hasNoParamMethod = true;
+                                    }
+                                    
+                                    // Build signature list from the argument map
+                                    if (hasAnyArguments && !argumentMap.isEmpty()) {
+                                        // Find the maximum index to determine signature length
+                                        int maxIndex = argumentMap.keySet().stream().mapToInt(Integer::intValue).max().orElse(-1);
                                         
-                                        if (hasAllArguments) {
-                                            // @AllArguments doesn't provide signature info - use name-based matching
-                                            if (g_verbosity > 0) {
-                                                System.out.println("[ZB] Using name-based matching for " + methodName + " (has @AllArguments)");
-                                            }
-                                            foundMethodSignature = true;
-                                            break;
-                                        }
-                                        
-                                        // Check if all parameters are @Return - if so, use name-based matching
-                                        boolean allReturn = true;
-                                        for (int i = 0; i < paramAnns.length; i++) {
-                                            boolean hasReturn = false;
-                                            for (java.lang.annotation.Annotation ann : paramAnns[i]) {
-                                                String annType = ann.annotationType().getName();
-                                                if (annType.contains("Advice$Return")) {
-                                                    hasReturn = true;
-                                                    break;
-                                                }
-                                            }
-                                            if (!hasReturn) {
-                                                allReturn = false;
+                                        // Check if we have a complete sequence from 0 to maxIndex
+                                        boolean hasCompleteSequence = true;
+                                        for (int idx = 0; idx <= maxIndex; idx++) {
+                                            if (!argumentMap.containsKey(idx)) {
+                                                hasCompleteSequence = false;
                                                 break;
                                             }
                                         }
                                         
-                                        if (allReturn && paramAnns.length > 0) {
-                                            // All parameters are @Return - use name-based matching (method has no parameters)
-                                            if (g_verbosity > 0) {
-                                                System.out.println("[ZB] Using name-based matching for " + methodName + " (all parameters are @Return)");
+                                        if (hasCompleteSequence) {
+                                            // Build the signature list in order
+                                            List<Class<?>> sig = new ArrayList<>();
+                                            for (int idx = 0; idx <= maxIndex; idx++) {
+                                                sig.add(argumentMap.get(idx));
                                             }
-                                            foundMethodSignature = true;
-                                            break;
+                                            allInferredSignatures.add(sig);
+                                            if (inferredTypes == null) {
+                                                inferredTypes = sig;
+                                            }
+                                        } else {
+                                            // Incomplete sequence - can't reliably infer signature
                                         }
-                                        
-                                        // Try to infer signature from @Argument annotations
-                                        // Parameters with @Argument are in order, so we can infer the signature
-                                        List<Class<?>> inferredTypes = new ArrayList<>();
-                                        for (int i = 0; i < paramAnns.length; i++) {
-                                            boolean isArgument = false;
-                                            boolean isReturn = false;
-                                            for (java.lang.annotation.Annotation ann : paramAnns[i]) {
+                                    } else if (!argumentMap.isEmpty()) {
+                                        // No @Argument annotations, but we have regular parameters
+                                        // Build signature from regular parameters in order
+                                        List<Class<?>> sig = new ArrayList<>();
+                                        for (int idx = 0; idx < paramTypes.length; idx++) {
+                                            boolean isSpecial = false;
+                                            for (java.lang.annotation.Annotation ann : paramAnns[idx]) {
                                                 String annType = ann.annotationType().getName();
-                                                if (annType.contains("Advice$Argument")) {
-                                                    isArgument = true;
-                                                    Class<?> paramType = paramTypes[i];
-                                                    if (paramType.isArray()) {
-                                                        // Array type means it's modifiable - use the component type for matching
-                                                        inferredTypes.add(paramType.getComponentType());
-                                                    } else {
-                                                        inferredTypes.add(paramType);
-                                                    }
-                                                    break;
-                                                } else if (annType.contains("Advice$Return")) {
-                                                    isReturn = true;
+                                                if (annType.contains("Advice$Return") || annType.contains("Advice$AllArguments")) {
+                                                    isSpecial = true;
                                                     break;
                                                 }
                                             }
-                                            // If this parameter is not @Argument or @Return, include it
-                                            if (!isArgument && !isReturn) {
-                                                inferredTypes.add(paramTypes[i]);
+                                            if (!isSpecial) {
+                                                sig.add(paramTypes[idx]);
                                             }
                                         }
-                                        if (!inferredTypes.isEmpty()) {
-                                            methodMatcher = SyntaxSugar.methodMatcher(methodName)
-                                                .and(ElementMatchers.takesArguments(inferredTypes.toArray(new Class<?>[0])));
-                                            System.out.println("[ZB] Inferred method signature for " + methodName + 
-                                                " from @Argument annotations: " + inferredTypes);
-                                            foundMethodSignature = true;
-                                            break;
+                                        if (!sig.isEmpty()) {
+                                            allInferredSignatures.add(sig);
+                                            if (inferredTypes == null) {
+                                                inferredTypes = sig;
+                                            }
                                         }
-                                        // If we still can't infer, just use name-based matching
-                                        System.out.println("[ZB] Could not infer signature from @Argument annotations, using name-based matching for " + methodName);
-                                        foundMethodSignature = true;
-                                        break;
                                     }
                                 }
                             }
                             
-                            // If we couldn't infer signature and there are multiple overloads, log a warning
-                            if (!foundMethodSignature && g_verbosity > 0) {
-                                System.out.println("[ZB] Could not infer method signature for " + methodName + 
-                                    " from advice class " + transformedClass.getName() + 
-                                    " - using name-based matching only");
+                            // If we have multiple methods with different signatures, use name-based matching
+                            // so ByteBuddy can match each method to the appropriate overload
+                            boolean hasMultipleSignatures = allInferredSignatures.size() > 1;
+                            if (hasMultipleSignatures) {
+                                inferredTypes = null; // Clear inferred types to force name-based matching
+                            }
+                            
+                            // Apply matching strategy
+                            if (hasAllArguments) {
+                                // @AllArguments = match all overloads by name
+                                if (g_verbosity > 0) {
+                                    System.out.println("[ZB] Using name-based matching for " + methodName + " (has @AllArguments)");
+                                }
+                            } else if (hasMultipleSignatures) {
+                                // Multiple methods with different signatures - use name-based matching
+                                // ByteBuddy will match each method to the appropriate overload
+                                if (g_verbosity > 0) {
+                                    System.out.println("[ZB] Using name-based matching for " + methodName + " (multiple methods with different signatures)");
+                                }
+                            } else if (hasNoParamMethod) {
+                                // No parameters = match only methods with no parameters
+                                methodMatcher = SyntaxSugar.methodMatcher(methodName)
+                                    .and(ElementMatchers.takesNoArguments());
+                                if (g_verbosity > 0) {
+                                    System.out.println("[ZB] Matching methods with no parameters for " + methodName);
+                                }
+                            } else if (inferredTypes != null && !inferredTypes.isEmpty()) {
+                                // We can infer signature from @Argument annotations or regular parameters
+                                methodMatcher = SyntaxSugar.methodMatcher(methodName)
+                                    .and(ElementMatchers.takesArguments(inferredTypes.toArray(new Class<?>[0])));
+                                if (g_verbosity > 0) {
+                                    System.out.println("[ZB] Inferred method signature for " + methodName + ": " + inferredTypes);
+                                }
+                            } else {
+                                // Error: Could not infer method signature
+                                System.err.println("[ZB] ERROR: Could not infer method signature for " + className + "." + methodName + 
+                                    " from advice class " + transformedClass.getName());
+                                // Skip this patch
+                                continue;
                             }
                             
                             try {
