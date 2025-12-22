@@ -365,7 +365,7 @@ task test_patched(type: Test) {
     def patchesJarPath = testpatchesJar.archiveFile.get().asFile.absolutePath
     def patchesPackageName = "me.zed_0xff.zombie_buddy.testpatches"
     jvmArgs = [
-        "-javaagent:${jar.archiveFile.get().asFile.absolutePath}=patches_jar=${patchesJarPath}:${patchesPackageName},verbosity=1"
+        "-javaagent:${jar.archiveFile.get().asFile.absolutePath}=patches_jar=${patchesJarPath}:${patchesPackageName},verbosity=2"
     ]
 }
 
