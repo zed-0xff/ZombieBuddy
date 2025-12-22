@@ -560,7 +560,7 @@ public class Loader {
 
                             System.out.println(
                                     "[ZB] hasMultipleSignatures: " + hasMultipleSignatures +
-                                    "[, hasAllArguments: " + hasAllArguments +
+                                    ", hasAllArguments: " + hasAllArguments +
                                     ", hasNoParamMethod: " + hasNoParamMethod +
                                     ", inferredTypes: " + inferredTypes
                                     );
