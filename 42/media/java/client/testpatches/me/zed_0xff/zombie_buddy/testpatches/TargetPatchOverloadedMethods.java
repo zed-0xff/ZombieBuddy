@@ -48,7 +48,8 @@ public class TargetPatchOverloadedMethods {
         }
     }
 
-    // Scenario 5: Patch both methods with different advice methods
+    // Scenario 5: Patch both methods with different advice methods in a single class
+    // XXX: won't work due to ByteBuddy IllegalStateException: Duplicate advice for Delegate ...
     @Patch(className = "testjar.OverloadedMethodsE", methodName = "calculate")
     public class TargetPatchOverloadedMethodsE {
         @Patch.OnExit
