@@ -23,7 +23,7 @@ public class TargetPatchOverloadedMethods {
 
     // Scenario 3: Patch both methods with different patches
     @Patch(className = "testjar.OverloadedMethodsC", methodName = "calculate")
-    public class TargetPatchOverloadedMethodsC1 {
+    public class TargetPatchOverloadedMethodsCa {
         @Patch.OnExit
         public static void exitSingle(int x) {
             testjar.OverloadedMethodsC.patchCalled = "both_separate_single";
@@ -31,7 +31,7 @@ public class TargetPatchOverloadedMethods {
     }
 
     @Patch(className = "testjar.OverloadedMethodsC", methodName = "calculate")
-    public class TargetPatchOverloadedMethodsC2 {
+    public class TargetPatchOverloadedMethodsCb {
         @Patch.OnExit
         public static void exitDouble(int x, int y) {
             testjar.OverloadedMethodsC.patchCalled = "both_separate_double";
@@ -45,6 +45,20 @@ public class TargetPatchOverloadedMethods {
         @Patch.OnExit
         public static void exitUnified(@Patch.AllArguments Object[] arguments) {
             testjar.OverloadedMethodsD.patchCalled = "unified";
+        }
+    }
+
+    // Scenario 5: Patch both methods with different advice methods
+    @Patch(className = "testjar.OverloadedMethodsE", methodName = "calculate")
+    public class TargetPatchOverloadedMethodsE {
+        @Patch.OnExit
+        public static void exitSingle(int x) {
+            testjar.OverloadedMethodsE.patchCalled = "both_separate2_singgle";
+        }
+
+        @Patch.OnExit
+        public static void exitDouble(int x, int y) {
+            testjar.OverloadedMethodsE.patchCalled = "both_separate2_double";
         }
     }
 }
