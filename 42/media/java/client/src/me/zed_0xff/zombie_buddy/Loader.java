@@ -343,6 +343,10 @@ public class Loader {
                         
                         // Apply each advice via separate .visit() calls - they stack
                         for (Class<?> adviceClass : advices) {
+                            // Get the Patch annotation to read strictMatch parameter
+                            Patch patchAnn = adviceClass.getAnnotation(Patch.class);
+                            boolean strictMatch = patchAnn != null && patchAnn.strictMatch();
+                            
                             // Transform patch class to replace Patch.* annotations with ByteBuddy's
                             Class<?> transformedClass;
                             try {
@@ -555,11 +559,20 @@ public class Loader {
                                     System.out.println("[ZB] ByteBuddy will match each advice method to the appropriate overload by parameter types");
                                 }
                             } else if (hasNoParamMethod) {
-                                // No parameters = match only methods with no parameters
-                                methodMatcher = SyntaxSugar.methodMatcher(methodName)
-                                    .and(ElementMatchers.takesNoArguments());
-                                if (g_verbosity > 0) {
-                                    System.out.println("[ZB] Matching methods with no parameters for " + methodName);
+                                // No parameters - behavior depends on strictMatch parameter
+                                if (strictMatch) {
+                                    // Match only methods with no parameters
+                                    methodMatcher = SyntaxSugar.methodMatcher(methodName)
+                                        .and(ElementMatchers.takesNoArguments());
+                                    if (g_verbosity > 0) {
+                                        System.out.println("[ZB] Matching methods with no parameters for " + methodName + " (strictMatch=true)");
+                                    }
+                                } else {
+                                    // Match any method (default behavior)
+                                    methodMatcher = SyntaxSugar.methodMatcher(methodName);
+                                    if (g_verbosity > 0) {
+                                        System.out.println("[ZB] Matching any method for " + methodName + " (strictMatch=false, default)");
+                                    }
                                 }
                             } else if (inferredTypes != null && !inferredTypes.isEmpty()) {
                                 // We can infer signature from @Argument annotations or regular parameters
