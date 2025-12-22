@@ -3,32 +3,32 @@ package me.zed_0xff.zombie_buddy.test;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-import testjar.MatchNoArgsTest;
+import testjar.MatchNoArgsTarget;
 
 public class PatchedTestMatchNoArgs {
     @Test
     void testMatchNoArgsOnlyFalse() {
         // Test matchNoArgsOnly=false (default) - should match any method
-        MatchNoArgsTest.patchCalled = null;
+        MatchNoArgsTarget.patchCalled = null;
         
         // Call no-arg method - patch should be called
-        MatchNoArgsTest.getValue();
-        assertEquals("match_any", MatchNoArgsTest.patchCalled, "Patch should match getValue()");
+        MatchNoArgsTarget.getValue();
+        assertEquals("match_any", MatchNoArgsTarget.patchCalled, "Patch should match getValue()");
         
         // Call one-arg method - patch should also be called (matches any)
-        MatchNoArgsTest.patchCalled = null;
-        MatchNoArgsTest.getValue(5);
-        assertEquals("match_any", MatchNoArgsTest.patchCalled, "Patch should match getValue(int)");
+        MatchNoArgsTarget.patchCalled = null;
+        MatchNoArgsTarget.getValue(5);
+        assertEquals("match_any", MatchNoArgsTarget.patchCalled, "Patch should match getValue(int)");
         
         // Call two-arg method - patch should also be called (matches any)
-        MatchNoArgsTest.patchCalled = null;
-        MatchNoArgsTest.getValue(5, 7);
-        assertEquals("match_any", MatchNoArgsTest.patchCalled, "Patch should match getValue(int, int)");
+        MatchNoArgsTarget.patchCalled = null;
+        MatchNoArgsTarget.getValue(5, 7);
+        assertEquals("match_any", MatchNoArgsTarget.patchCalled, "Patch should match getValue(int, int)");
         
         // Return values should be unchanged
-        assertEquals(42, MatchNoArgsTest.getValue());
-        assertEquals(50, MatchNoArgsTest.getValue(5));
-        assertEquals(35, MatchNoArgsTest.getValue(5, 7));
+        assertEquals(42, MatchNoArgsTarget.getValue());
+        assertEquals(50, MatchNoArgsTarget.getValue(5));
+        assertEquals(35, MatchNoArgsTarget.getValue(5, 7));
     }
     
     @Test
@@ -38,23 +38,23 @@ public class PatchedTestMatchNoArgs {
         // The matchNoArgsOnly=true patch should only match getValue(), not getValue(int) or getValue(int, int)
         
         // Call no-arg method - both patches might be called, but matchNoArgsOnly=true should set it
-        MatchNoArgsTest.patchCalled = null;
-        MatchNoArgsTest.getValue();
+        MatchNoArgsTarget.patchCalled = null;
+        MatchNoArgsTarget.getValue();
         // Since both patches are active, the last one applied might win, but we expect "match_no_args_only"
         // Actually, both will be called, so we need to check which one runs last
         // For now, just verify the method works
-        assertEquals(42, MatchNoArgsTest.getValue());
+        assertEquals(42, MatchNoArgsTarget.getValue());
         
         // Call one-arg method - only matchNoArgsOnly=false patch should be called
-        MatchNoArgsTest.patchCalled = null;
-        MatchNoArgsTest.getValue(5);
+        MatchNoArgsTarget.patchCalled = null;
+        MatchNoArgsTarget.getValue(5);
         // Should be "match_any" because matchNoArgsOnly=true patch doesn't match
-        assertEquals("match_any", MatchNoArgsTest.patchCalled, "Only matchNoArgsOnly=false patch should match getValue(int)");
+        assertEquals("match_any", MatchNoArgsTarget.patchCalled, "Only matchNoArgsOnly=false patch should match getValue(int)");
         
         // Call two-arg method - only matchNoArgsOnly=false patch should be called
-        MatchNoArgsTest.patchCalled = null;
-        MatchNoArgsTest.getValue(5, 7);
-        assertEquals("match_any", MatchNoArgsTest.patchCalled, "Only matchNoArgsOnly=false patch should match getValue(int, int)");
+        MatchNoArgsTarget.patchCalled = null;
+        MatchNoArgsTarget.getValue(5, 7);
+        assertEquals("match_any", MatchNoArgsTarget.patchCalled, "Only matchNoArgsOnly=false patch should match getValue(int, int)");
     }
 }
 

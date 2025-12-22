@@ -3,7 +3,7 @@ package me.zed_0xff.zombie_buddy.testpatches;
 import me.zed_0xff.zombie_buddy.Patch;
 
 // Test patch using MethodDelegation (isAdvice=false) with @SuperMethod
-@Patch(className = "testjar.MethodDelegationTest", methodName = "multiply", isAdvice = false)
+@Patch(className = "testjar.MethodDelegationTarget", methodName = "multiply", isAdvice = false)
 public class TargetPatchMethodDelegation {
     @Patch.RuntimeType
     public static int multiply(@Patch.Argument(0) int x,
@@ -15,7 +15,7 @@ public class TargetPatchMethodDelegation {
     }
 
     // Test patch using MethodDelegation for a method with no parameters
-    @Patch(className = "testjar.MethodDelegationTest", methodName = "getMessage", isAdvice = false)
+    @Patch(className = "testjar.MethodDelegationTarget", methodName = "getMessage", isAdvice = false)
     public static class TargetPatchMethodDelegationNoArgs {
         @Patch.RuntimeType
         public static String getMessage(@Patch.SuperMethod java.lang.reflect.Method superMethod) throws Throwable {

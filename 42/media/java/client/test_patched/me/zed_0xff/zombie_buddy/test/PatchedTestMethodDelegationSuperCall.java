@@ -3,21 +3,21 @@ package me.zed_0xff.zombie_buddy.test;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-import testjar.MethodDelegationSuperCallTest;
+import testjar.MethodDelegationSuperCallTarget;
 
 public class PatchedTestMethodDelegationSuperCall {
     @Test
     void testMethodDelegationSuperCall() {
         // Test MethodDelegation patch using @SuperCall for multiply(int, int)
         // The patch should multiply the original result by 2
-        MethodDelegationSuperCallTest.wasCalled = false;
+        MethodDelegationSuperCallTarget.wasCalled = false;
         
-        int result = MethodDelegationSuperCallTest.multiply(5, 7);
+        int result = MethodDelegationSuperCallTarget.multiply(5, 7);
         // Original: 5 * 7 = 35, Patched: 35 * 2 = 70
         assertEquals(70, result, "MethodDelegation with @SuperCall should modify the return value");
         
         // Verify the original method was called (via callable.call())
-        assertTrue(MethodDelegationSuperCallTest.wasCalled, "Original method should be called via SuperCall");
+        assertTrue(MethodDelegationSuperCallTarget.wasCalled, "Original method should be called via SuperCall");
     }
 }
 

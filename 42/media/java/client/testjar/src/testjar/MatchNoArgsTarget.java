@@ -1,6 +1,6 @@
 package testjar;
 
-public class MatchNoArgsTest {
+public class MatchNoArgsTarget {
     // Flag to track which patch was called (set by patches)
     public static String patchCalled = null;
     

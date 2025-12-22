@@ -1,6 +1,6 @@
 package testjar;
 
-public class AdviceLocalTest {
+public class AdviceLocalTarget {
     // Flags to track values passed between enter and exit
     public static int localIntValue = 0;
     public static Integer localIntegerValue = null;

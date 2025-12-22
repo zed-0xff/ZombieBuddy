@@ -48,20 +48,20 @@ public class TargetPatch {
     }
 
     // Test strictMatch=false (default) - should match any method
-    @Patch(className = "testjar.MatchNoArgsTest", methodName = "getValue", strictMatch = false)
+    @Patch(className = "testjar.MatchNoArgsTarget", methodName = "getValue", strictMatch = false)
     public class TargetPatchMatchNoArgsFalse {
         @Patch.OnExit
         public static void exit() {
-            testjar.MatchNoArgsTest.patchCalled = "match_any";
+            testjar.MatchNoArgsTarget.patchCalled = "match_any";
         }
     }
 
     // Test strictMatch=true - should match only methods with no parameters
-    @Patch(className = "testjar.MatchNoArgsTest", methodName = "getValue", strictMatch = true)
+    @Patch(className = "testjar.MatchNoArgsTarget", methodName = "getValue", strictMatch = true)
     public class TargetPatchMatchNoArgsTrue {
         @Patch.OnExit
         public static void exit() {
-            testjar.MatchNoArgsTest.patchCalled = "match_no_args_only";
+            testjar.MatchNoArgsTarget.patchCalled = "match_no_args_only";
         }
     }
 }
