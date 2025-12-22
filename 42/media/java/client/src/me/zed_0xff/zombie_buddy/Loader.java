@@ -265,6 +265,16 @@ public class Loader {
             }
         }
 
+        // Check if we have Advice patches on already-loaded classes
+        // If so, we need to disable class format changes for retransformation to work
+        boolean hasAdviceOnLoadedClasses = false;
+        for (var entry : advicePatches.entrySet()) {
+            if (loadedClasses.contains(entry.getKey().className())) {
+                hasAdviceOnLoadedClasses = true;
+                break;
+            }
+        }
+
         var bbLogger = AgentBuilder.Listener.StreamWriting.toSystemOut().withErrorsOnly();
         if (g_verbosity > 0) {
             if (g_verbosity <= 2) {
@@ -274,7 +284,18 @@ public class Loader {
             }
         }
 
-        AgentBuilder builder = new AgentBuilder.Default()
+        AgentBuilder builder = new AgentBuilder.Default();
+        
+        // Only disable class format changes if we have Advice patches on already-loaded classes
+        // This is needed for retransformation to work, but breaks MethodDelegation
+        if (hasAdviceOnLoadedClasses) {
+            if (g_verbosity > 0) {
+                System.out.println("[ZB] Disabling class format changes for Advice patches on already-loaded classes");
+            }
+            builder = builder.disableClassFormatChanges();
+        }
+        
+        builder = builder
             .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
             .with(bbLogger)
             .with(new AgentBuilder.Listener.Adapter() {
@@ -640,6 +661,34 @@ public class Loader {
         }
         
         builder.installOn(g_instrumentation);
+
+        // Explicitly retransform already-loaded classes to ensure Advice is applied
+        // ByteBuddy's agent builder with RETRANSFORMATION strategy should handle this automatically,
+        // but we call retransformClasses() explicitly to trigger the transformation immediately.
+        // Note: ByteBuddy's Advice may not work correctly with retransformation for already-loaded classes
+        // due to JVM limitations. If this doesn't work, patches need to be loaded before the target class.
+        if (!loadedClasses.isEmpty()) {
+            System.out.println("[ZB] Explicitly retransforming " + loadedClasses.size() + " already-loaded class(es)");
+            System.out.println("[ZB] WARNING: Advice patches on already-loaded classes may not work due to JVM retransformation limitations.");
+            System.out.println("[ZB] Consider loading patches before the target class is loaded, or use MethodDelegation instead.");
+            for (String className : loadedClasses) {
+                try {
+                    Class<?> cls = Class.forName(className);
+                    // Retransform through ByteBuddy's agent pipeline
+                    g_instrumentation.retransformClasses(cls);
+                    if (g_verbosity > 0) {
+                        System.out.println("[ZB] Retransformed: " + className);
+                    }
+                } catch (ClassNotFoundException e) {
+                    System.err.println("[ZB] Could not find class for retransformation: " + className);
+                } catch (Exception e) {
+                    System.err.println("[ZB] Error retransforming class " + className + ": " + e.getMessage());
+                    if (g_verbosity > 0) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
 
         // Warm up classes _AFTER_ installing the agent builder
         for (String className : classesToWarmUp) {
