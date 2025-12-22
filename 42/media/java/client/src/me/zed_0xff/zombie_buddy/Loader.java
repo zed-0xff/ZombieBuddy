@@ -363,6 +363,7 @@ public class Loader {
                             boolean hasAllArguments = false;
                             boolean hasNoParamMethod = false;
                             List<Class<?>> inferredTypes = null;
+                            Integer minParameterCount = null; // For incomplete @Argument sequences
                             
                             // Track all inferred signatures to detect multiple methods with different signatures
                             java.util.Set<List<Class<?>>> allInferredSignatures = new java.util.HashSet<>();
@@ -401,7 +402,8 @@ public class Loader {
                                 }
                                 
                                 // Try to infer signature from @Argument annotations
-                                if (inferredTypes == null && !hasAllArguments) {
+                                // Process all methods to detect multiple signatures, not just the first one
+                                if (!hasAllArguments) {
                                     Class<?>[] paramTypes = adviceMethod.getParameterTypes();
                                     
                                     // Map to collect argument indices and their types
@@ -481,7 +483,15 @@ public class Loader {
                                                 inferredTypes = sig;
                                             }
                                         } else {
-                                            // Incomplete sequence - can't reliably infer signature
+                                            // Incomplete sequence - we can't infer exact signature, but we know
+                                            // the method needs at least (maxIndex + 1) parameters
+                                            int requiredParamCount = maxIndex + 1;
+                                            if (minParameterCount == null || requiredParamCount > minParameterCount) {
+                                                minParameterCount = requiredParamCount;
+                                            }
+                                            if (g_verbosity > 1) {
+                                                System.out.println("[ZB] DEBUG: Incomplete @Argument sequence, requires at least " + requiredParamCount + " parameters");
+                                            }
                                         }
                                     } else if (!argumentMap.isEmpty()) {
                                         // No @Argument annotations, but we have regular parameters
@@ -513,9 +523,20 @@ public class Loader {
                             // If we have multiple methods with different signatures, use name-based matching
                             // so ByteBuddy can match each method to the appropriate overload
                             boolean hasMultipleSignatures = allInferredSignatures.size() > 1;
+                            if (g_verbosity > 1) {
+                                System.out.println("[ZB] DEBUG: allInferredSignatures.size() = " + allInferredSignatures.size() + " for " + className + "." + methodName);
+                                for (List<Class<?>> sig : allInferredSignatures) {
+                                    System.out.println("[ZB] DEBUG:   signature: " + sig);
+                                }
+                            }
                             if (hasMultipleSignatures) {
                                 inferredTypes = null; // Clear inferred types to force name-based matching
                             }
+
+                            System.out.println("[ZB] hasMultipleSignatures: " + hasMultipleSignatures);
+                            System.out.println("[ZB] hasAllArguments: " + hasAllArguments);
+                            System.out.println("[ZB] hasNoParamMethod: " + hasNoParamMethod);
+                            System.out.println("[ZB] inferredTypes: " + inferredTypes);
                             
                             // Apply matching strategy
                             if (hasAllArguments) {
@@ -524,10 +545,14 @@ public class Loader {
                                     System.out.println("[ZB] Using name-based matching for " + methodName + " (has @AllArguments)");
                                 }
                             } else if (hasMultipleSignatures) {
-                                // Multiple methods with different signatures - use name-based matching
-                                // ByteBuddy will match each method to the appropriate overload
+                                // Multiple methods with different signatures - apply each with custom mapping
+                                // ByteBuddy's Advice API needs explicit mapping when multiple advice methods exist
+                                // We'll apply the advice once with name-based matching and let ByteBuddy match by parameter types
+                                methodMatcher = SyntaxSugar.methodMatcher(methodName);
                                 if (g_verbosity > 0) {
-                                    System.out.println("[ZB] Using name-based matching for " + methodName + " (multiple methods with different signatures)");
+                                    System.out.println("[ZB] Using name-based matching for " + methodName + 
+                                        " (multiple methods with different signatures: " + allInferredSignatures + ")");
+                                    System.out.println("[ZB] ByteBuddy will match each advice method to the appropriate overload by parameter types");
                                 }
                             } else if (hasNoParamMethod) {
                                 // No parameters = match only methods with no parameters
@@ -543,6 +568,19 @@ public class Loader {
                                 if (g_verbosity > 0) {
                                     System.out.println("[ZB] Inferred method signature for " + methodName + ": " + inferredTypes);
                                 }
+                            } else if (minParameterCount != null) {
+                                // Incomplete @Argument sequence - match methods with at least minParameterCount parameters
+                                final int minParams = minParameterCount;
+                                methodMatcher = SyntaxSugar.methodMatcher(methodName)
+                                    .and(new net.bytebuddy.matcher.ElementMatcher<net.bytebuddy.description.method.MethodDescription>() {
+                                        @Override
+                                        public boolean matches(net.bytebuddy.description.method.MethodDescription target) {
+                                            return target.getParameters().size() >= minParams;
+                                        }
+                                    });
+                                if (g_verbosity > 0) {
+                                    System.out.println("[ZB] Matching methods with at least " + minParams + " parameters for " + methodName);
+                                }
                             } else {
                                 // Error: Could not infer method signature
                                 System.err.println("[ZB] ERROR: Could not infer method signature for " + className + "." + methodName + 
@@ -553,7 +591,7 @@ public class Loader {
                             
                             try {
                                 result = result.visit(Advice.to(transformedClass).on(methodMatcher));
-                                if (g_verbosity > 1) {
+                                if (g_verbosity > 0) {
                                     System.out.println("[ZB] Applied advice to " + className + "." + methodName);
                                 }
                             } catch (Exception e) {

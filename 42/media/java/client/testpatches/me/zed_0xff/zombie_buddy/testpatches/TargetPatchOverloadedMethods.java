@@ -62,4 +62,24 @@ public class TargetPatchOverloadedMethods {
             testjar.OverloadedMethodsE.patchCalled = "both_separate2_double";
         }
     }
+
+    // Scenario 6: Multiple method matches with @Argument(1)
+    // This should match calculate(int, int) and calculate(int, int, int) since both have at least 2 parameters
+    @Patch(className = "testjar.OverloadedMethodsF", methodName = "calculate")
+    public class TargetPatchOverloadedMethodsF {
+        @Patch.OnExit
+        public static void exitWithArg1(@Patch.Argument(1) int secondArg) {
+            testjar.OverloadedMethodsF.patchCalled = "arg1_match";
+        }
+    }
+
+    // Scenario 7: Double method only match with @Argument(2)
+    // This should only match calculate(int, int, int) since it needs at least 3 parameters
+    @Patch(className = "testjar.OverloadedMethodsG", methodName = "calculate")
+    public class TargetPatchOverloadedMethodsG {
+        @Patch.OnExit
+        public static void exitWithArg2(@Patch.Argument(2) int thirdArg) {
+            testjar.OverloadedMethodsG.patchCalled = "arg2_match";
+        }
+    }
 }
