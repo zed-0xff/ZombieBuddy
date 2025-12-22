@@ -558,10 +558,12 @@ public class Loader {
                                 inferredTypes = null; // Clear inferred types to force name-based matching
                             }
 
-                            System.out.println("[ZB] hasMultipleSignatures: " + hasMultipleSignatures);
-                            System.out.println("[ZB] hasAllArguments: " + hasAllArguments);
-                            System.out.println("[ZB] hasNoParamMethod: " + hasNoParamMethod);
-                            System.out.println("[ZB] inferredTypes: " + inferredTypes);
+                            System.out.println(
+                                    "[ZB] hasMultipleSignatures: " + hasMultipleSignatures +
+                                    "[, hasAllArguments: " + hasAllArguments +
+                                    ", hasNoParamMethod: " + hasNoParamMethod +
+                                    ", inferredTypes: " + inferredTypes
+                                    );
                             
                             // Apply matching strategy
                             if (hasAllArguments) {
