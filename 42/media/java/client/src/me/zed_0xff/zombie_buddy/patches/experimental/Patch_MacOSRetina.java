@@ -89,10 +89,10 @@ public class Patch_MacOSRetina {
     // On Retina displays, we need to scale by 2x (content scale factor)
     @Patch(className = "org.lwjglx.input.Mouse", methodName = "addMoveEvent", isAdvice = false)
     public static class Patch_MouseAddMoveEvent {
-        @net.bytebuddy.implementation.bind.annotation.RuntimeType
-        public static void addMoveEvent(@net.bytebuddy.implementation.bind.annotation.Argument(0) double mouseX, 
-                                        @net.bytebuddy.implementation.bind.annotation.Argument(1) double mouseY,
-                                        @net.bytebuddy.implementation.bind.annotation.SuperMethod java.lang.reflect.Method superMethod) throws Throwable {
+        @Patch.RuntimeType
+        public static void addMoveEvent(@Patch.Argument(0) double mouseX, 
+                                        @Patch.Argument(1) double mouseY,
+                                        @Patch.SuperMethod java.lang.reflect.Method superMethod) throws Throwable {
             if (Patch_MacOSRetina.isPatchNeeded() && org.lwjglx.opengl.Display.isCreated()) {
                 long window = org.lwjglx.opengl.Display.getWindow();
                 float[] xscale = new float[1];

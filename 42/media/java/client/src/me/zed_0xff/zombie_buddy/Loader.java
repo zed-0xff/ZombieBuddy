@@ -526,11 +526,18 @@ public class Loader {
                         String methodName = entry.getKey();
                         Class<?> delegationClass = entry.getValue();
                         
+                        // Transform the delegation class to convert Patch.* annotations to ByteBuddy annotations
+                        Class<?> transformedDelegationClass = PatchTransformer.transformPatchClass(delegationClass, g_instrumentation, g_verbosity);
+                        if (transformedDelegationClass == null) {
+                            System.err.println("[ZB] ERROR: PatchTransformer returned null for " + delegationClass.getName());
+                            transformedDelegationClass = delegationClass; // Fall back to original
+                        }
+                        
                         System.out.println("[ZB] patching " + className + "." + methodName + " with delegation");
                         
                         result = result
                             .method(SyntaxSugar.methodMatcher(methodName))
-                            .intercept(MethodDelegation.to(delegationClass));
+                            .intercept(MethodDelegation.to(transformedDelegationClass));
                     }
                     
                     return result;

@@ -58,4 +58,16 @@ public @interface Patch {
   public @interface AllArguments {
     boolean readOnly() default true;
   }
+  
+  /** Alias for net.bytebuddy.implementation.bind.annotation.RuntimeType - mods should use Patch.RuntimeType instead */
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target(ElementType.METHOD)
+  public @interface RuntimeType {
+  }
+  
+  /** Alias for net.bytebuddy.implementation.bind.annotation.SuperMethod - mods should use Patch.SuperMethod instead */
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target(ElementType.PARAMETER)
+  public @interface SuperMethod {
+  }
   }

@@ -30,7 +30,8 @@ final class PatchTransformer {
             for (Method method : patchClass.getDeclaredMethods()) {
                 boolean hasOnEnter = method.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.OnEnter.class);
                 boolean hasOnExit = method.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.OnExit.class);
-                if (hasOnEnter || hasOnExit) {
+                boolean hasRuntimeType = method.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.RuntimeType.class);
+                if (hasOnEnter || hasOnExit || hasRuntimeType) {
                     needsTransformation = true;
                 }
                 // Warn about non-void return types (check all methods, not just first one)
@@ -48,7 +49,8 @@ final class PatchTransformer {
                     for (java.lang.reflect.Parameter param : method.getParameters()) {
                         if (param.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.Return.class) ||
                             param.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.This.class) ||
-                            param.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.Argument.class)) {
+                            param.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.Argument.class) ||
+                            param.isAnnotationPresent(me.zed_0xff.zombie_buddy.Patch.SuperMethod.class)) {
                             needsTransformation = true;
                             break;
                         }
@@ -97,7 +99,8 @@ final class PatchTransformer {
                             String newDescriptor = rewriteAnnotationDescriptor(descriptor);
                             
                             if (originalDescriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$OnEnter;") ||
-                                originalDescriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$OnExit;")) {
+                                originalDescriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$OnExit;") ||
+                                originalDescriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$RuntimeType;")) {
                                 hasPatchAnnotation[0] = true;
                             }
                             
@@ -228,6 +231,10 @@ final class PatchTransformer {
             return "Lnet/bytebuddy/asm/Advice$Argument;";
         } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$AllArguments;")) {
             return "Lnet/bytebuddy/asm/Advice$AllArguments;";
+        } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$RuntimeType;")) {
+            return "Lnet/bytebuddy/implementation/bind/annotation/RuntimeType;";
+        } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$SuperMethod;")) {
+            return "Lnet/bytebuddy/implementation/bind/annotation/SuperMethod;";
         }
         return descriptor;
     }
