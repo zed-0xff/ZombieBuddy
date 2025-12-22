@@ -23,12 +23,15 @@ public class TargetPatchOverloadedMethods {
 
     // Scenario 3: Patch both methods with different patches
     @Patch(className = "testjar.OverloadedMethodsC", methodName = "calculate")
-    public class TargetPatchOverloadedMethodsC {
+    public class TargetPatchOverloadedMethodsC1 {
         @Patch.OnExit
         public static void exitSingle(int x) {
             testjar.OverloadedMethodsC.patchCalled = "both_separate_single";
         }
-        
+    }
+
+    @Patch(className = "testjar.OverloadedMethodsC", methodName = "calculate")
+    public class TargetPatchOverloadedMethodsC2 {
         @Patch.OnExit
         public static void exitDouble(int x, int y) {
             testjar.OverloadedMethodsC.patchCalled = "both_separate_double";
