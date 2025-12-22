@@ -78,6 +78,17 @@ public class Agent {
             }
         }
 
+        // Check ZB_VERBOSITY environment variable - it overrides command line value
+        String envVerbosity = System.getenv("ZB_VERBOSITY");
+        if (envVerbosity != null && !envVerbosity.isEmpty()) {
+            try {
+                Loader.g_verbosity = Integer.parseInt(envVerbosity);
+                System.err.println("[ZB] set verbosity to " + Loader.g_verbosity + " from ZB_VERBOSITY environment variable");
+            } catch (NumberFormatException e) {
+                System.err.println("[ZB] invalid ZB_VERBOSITY value: " + envVerbosity);
+            }
+        }
+
         Loader.ApplyPatchesFromPackage(ZombieBuddy.class.getPackage().getName() + ".patches", null, true);
         
         // Load experimental patches if enabled
