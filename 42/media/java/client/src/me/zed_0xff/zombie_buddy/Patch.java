@@ -72,4 +72,10 @@ public @interface Patch {
   @Target(ElementType.PARAMETER)
   public @interface SuperMethod {
   }
+  
+  /** Alias for net.bytebuddy.implementation.bind.annotation.SuperCall - mods should use Patch.SuperCall instead */
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target(ElementType.PARAMETER)
+  public @interface SuperCall {
   }
+}
