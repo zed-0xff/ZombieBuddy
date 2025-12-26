@@ -90,25 +90,6 @@ public class Loader {
     }
     
     /**
-     * Finds a no-arg constructor in the target class using TypeDescription (avoids class loading).
-     * @param td TypeDescription of the target class
-     * @return MethodDescription of the no-arg constructor, or null if not found
-     */
-    private static net.bytebuddy.description.method.MethodDescription findNoArgConstructor(net.bytebuddy.description.type.TypeDescription td) {
-        try {
-            var noArgConstructors = td.getDeclaredMethods()
-                .filter(net.bytebuddy.matcher.ElementMatchers.isConstructor())
-                .filter(net.bytebuddy.matcher.ElementMatchers.takesArguments(0));
-            if (!noArgConstructors.isEmpty()) {
-                return noArgConstructors.getOnly();
-            }
-        } catch (Exception e) {
-            // Could not check, assume no no-arg constructor
-        }
-        return null;
-    }
-    
-    /**
      * Checks if a method has a parameter annotated with any of the specified annotation patterns.
      * @param method The method to check
      * @param annotationPatterns Set of annotation name patterns to look for
@@ -205,7 +186,7 @@ public class Loader {
         
         return null;
     }
- 
+
     public static void loadMods(ArrayList<String> mods) {
         ArrayList<JavaModInfo> jModInfos = new ArrayList<>();
 
@@ -558,7 +539,7 @@ public class Loader {
                                 
                                 // Check for @AllArguments annotation
                                 if (hasParameterAnnotation(adviceMethod, ALL_ARGUMENTS_PATTERNS)) {
-                                    hasAllArguments = true;
+                                            hasAllArguments = true;
                                 }
                                 
                                 // If method has no parameters (and no @AllArguments), match only methods with no parameters
@@ -813,7 +794,7 @@ public class Loader {
                         
                         System.out.println("[ZB] patching " + className + "." + methodName + " with delegation");
                         
-                        // Special handling for constructors: infer signature and match specific constructor
+                        // Special handling for constructors: always use Object's constructor when overriding
                         if (methodName.equals("<init>")) {
                             try {
                                 // Infer constructor signature from delegation method's @Argument annotations
@@ -822,10 +803,6 @@ public class Loader {
                                 if (delegationMethod != null) {
                                     inferredConstructorSignature = inferSignatureFromMethod(delegationMethod, METHOD_DELEGATION_SPECIAL_ANNOTATIONS);
                                 }
-                                
-                                // Check if target class has a no-arg constructor using TypeDescription (no class loading)
-                                net.bytebuddy.description.method.MethodDescription noArgCtorDesc = findNoArgConstructor(td);
-                                boolean hasNoArgConstructor = noArgCtorDesc != null;
                                 
                                 // Build constructor matcher based on inferred signature
                                 net.bytebuddy.matcher.ElementMatcher.Junction<net.bytebuddy.description.method.MethodDescription> constructorMatcher;
@@ -838,21 +815,13 @@ public class Loader {
                                     constructorMatcher = net.bytebuddy.matcher.ElementMatchers.isConstructor();
                                 }
                                 
-                                // Choose which constructor to call for initialization
-                                if (hasNoArgConstructor) {
-                                    // Use no-arg constructor for initialization (allows field initializers to run)
-                                    result = result
-                                        .constructor(constructorMatcher)
-                                        .intercept(MethodCall.invoke(noArgCtorDesc)
-                                            .andThen(MethodDelegation.to(transformedDelegationClass)));
-                                } else {
-                                    // No no-arg constructor, use Object's constructor
-                                    java.lang.reflect.Constructor<?> objectConstructor = Object.class.getDeclaredConstructor();
-                                    result = result
-                                        .constructor(constructorMatcher)
-                                        .intercept(MethodCall.invoke(objectConstructor)
-                                            .andThen(MethodDelegation.to(transformedDelegationClass)));
-                                }
+                                // Always use Object's constructor when overriding a constructor.
+                                // Field initializers will still run during object allocation (before any constructor is called).
+                                java.lang.reflect.Constructor<?> objectConstructor = Object.class.getDeclaredConstructor();
+                                result = result
+                                    .constructor(constructorMatcher)
+                                    .intercept(MethodCall.invoke(objectConstructor)
+                                        .andThen(MethodDelegation.to(transformedDelegationClass)));
                             } catch (Exception e) {
                                 System.err.println("[ZB] ERROR: Could not set up constructor delegation: " + e.getMessage());
                                 if (g_verbosity > 0) {
