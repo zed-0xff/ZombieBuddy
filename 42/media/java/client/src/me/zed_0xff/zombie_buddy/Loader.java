@@ -25,6 +25,7 @@ import io.github.classgraph.*;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.implementation.MethodDelegation;
+import net.bytebuddy.implementation.SuperMethodCall;
 import net.bytebuddy.matcher.ElementMatchers;
 
 import zombie.ZomboidFileSystem;
@@ -673,9 +674,18 @@ public class Loader {
                         
                         System.out.println("[ZB] patching " + className + "." + methodName + " with delegation");
                         
-                        result = result
-                            .method(SyntaxSugar.methodMatcher(methodName))
-                            .intercept(MethodDelegation.to(transformedDelegationClass));
+                        // Special handling for constructors: JVM requires SuperMethodCall to call super()
+                        // We use SuperMethodCall.INSTANCE to satisfy JVM requirement (calls Object's constructor)
+                        // Then MethodDelegation runs, which can manually initialize fields without calling original constructor body
+                        if (methodName.equals("<init>")) {
+                            result = result
+                                .constructor(ElementMatchers.any())
+                                .intercept(SuperMethodCall.INSTANCE.andThen(MethodDelegation.to(transformedDelegationClass)));
+                        } else {
+                            result = result
+                                .method(SyntaxSugar.methodMatcher(methodName))
+                                .intercept(MethodDelegation.to(transformedDelegationClass));
+                        }
                     }
                     
                     return result;

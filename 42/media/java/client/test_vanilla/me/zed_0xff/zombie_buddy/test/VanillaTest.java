@@ -8,6 +8,7 @@ import testjar.CustomObject;
 import testjar.OverloadedMethods;
 import testjar.AdviceLocalTarget;
 import testjar.MethodDelegationThisTarget;
+import testjar.ConstructorDelegationTarget;
 
 public class VanillaTest {
     @Test
@@ -97,6 +98,17 @@ public class VanillaTest {
         int result = target.multiply(5);
         // Original: 10 * 5 = 50 (no patch applied)
         assertEquals(50, result, "MethodDelegation with @Patch.This as Object should NOT be applied in vanilla");
+    }
+    
+    @Test
+    void testConstructorDelegationVanilla() {
+        // Test that constructor works without MethodDelegation patch
+        ConstructorDelegationTarget instance = new ConstructorDelegationTarget(42, "test");
+        
+        assertEquals(42, instance.getValue());
+        assertEquals("test", instance.getName());
+        assertTrue(instance.constructorCalled, "Original constructor should be called");
+        assertFalse(instance.patchIntercepted, "Patch should NOT be applied in vanilla");
     }
 }
 
