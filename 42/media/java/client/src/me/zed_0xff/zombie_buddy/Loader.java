@@ -438,6 +438,7 @@ public class Loader {
                                     
                                     for (int i = 0; i < paramAnns.length; i++) {
                                         boolean isArgument = false;
+                                        boolean isLocal = false;
                                         int argumentIndex = -1;
                                         
                                         for (java.lang.annotation.Annotation ann : paramAnns[i]) {
@@ -457,15 +458,24 @@ public class Loader {
                                                 Class<?> paramType = paramTypes[i];
                                                 argumentMap.put(argumentIndex, paramType.isArray() ? paramType.getComponentType() : paramType);
                                                 break;
+                                            } else if (annType.contains("Advice$Local")) {
+                                                // @Local parameters are not part of the target method signature
+                                                isLocal = true;
+                                                break;
                                             }
                                         }
                                         
-                                        // If not @Argument and not @Return/@AllArguments, include it as a regular parameter
+                                        // Skip @Local parameters - they're not part of the target method signature
+                                        if (isLocal) {
+                                            continue;
+                                        }
+                                        
+                                        // If not @Argument and not @Return/@AllArguments/@Local, include it as a regular parameter
                                         if (!isArgument) {
                                             boolean isSpecial = false;
                                             for (java.lang.annotation.Annotation ann : paramAnns[i]) {
                                                 String annType = ann.annotationType().getName();
-                                                if (annType.contains("Advice$Return") || annType.contains("Advice$AllArguments")) {
+                                                if (annType.contains("Advice$Return") || annType.contains("Advice$AllArguments") || annType.contains("Advice$Local")) {
                                                     isSpecial = true;
                                                     break;
                                                 }
@@ -497,6 +507,22 @@ public class Loader {
                                             }
                                         }
                                         
+                                        // For @Argument annotations, we use "at least N parameters" matching
+                                        // This allows @Argument(0) to match methods with 1, 2, 3+ parameters
+                                        // and @Argument(1) to match methods with 2, 3+ parameters, etc.
+                                        int requiredParamCount = maxIndex + 1;
+                                        if (minParameterCount == null || requiredParamCount > minParameterCount) {
+                                            minParameterCount = requiredParamCount;
+                                        }
+                                        if (g_verbosity > 1) {
+                                            if (hasCompleteSequence) {
+                                                System.out.println("[ZB] DEBUG: Complete @Argument sequence (0 to " + maxIndex + "), matching methods with at least " + requiredParamCount + " parameters");
+                                            } else {
+                                                System.out.println("[ZB] DEBUG: Incomplete @Argument sequence, requires at least " + requiredParamCount + " parameters");
+                                            }
+                                        }
+                                        
+                                        // Still build signature for multiple signature detection, but don't use it for exact matching
                                         if (hasCompleteSequence) {
                                             // Build the signature list in order
                                             List<Class<?>> sig = new ArrayList<>();
@@ -504,19 +530,7 @@ public class Loader {
                                                 sig.add(argumentMap.get(idx));
                                             }
                                             allInferredSignatures.add(sig);
-                                            if (inferredTypes == null) {
-                                                inferredTypes = sig;
-                                            }
-                                        } else {
-                                            // Incomplete sequence - we can't infer exact signature, but we know
-                                            // the method needs at least (maxIndex + 1) parameters
-                                            int requiredParamCount = maxIndex + 1;
-                                            if (minParameterCount == null || requiredParamCount > minParameterCount) {
-                                                minParameterCount = requiredParamCount;
-                                            }
-                                            if (g_verbosity > 1) {
-                                                System.out.println("[ZB] DEBUG: Incomplete @Argument sequence, requires at least " + requiredParamCount + " parameters");
-                                            }
+                                            // Don't set inferredTypes - we'll use minParameterCount for matching instead
                                         }
                                     } else if (!argumentMap.isEmpty()) {
                                         // No @Argument annotations, but we have regular parameters
@@ -597,15 +611,9 @@ public class Loader {
                                         System.out.println("[ZB] Matching any method for " + methodName + " (strictMatch=false, default)");
                                     }
                                 }
-                            } else if (inferredTypes != null && !inferredTypes.isEmpty()) {
-                                // We can infer signature from @Argument annotations or regular parameters
-                                methodMatcher = SyntaxSugar.methodMatcher(methodName)
-                                    .and(ElementMatchers.takesArguments(inferredTypes.toArray(new Class<?>[0])));
-                                if (g_verbosity > 0) {
-                                    System.out.println("[ZB] Inferred method signature for " + methodName + ": " + inferredTypes);
-                                }
                             } else if (minParameterCount != null) {
-                                // Incomplete @Argument sequence - match methods with at least minParameterCount parameters
+                                // @Argument annotations - match methods with at least minParameterCount parameters
+                                // This takes precedence over exact signature matching for @Argument annotations
                                 final int minParams = minParameterCount;
                                 methodMatcher = SyntaxSugar.methodMatcher(methodName)
                                     .and(new net.bytebuddy.matcher.ElementMatcher<net.bytebuddy.description.method.MethodDescription>() {
@@ -616,6 +624,13 @@ public class Loader {
                                     });
                                 if (g_verbosity > 0) {
                                     System.out.println("[ZB] Matching methods with at least " + minParams + " parameters for " + methodName);
+                                }
+                            } else if (inferredTypes != null && !inferredTypes.isEmpty()) {
+                                // We can infer signature from regular parameters (not @Argument annotations)
+                                methodMatcher = SyntaxSugar.methodMatcher(methodName)
+                                    .and(ElementMatchers.takesArguments(inferredTypes.toArray(new Class<?>[0])));
+                                if (g_verbosity > 0) {
+                                    System.out.println("[ZB] Inferred method signature for " + methodName + ": " + inferredTypes);
                                 }
                             } else {
                                 // Error: Could not infer method signature
@@ -1138,3 +1153,4 @@ public class Loader {
         }
     }
 }
+

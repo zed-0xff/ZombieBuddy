@@ -82,4 +82,32 @@ public class TargetPatchOverloadedMethods {
             testjar.OverloadedMethodsG.patchCalled = "arg2_match";
         }
     }
+
+    // Scenario 8: Multiple method matches with @Argument(1) and @Local variable
+    // This should match calculate(int, int) and calculate(int, int, int) since both have at least 2 parameters
+    // Uses @Local to share state between enter and exit
+    @Patch(className = "testjar.OverloadedMethodsH", methodName = "calculate")
+    public class TargetPatchOverloadedMethodsH {
+        @Patch.OnEnter
+        public static void enterWithArg1(@Patch.Argument(1) int secondArg, @Patch.Local("argValue") int argValue) {
+            // Store the second argument value in the local variable
+            argValue = secondArg;
+        }
+        
+        @Patch.OnExit
+        public static void exitWithArg1(@Patch.Argument(1) int secondArg, @Patch.Local("argValue") int argValue) {
+            // Use the local variable to set the patch called flag
+            testjar.OverloadedMethodsH.patchCalled = "arg1_local_" + argValue;
+        }
+    }
+
+    // Scenario 9: Multiple method matches with @Argument(0)
+    // This should match calculate(int), calculate(int, int), and calculate(int, int, int) since all have at least 1 parameter
+    @Patch(className = "testjar.OverloadedMethodsI", methodName = "calculate")
+    public class TargetPatchOverloadedMethodsI {
+        @Patch.OnExit
+        public static void exitWithArg0(@Patch.Argument(0) int firstArg) {
+            testjar.OverloadedMethodsI.patchCalled = "arg0_match";
+        }
+    }
 }
