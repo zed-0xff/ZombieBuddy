@@ -5,7 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import testjar.TargetClass;
 import testjar.CustomObject;
-import testjar.OverloadedMethodsB;
+import testjar.OverloadedMethods;
+import testjar.AdviceLocalTarget;
 
 public class VanillaTest {
     @Test
@@ -45,28 +46,46 @@ public class VanillaTest {
     @Test
     void testCalculateSingleParameter() {
         // calculate(5) should return 50 (unpatched: 5 * 10)
-        assertEquals(50, OverloadedMethodsB.calculate(5));
-        assertEquals(100, OverloadedMethodsB.calculate(10));
+        assertEquals(50, OverloadedMethods.calculate(5));
+        assertEquals(100, OverloadedMethods.calculate(10));
     }
     
     @Test
     void testCalculateTwoParameters() {
         // calculate(5, 7) should return 35 (unpatched: 5 * 7)
-        assertEquals(35, OverloadedMethodsB.calculate(5, 7));
-        assertEquals(20, OverloadedMethodsB.calculate(4, 5));
+        assertEquals(35, OverloadedMethods.calculate(5, 7));
+        assertEquals(20, OverloadedMethods.calculate(4, 5));
     }
     
     @Test
     void testOverloadedMethodsNoPatches() {
         // Verify no patches are active in vanilla tests
         // patchCalled should remain null
-        OverloadedMethodsB.patchCalled = null;
-        OverloadedMethodsB.calculate(5);
-        assertNull(OverloadedMethodsB.patchCalled, "patchCalled should be null when no patches are applied");
+        OverloadedMethods.patchCalled = null;
+        OverloadedMethods.calculate(5);
+        assertNull(OverloadedMethods.patchCalled, "patchCalled should be null when no patches are applied");
         
-        OverloadedMethodsB.patchCalled = null;
-        OverloadedMethodsB.calculate(5, 7);
-        assertNull(OverloadedMethodsB.patchCalled, "patchCalled should be null when no patches are applied");
+        OverloadedMethods.patchCalled = null;
+        OverloadedMethods.calculate(5, 7);
+        assertNull(OverloadedMethods.patchCalled, "patchCalled should be null when no patches are applied");
+    }
+    
+    @Test
+    void testThisAsObjectPatternVanilla() {
+        // Create an instance
+        AdviceLocalTarget target = new AdviceLocalTarget();
+        
+        // Reset flag
+        target.instancePatchCalled = false;
+        
+        // Call the instance method - no patch should be applied
+        int result = target.multiply(5);
+        
+        // Verify the original method works (10 * 5 = 50)
+        assertEquals(50, result);
+        
+        // Verify the patch was NOT called (no patches applied in vanilla)
+        assertFalse(target.instancePatchCalled, "Patch with @Patch.This as Object should NOT be called in vanilla");
     }
 }
 

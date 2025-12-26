@@ -439,6 +439,7 @@ public class Loader {
                                     for (int i = 0; i < paramAnns.length; i++) {
                                         boolean isArgument = false;
                                         boolean isLocal = false;
+                                        boolean isThis = false;
                                         int argumentIndex = -1;
                                         
                                         for (java.lang.annotation.Annotation ann : paramAnns[i]) {
@@ -462,20 +463,24 @@ public class Loader {
                                                 // @Local parameters are not part of the target method signature
                                                 isLocal = true;
                                                 break;
+                                            } else if (annType.contains("Advice$This")) {
+                                                // @This parameters are not part of the target method signature
+                                                isThis = true;
+                                                break;
                                             }
                                         }
                                         
-                                        // Skip @Local parameters - they're not part of the target method signature
-                                        if (isLocal) {
+                                        // Skip @Local and @This parameters - they're not part of the target method signature
+                                        if (isLocal || isThis) {
                                             continue;
                                         }
                                         
-                                        // If not @Argument and not @Return/@AllArguments/@Local, include it as a regular parameter
+                                        // If not @Argument and not @Return/@AllArguments/@Local/@This, include it as a regular parameter
                                         if (!isArgument) {
                                             boolean isSpecial = false;
                                             for (java.lang.annotation.Annotation ann : paramAnns[i]) {
                                                 String annType = ann.annotationType().getName();
-                                                if (annType.contains("Advice$Return") || annType.contains("Advice$AllArguments") || annType.contains("Advice$Local")) {
+                                                if (annType.contains("Advice$Return") || annType.contains("Advice$AllArguments") || annType.contains("Advice$Local") || annType.contains("Advice$This")) {
                                                     isSpecial = true;
                                                     break;
                                                 }
@@ -540,7 +545,7 @@ public class Loader {
                                             boolean isSpecial = false;
                                             for (java.lang.annotation.Annotation ann : paramAnns[idx]) {
                                                 String annType = ann.annotationType().getName();
-                                                if (annType.contains("Advice$Return") || annType.contains("Advice$AllArguments")) {
+                                                if (annType.contains("Advice$Return") || annType.contains("Advice$AllArguments") || annType.contains("Advice$This")) {
                                                     isSpecial = true;
                                                     break;
                                                 }
