@@ -24,5 +24,20 @@ public class TargetPatchMethodDelegation {
             return original + "_patched";
         }
     }
+    
+    // Test patch using MethodDelegation with @Patch.This as Object for an instance method
+    @Patch(className = "testjar.MethodDelegationThisTarget", methodName = "multiply", isAdvice = false)
+    public static class TargetPatchMethodDelegationThisAsObject {
+        @Patch.RuntimeType
+        public static int multiply(@Patch.This Object self,
+                                   @Patch.Argument(0) int x,
+                                   @Patch.SuperMethod java.lang.reflect.Method superMethod) throws Throwable {
+            // Cast to proper type in the body to avoid LinkageError
+            testjar.MethodDelegationThisTarget target = (testjar.MethodDelegationThisTarget) self;
+            // Call super method and modify result
+            int originalResult = (Integer) superMethod.invoke(target, x);
+            return originalResult * 2; // Return double the original result
+        }
+    }
 }
 

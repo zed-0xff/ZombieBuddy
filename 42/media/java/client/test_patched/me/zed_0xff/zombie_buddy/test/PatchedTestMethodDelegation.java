@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 import testjar.MethodDelegationTarget;
+import testjar.MethodDelegationThisTarget;
 
 public class PatchedTestMethodDelegation {
     @Test
@@ -26,6 +27,16 @@ public class PatchedTestMethodDelegation {
         String result = MethodDelegationTarget.getMessage();
         // Original: "original", Patched: "original_patched"
         assertEquals("original_patched", result, "MethodDelegation should modify the return value");
+    }
+    
+    @Test
+    void testMethodDelegationWithThisAsObject() {
+        // Test MethodDelegation patch with @Patch.This as Object for an instance method
+        MethodDelegationThisTarget target = new MethodDelegationThisTarget();
+        
+        int result = target.multiply(5);
+        // Original: 10 * 5 = 50, Patched: 50 * 2 = 100
+        assertEquals(100, result, "MethodDelegation with @Patch.This as Object should work");
     }
 }
 

@@ -7,6 +7,7 @@ import testjar.TargetClass;
 import testjar.CustomObject;
 import testjar.OverloadedMethods;
 import testjar.AdviceLocalTarget;
+import testjar.MethodDelegationThisTarget;
 
 public class VanillaTest {
     @Test
@@ -86,6 +87,16 @@ public class VanillaTest {
         
         // Verify the patch was NOT called (no patches applied in vanilla)
         assertFalse(target.instancePatchCalled, "Patch with @Patch.This as Object should NOT be called in vanilla");
+    }
+    
+    @Test
+    void testMethodDelegationWithThisAsObjectVanilla() {
+        // Test that instance method works without MethodDelegation patch
+        MethodDelegationThisTarget target = new MethodDelegationThisTarget();
+        
+        int result = target.multiply(5);
+        // Original: 10 * 5 = 50 (no patch applied)
+        assertEquals(50, result, "MethodDelegation with @Patch.This as Object should NOT be applied in vanilla");
     }
 }
 

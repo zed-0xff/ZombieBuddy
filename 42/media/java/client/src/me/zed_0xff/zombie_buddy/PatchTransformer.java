@@ -22,9 +22,15 @@ final class PatchTransformer {
      * Transforms a patch class by replacing Patch.OnEnter/OnExit/Return annotations with 
      * net.bytebuddy.asm.Advice.* annotations in the class bytecode.
      * This allows mods to use Patch.* annotations without depending on ByteBuddy directly.
+     * 
+     * @param patchClass The patch class to transform
+     * @param instrumentation Instrumentation instance for class redefinition
+     * @param verbosity Verbosity level for logging
+     * @param isMethodDelegation Whether this is a MethodDelegation patch (true) or Advice patch (false)
      */
-    public static Class<?> transformPatchClass(Class<?> patchClass, Instrumentation instrumentation, int verbosity) {
+    public static Class<?> transformPatchClass(Class<?> patchClass, Instrumentation instrumentation, int verbosity, boolean isMethodDelegation) {
         try {
+            
             // Check if transformation is needed and warn about non-void return types
             boolean needsTransformation = false;
             for (Method method : patchClass.getDeclaredMethods()) {
@@ -81,6 +87,7 @@ final class PatchTransformer {
             classStream.close();
 
             // Use ASM to rewrite annotation descriptors
+            final boolean isMethodDelegationFinal = isMethodDelegation;
             ClassReader cr = new ClassReader(classBytes);
             ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES);
             cr.accept(new ClassVisitor(Opcodes.ASM9, cw) {
@@ -98,7 +105,7 @@ final class PatchTransformer {
                         @Override
                         public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
                             String originalDescriptor = descriptor;
-                            String newDescriptor = rewriteAnnotationDescriptor(descriptor);
+                            String newDescriptor = rewriteAnnotationDescriptor(descriptor, isMethodDelegationFinal);
                             
                             if (originalDescriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$OnEnter;") ||
                                 originalDescriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$OnExit;") ||
@@ -143,7 +150,7 @@ final class PatchTransformer {
 
                         @Override
                         public AnnotationVisitor visitParameterAnnotation(int parameter, String descriptor, boolean visible) {
-                            String newDescriptor = rewriteAnnotationDescriptor(descriptor);
+                            String newDescriptor = rewriteAnnotationDescriptor(descriptor, isMethodDelegationFinal);
                             if (!newDescriptor.equals(descriptor)) {
                                 // We need to rewrite the annotation - create the new annotation and forward values
                                 AnnotationVisitor av = super.visitParameterAnnotation(parameter, newDescriptor, visible);
@@ -220,7 +227,7 @@ final class PatchTransformer {
         }
     }
 
-    private static String rewriteAnnotationDescriptor(String descriptor) {
+    private static String rewriteAnnotationDescriptor(String descriptor, boolean isMethodDelegation) {
         if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$OnEnter;")) {
             return "Lnet/bytebuddy/asm/Advice$OnMethodEnter;";
         } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$OnExit;")) {
@@ -228,11 +235,26 @@ final class PatchTransformer {
         } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$Return;")) {
             return "Lnet/bytebuddy/asm/Advice$Return;";
         } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$This;")) {
-            return "Lnet/bytebuddy/asm/Advice$This;";
+            // For MethodDelegation, use bind.annotation.This; for Advice, use asm.Advice$This
+            if (isMethodDelegation) {
+                return "Lnet/bytebuddy/implementation/bind/annotation/This;";
+            } else {
+                return "Lnet/bytebuddy/asm/Advice$This;";
+            }
         } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$Argument;")) {
-            return "Lnet/bytebuddy/asm/Advice$Argument;";
+            // For MethodDelegation, use bind.annotation.Argument; for Advice, use asm.Advice$Argument
+            if (isMethodDelegation) {
+                return "Lnet/bytebuddy/implementation/bind/annotation/Argument;";
+            } else {
+                return "Lnet/bytebuddy/asm/Advice$Argument;";
+            }
         } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$AllArguments;")) {
-            return "Lnet/bytebuddy/asm/Advice$AllArguments;";
+            // For MethodDelegation, use bind.annotation.AllArguments; for Advice, use asm.Advice$AllArguments
+            if (isMethodDelegation) {
+                return "Lnet/bytebuddy/implementation/bind/annotation/AllArguments;";
+            } else {
+                return "Lnet/bytebuddy/asm/Advice$AllArguments;";
+            }
         } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$RuntimeType;")) {
             return "Lnet/bytebuddy/implementation/bind/annotation/RuntimeType;";
         } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$SuperMethod;")) {

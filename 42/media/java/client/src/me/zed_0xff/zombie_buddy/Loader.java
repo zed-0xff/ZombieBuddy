@@ -371,7 +371,7 @@ public class Loader {
                             // Transform patch class to replace Patch.* annotations with ByteBuddy's
                             Class<?> transformedClass;
                             try {
-                                transformedClass = PatchTransformer.transformPatchClass(adviceClass, g_instrumentation, g_verbosity);
+                                transformedClass = PatchTransformer.transformPatchClass(adviceClass, g_instrumentation, g_verbosity, false);
                                 if (transformedClass == null) {
                                     System.err.println("[ZB] ERROR: PatchTransformer returned null for " + adviceClass.getName());
                                     continue;
@@ -665,7 +665,7 @@ public class Loader {
                         Class<?> delegationClass = entry.getValue();
                         
                         // Transform the delegation class to convert Patch.* annotations to ByteBuddy annotations
-                        Class<?> transformedDelegationClass = PatchTransformer.transformPatchClass(delegationClass, g_instrumentation, g_verbosity);
+                        Class<?> transformedDelegationClass = PatchTransformer.transformPatchClass(delegationClass, g_instrumentation, g_verbosity, true);
                         if (transformedDelegationClass == null) {
                             System.err.println("[ZB] ERROR: PatchTransformer returned null for " + delegationClass.getName());
                             transformedDelegationClass = delegationClass; // Fall back to original
