@@ -109,6 +109,10 @@ public class VanillaTest {
         assertEquals("test", instance.getName());
         assertTrue(instance.constructorCalled, "Original constructor should be called");
         assertFalse(instance.patchIntercepted, "Patch should NOT be applied in vanilla");
+        assertEquals(42, instance.defaultField, "Default field should remain unchanged");
+
+        ConstructorDelegationTarget instance0 = new ConstructorDelegationTarget();
+        assertEquals(42, instance0.defaultField, "Default field should remain unchanged");
     }
 }
 

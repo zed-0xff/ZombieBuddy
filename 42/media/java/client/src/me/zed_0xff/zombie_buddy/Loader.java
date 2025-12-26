@@ -49,7 +49,163 @@ public class Loader {
 
     // Key for grouping patches by class+method
     private static record PatchTarget(String className, String methodName) {}
-
+    
+    // Annotation pattern constants for reuse
+    private static final Set<String> ADVICE_ANNOTATION_PATTERNS = Set.of("Advice$OnMethodEnter", "Advice$OnMethodExit");
+    private static final Set<String> RUNTIME_TYPE_PATTERNS = Set.of("RuntimeType");
+    private static final Set<String> METHOD_DELEGATION_SPECIAL_ANNOTATIONS = Set.of("This", "SuperCall", "SuperMethod");
+    private static final Set<String> ALL_ARGUMENTS_PATTERNS = Set.of("Advice$AllArguments");
+    
+    /**
+     * Checks if a method has any annotation matching the given patterns.
+     * @param method The method to check
+     * @param annotationPatterns Set of annotation name patterns to look for
+     * @return true if the method has any matching annotation
+     */
+    private static boolean hasAnnotation(Method method, Set<String> annotationPatterns) {
+        for (java.lang.annotation.Annotation ann : method.getAnnotations()) {
+            String annType = ann.annotationType().getName();
+            for (String pattern : annotationPatterns) {
+                if (annType.contains(pattern)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * Finds the first method in a class that has any of the specified annotation patterns.
+     * @param clazz The class to search
+     * @param annotationPatterns Set of annotation name patterns to look for
+     * @return The first matching method, or null if none found
+     */
+    private static Method findMethodWithAnnotation(Class<?> clazz, Set<String> annotationPatterns) {
+        for (Method method : clazz.getDeclaredMethods()) {
+            if (hasAnnotation(method, annotationPatterns)) {
+                return method;
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Finds a no-arg constructor in the target class using TypeDescription (avoids class loading).
+     * @param td TypeDescription of the target class
+     * @return MethodDescription of the no-arg constructor, or null if not found
+     */
+    private static net.bytebuddy.description.method.MethodDescription findNoArgConstructor(net.bytebuddy.description.type.TypeDescription td) {
+        try {
+            var noArgConstructors = td.getDeclaredMethods()
+                .filter(net.bytebuddy.matcher.ElementMatchers.isConstructor())
+                .filter(net.bytebuddy.matcher.ElementMatchers.takesArguments(0));
+            if (!noArgConstructors.isEmpty()) {
+                return noArgConstructors.getOnly();
+            }
+        } catch (Exception e) {
+            // Could not check, assume no no-arg constructor
+        }
+        return null;
+    }
+    
+    /**
+     * Checks if a method has a parameter annotated with any of the specified annotation patterns.
+     * @param method The method to check
+     * @param annotationPatterns Set of annotation name patterns to look for
+     * @return true if any parameter has a matching annotation
+     */
+    private static boolean hasParameterAnnotation(Method method, Set<String> annotationPatterns) {
+        java.lang.annotation.Annotation[][] paramAnns = method.getParameterAnnotations();
+        for (java.lang.annotation.Annotation[] paramAnn : paramAnns) {
+            for (java.lang.annotation.Annotation ann : paramAnn) {
+                String annType = ann.annotationType().getName();
+                for (String pattern : annotationPatterns) {
+                    if (annType.contains(pattern)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * Infers method/constructor signature from a patch method's parameter annotations.
+     * @param patchMethod The patch method to analyze
+     * @param specialAnnotationPatterns Set of annotation name patterns to ignore (e.g., "This", "SuperCall", "Return", "Local")
+     * @return List of parameter types in order, or null if signature cannot be inferred
+     */
+    private static List<Class<?>> inferSignatureFromMethod(Method patchMethod, Set<String> specialAnnotationPatterns) {
+        java.lang.annotation.Annotation[][] paramAnns = patchMethod.getParameterAnnotations();
+        Class<?>[] paramTypes = patchMethod.getParameterTypes();
+        java.util.Map<Integer, Class<?>> argumentMap = new java.util.HashMap<>();
+        
+        for (int i = 0; i < paramAnns.length; i++) {
+            boolean isSpecial = false;
+            int argumentIndex = -1;
+            
+            for (java.lang.annotation.Annotation ann : paramAnns[i]) {
+                String annType = ann.annotationType().getName();
+                
+                // Check if this is a special annotation we should ignore
+                for (String pattern : specialAnnotationPatterns) {
+                    if (annType.contains(pattern)) {
+                        isSpecial = true;
+                        break;
+                    }
+                }
+                if (isSpecial) break;
+                
+                // Check for @Argument annotation
+                if (annType.contains("Argument")) {
+                    try {
+                        java.lang.reflect.Method valueMethod = ann.annotationType().getMethod("value");
+                        argumentIndex = (Integer) valueMethod.invoke(ann);
+                    } catch (Exception e) {
+                        argumentIndex = i; // Fallback to sequential
+                    }
+                    Class<?> paramType = paramTypes[i];
+                    argumentMap.put(argumentIndex, paramType.isArray() ? paramType.getComponentType() : paramType);
+                    break;
+                }
+            }
+            
+            // Skip special parameters
+            if (isSpecial) {
+                continue;
+            }
+            
+            // If not @Argument, include as regular parameter
+            if (argumentIndex == -1) {
+                argumentMap.put(i, paramTypes[i]);
+            }
+        }
+        
+        // Build signature list from the argument map
+        if (argumentMap.isEmpty()) {
+            return null;
+        }
+        
+        int maxIndex = argumentMap.keySet().stream().mapToInt(Integer::intValue).max().orElse(-1);
+        boolean hasCompleteSequence = true;
+        for (int idx = 0; idx <= maxIndex; idx++) {
+            if (!argumentMap.containsKey(idx)) {
+                hasCompleteSequence = false;
+                break;
+            }
+        }
+        
+        if (hasCompleteSequence) {
+            List<Class<?>> sig = new ArrayList<>();
+            for (int idx = 0; idx <= maxIndex; idx++) {
+                sig.add(argumentMap.get(idx));
+            }
+            return sig;
+        }
+        
+        return null;
+    }
+ 
     public static void loadMods(ArrayList<String> mods) {
         ArrayList<JavaModInfo> jModInfos = new ArrayList<>();
 
@@ -396,30 +552,13 @@ public class Loader {
                             
                             for (Method adviceMethod : transformedClass.getDeclaredMethods()) {
                                 // Check if this method has advice annotations
-                                boolean hasAdviceAnnotation = false;
-                                for (java.lang.annotation.Annotation ann : adviceMethod.getAnnotations()) {
-                                    String annType = ann.annotationType().getName();
-                                    if (annType.contains("Advice$OnMethodEnter") || 
-                                        annType.contains("Advice$OnMethodExit")) {
-                                        hasAdviceAnnotation = true;
-                                        break;
-                                    }
-                                }
-                                
-                                if (!hasAdviceAnnotation) continue;
+                                if (!hasAnnotation(adviceMethod, ADVICE_ANNOTATION_PATTERNS)) continue;
                                 
                                 java.lang.annotation.Annotation[][] paramAnns = adviceMethod.getParameterAnnotations();
                                 
                                 // Check for @AllArguments annotation
-                                for (int i = 0; i < paramAnns.length; i++) {
-                                    for (java.lang.annotation.Annotation ann : paramAnns[i]) {
-                                        String annType = ann.annotationType().getName();
-                                        if (annType.contains("Advice$AllArguments")) {
-                                            hasAllArguments = true;
-                                            break;
-                                        }
-                                    }
-                                    if (hasAllArguments) break;
+                                if (hasParameterAnnotation(adviceMethod, ALL_ARGUMENTS_PATTERNS)) {
+                                    hasAllArguments = true;
                                 }
                                 
                                 // If method has no parameters (and no @AllArguments), match only methods with no parameters
@@ -674,27 +813,60 @@ public class Loader {
                         
                         System.out.println("[ZB] patching " + className + "." + methodName + " with delegation");
                         
-                        // Special handling for constructors: call Object's constructor explicitly, then delegate
-                        // This bypasses the original constructor entirely while satisfying JVM requirement
+                        // Special handling for constructors: infer signature and match specific constructor
                         if (methodName.equals("<init>")) {
                             try {
-                                // Call Object's no-arg constructor explicitly, then run our delegation
-                                java.lang.reflect.Constructor<?> objectConstructor = Object.class.getDeclaredConstructor();
-                                result = result
-                                    .constructor(ElementMatchers.any())
-                                    .intercept(MethodCall.invoke(objectConstructor)
-                                        .andThen(MethodDelegation.to(transformedDelegationClass)));
-                            } catch (NoSuchMethodException e) {
-                                System.err.println("[ZB] ERROR: Could not find Object's constructor: " + e.getMessage());
+                                // Infer constructor signature from delegation method's @Argument annotations
+                                Method delegationMethod = findMethodWithAnnotation(transformedDelegationClass, RUNTIME_TYPE_PATTERNS);
+                                List<Class<?>> inferredConstructorSignature = null;
+                                if (delegationMethod != null) {
+                                    inferredConstructorSignature = inferSignatureFromMethod(delegationMethod, METHOD_DELEGATION_SPECIAL_ANNOTATIONS);
+                                }
+                                
+                                // Check if target class has a no-arg constructor using TypeDescription (no class loading)
+                                net.bytebuddy.description.method.MethodDescription noArgCtorDesc = findNoArgConstructor(td);
+                                boolean hasNoArgConstructor = noArgCtorDesc != null;
+                                
+                                // Build constructor matcher based on inferred signature
+                                net.bytebuddy.matcher.ElementMatcher.Junction<net.bytebuddy.description.method.MethodDescription> constructorMatcher;
+                                if (inferredConstructorSignature != null && !inferredConstructorSignature.isEmpty()) {
+                                    // Match constructor with specific signature
+                                    constructorMatcher = net.bytebuddy.matcher.ElementMatchers.isConstructor()
+                                        .and(net.bytebuddy.matcher.ElementMatchers.takesArguments(inferredConstructorSignature.toArray(new Class<?>[0])));
+                                } else {
+                                    // No signature inferred, match all constructors (fallback)
+                                    constructorMatcher = net.bytebuddy.matcher.ElementMatchers.isConstructor();
+                                }
+                                
+                                // Choose which constructor to call for initialization
+                                if (hasNoArgConstructor) {
+                                    // Use no-arg constructor for initialization (allows field initializers to run)
+                                    result = result
+                                        .constructor(constructorMatcher)
+                                        .intercept(MethodCall.invoke(noArgCtorDesc)
+                                            .andThen(MethodDelegation.to(transformedDelegationClass)));
+                                } else {
+                                    // No no-arg constructor, use Object's constructor
+                                    java.lang.reflect.Constructor<?> objectConstructor = Object.class.getDeclaredConstructor();
+                                    result = result
+                                        .constructor(constructorMatcher)
+                                        .intercept(MethodCall.invoke(objectConstructor)
+                                            .andThen(MethodDelegation.to(transformedDelegationClass)));
+                                }
+                            } catch (Exception e) {
+                                System.err.println("[ZB] ERROR: Could not set up constructor delegation: " + e.getMessage());
+                                if (g_verbosity > 0) {
+                                    e.printStackTrace();
+                                }
                                 // Fallback to SuperMethodCall
                                 result = result
                                     .constructor(ElementMatchers.any())
                                     .intercept(net.bytebuddy.implementation.SuperMethodCall.INSTANCE.andThen(MethodDelegation.to(transformedDelegationClass)));
                             }
                         } else {
-                            result = result
-                                .method(SyntaxSugar.methodMatcher(methodName))
-                                .intercept(MethodDelegation.to(transformedDelegationClass));
+                        result = result
+                            .method(SyntaxSugar.methodMatcher(methodName))
+                            .intercept(MethodDelegation.to(transformedDelegationClass));
                         }
                     }
                     

@@ -21,6 +21,8 @@ public class PatchedTestConstructorDelegation {
         // Verify the instance was constructed correctly
         assertEquals(420, instance.getValue());
         assertEquals("test patched", instance.getName());
+
+        assertEquals(42, instance.defaultField, "Default field should remain unchanged");
     }
 }
 

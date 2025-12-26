@@ -8,7 +8,11 @@ public class ConstructorDelegationTarget {
     private String name;
     public boolean constructorCalled = false;
     public boolean patchIntercepted = false;
+    public int defaultField = 42;
     
+    public ConstructorDelegationTarget() {
+    }
+
     // Constructor with parameters to test delegation
     public ConstructorDelegationTarget(int value, String name) {
         this.value = value;

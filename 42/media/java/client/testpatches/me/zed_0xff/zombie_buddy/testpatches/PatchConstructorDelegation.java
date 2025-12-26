@@ -31,9 +31,6 @@ public class PatchConstructorDelegation {
         nameField.setAccessible(true);
         nameField.set(instance, name + " patched");
         
-        // Don't set constructorCalled to true - original constructor was NOT called
-        // constructorCalled remains false
-        
         // Mark that the patch intercepted it
         System.out.println("[ZB TEST] Setting patchIntercepted=true");
         instance.patchIntercepted = true;
