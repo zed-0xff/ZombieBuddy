@@ -24,8 +24,8 @@ import io.github.classgraph.*;
 
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.asm.Advice;
+import net.bytebuddy.implementation.MethodCall;
 import net.bytebuddy.implementation.MethodDelegation;
-import net.bytebuddy.implementation.SuperMethodCall;
 import net.bytebuddy.matcher.ElementMatchers;
 
 import zombie.ZomboidFileSystem;
@@ -674,13 +674,23 @@ public class Loader {
                         
                         System.out.println("[ZB] patching " + className + "." + methodName + " with delegation");
                         
-                        // Special handling for constructors: JVM requires SuperMethodCall to call super()
-                        // We use SuperMethodCall.INSTANCE to satisfy JVM requirement (calls Object's constructor)
-                        // Then MethodDelegation runs, which can manually initialize fields without calling original constructor body
+                        // Special handling for constructors: call Object's constructor explicitly, then delegate
+                        // This bypasses the original constructor entirely while satisfying JVM requirement
                         if (methodName.equals("<init>")) {
-                            result = result
-                                .constructor(ElementMatchers.any())
-                                .intercept(SuperMethodCall.INSTANCE.andThen(MethodDelegation.to(transformedDelegationClass)));
+                            try {
+                                // Call Object's no-arg constructor explicitly, then run our delegation
+                                java.lang.reflect.Constructor<?> objectConstructor = Object.class.getDeclaredConstructor();
+                                result = result
+                                    .constructor(ElementMatchers.any())
+                                    .intercept(MethodCall.invoke(objectConstructor)
+                                        .andThen(MethodDelegation.to(transformedDelegationClass)));
+                            } catch (NoSuchMethodException e) {
+                                System.err.println("[ZB] ERROR: Could not find Object's constructor: " + e.getMessage());
+                                // Fallback to SuperMethodCall
+                                result = result
+                                    .constructor(ElementMatchers.any())
+                                    .intercept(net.bytebuddy.implementation.SuperMethodCall.INSTANCE.andThen(MethodDelegation.to(transformedDelegationClass)));
+                            }
                         } else {
                             result = result
                                 .method(SyntaxSugar.methodMatcher(methodName))

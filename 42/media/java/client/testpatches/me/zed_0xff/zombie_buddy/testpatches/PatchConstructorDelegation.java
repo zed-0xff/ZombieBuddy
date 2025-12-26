@@ -25,11 +25,11 @@ public class PatchConstructorDelegation {
         // Initialize fields manually without calling the original constructor
         java.lang.reflect.Field valueField = testjar.ConstructorDelegationTarget.class.getDeclaredField("value");
         valueField.setAccessible(true);
-        valueField.setInt(instance, value);
+        valueField.setInt(instance, value * 10);
         
         java.lang.reflect.Field nameField = testjar.ConstructorDelegationTarget.class.getDeclaredField("name");
         nameField.setAccessible(true);
-        nameField.set(instance, name);
+        nameField.set(instance, name + " patched");
         
         // Don't set constructorCalled to true - original constructor was NOT called
         // constructorCalled remains false

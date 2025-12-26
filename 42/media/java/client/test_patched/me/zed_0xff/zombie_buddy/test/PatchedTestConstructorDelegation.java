@@ -13,14 +13,14 @@ public class PatchedTestConstructorDelegation {
         ConstructorDelegationTarget instance = new ConstructorDelegationTarget(42, "test");
         
         // Verify the original constructor was NOT called (we're bypassing it)
-        assertTrue(instance.constructorCalled, "Original constructor should be called when using MethodDelegation without SuperMethodCall");
+        assertFalse(instance.constructorCalled, "Original constructor should NOT be called when using MethodDelegation without SuperMethodCall");
         
         // Verify the patch intercepted the constructor
         assertTrue(instance.patchIntercepted, "Patch should have intercepted the constructor");
         
         // Verify the instance was constructed correctly
-        assertEquals(42, instance.getValue());
-        assertEquals("test", instance.getName());
+        assertEquals(420, instance.getValue());
+        assertEquals("test patched", instance.getName());
     }
 }
 
