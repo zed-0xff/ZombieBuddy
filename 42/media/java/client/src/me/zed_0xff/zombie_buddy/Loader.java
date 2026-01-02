@@ -527,6 +527,10 @@ public class Loader {
                             boolean hasNoParamMethod = false;
                             List<Class<?>> inferredTypes = null;
                             Integer minParameterCount = null; // For incomplete @Argument sequences
+                            // List of argument constraint maps from each advice method
+                            java.util.List<java.util.Map<Integer, Class<?>>> allAdviceMaps = new java.util.ArrayList<>();
+                            // List of booleans indicating if exact parameter count is required for each advice method
+                            java.util.List<Boolean> allAdviceExactMatch = new java.util.ArrayList<>();
                             
                             // Track all inferred signatures to detect multiple methods with different signatures
                             java.util.Set<List<Class<?>>> allInferredSignatures = new java.util.HashSet<>();
@@ -552,10 +556,11 @@ public class Loader {
                                 if (!hasAllArguments) {
                                     Class<?>[] paramTypes = adviceMethod.getParameterTypes();
                                     
-                                    // Map to collect argument indices and their types
+                                    // Map to collect argument indices and their types for THIS advice method
                                     java.util.Map<Integer, Class<?>> argumentMap = new java.util.HashMap<>();
                                     boolean hasAnyArguments = false;
                                     boolean allParamsAreSpecial = paramTypes.length > 0; // Will be set to false if we find a non-special param
+                                    int regularParamCount = 0;
                                     
                                     for (int i = 0; i < paramAnns.length; i++) {
                                         boolean isArgument = false;
@@ -578,7 +583,8 @@ public class Loader {
                                                     argumentIndex = i;
                                                 }
                                                 Class<?> paramType = paramTypes[i];
-                                                argumentMap.put(argumentIndex, paramType.isArray() ? paramType.getComponentType() : paramType);
+                                                Class<?> typeToStore = paramType.isArray() ? paramType.getComponentType() : paramType;
+                                                argumentMap.put(argumentIndex, typeToStore);
                                                 break;
                                             } else if (annType.contains("Advice$Local")) {
                                                 // @Local parameters are not part of the target method signature
@@ -610,8 +616,14 @@ public class Loader {
                                                 // Regular parameter (not annotated) - assume it's in order
                                                 allParamsAreSpecial = false;
                                                 argumentMap.put(i, paramTypes[i]);
+                                                regularParamCount++;
                                             }
                                         }
+                                    }
+                                    
+                                    if (!argumentMap.isEmpty()) {
+                                        allAdviceMaps.add(argumentMap);
+                                        allAdviceExactMatch.add(!hasAnyArguments);
                                     }
                                     
                                     // If all parameters are special (e.g., only @Return), treat as matching methods with no parameters
@@ -711,59 +723,64 @@ public class Loader {
                                 if (g_verbosity > 0) {
                                     System.out.println("[ZB] Using name-based matching for " + methodName + " (has @AllArguments)");
                                 }
-                            } else if (hasMultipleSignatures) {
-                                // Multiple methods with different signatures - apply each with custom mapping
-                                // ByteBuddy's Advice API needs explicit mapping when multiple advice methods exist
-                                // We'll apply the advice once with name-based matching and let ByteBuddy match by parameter types
-                                methodMatcher = SyntaxSugar.methodMatcher(methodName);
+                            } else if (hasNoParamMethod && !strictMatch && allAdviceMaps.isEmpty()) {
+                                // Match any method (default behavior for no-param advice when strictMatch=false)
                                 if (g_verbosity > 0) {
-                                    System.out.println("[ZB] Using name-based matching for " + methodName + 
-                                        " (multiple methods with different signatures: " + allInferredSignatures + ")");
-                                    System.out.println("[ZB] ByteBuddy will match each advice method to the appropriate overload by parameter types");
+                                    System.out.println("[ZB] Matching any method for " + methodName + " (strictMatch=false, default)");
                                 }
-                            } else if (hasNoParamMethod) {
-                                // No parameters - behavior depends on strictMatch parameter
-                                if (strictMatch) {
-                                    // Match only methods with no parameters
-                                    methodMatcher = SyntaxSugar.methodMatcher(methodName)
-                                        .and(ElementMatchers.takesNoArguments());
-                                    if (g_verbosity > 0) {
-                                        System.out.println("[ZB] Matching methods with no parameters for " + methodName + " (strictMatch=true)");
-                                    }
-                                } else {
-                                    // Match any method (default behavior)
-                                    methodMatcher = SyntaxSugar.methodMatcher(methodName);
-                                    if (g_verbosity > 0) {
-                                        System.out.println("[ZB] Matching any method for " + methodName + " (strictMatch=false, default)");
-                                    }
-                                }
-                            } else if (minParameterCount != null) {
-                                // @Argument annotations - match methods with at least minParameterCount parameters
-                                // This takes precedence over exact signature matching for @Argument annotations
-                                final int minParams = minParameterCount;
+                            } else {
+                                // Signature-aware matching for overloads and @Argument annotations
+                                final java.util.List<java.util.Map<Integer, Class<?>>> maps = new java.util.ArrayList<>(allAdviceMaps);
+                                final java.util.List<Boolean> exactMatches = new java.util.ArrayList<>(allAdviceExactMatch);
+                                final int minParams = (minParameterCount != null) ? minParameterCount : 0;
+                                final boolean strict = strictMatch;
+                                final boolean noParam = hasNoParamMethod;
+                                
                                 methodMatcher = SyntaxSugar.methodMatcher(methodName)
                                     .and(new net.bytebuddy.matcher.ElementMatcher<net.bytebuddy.description.method.MethodDescription>() {
                                         @Override
                                         public boolean matches(net.bytebuddy.description.method.MethodDescription target) {
-                                            return target.getParameters().size() >= minParams;
+                                            int targetParamCount = target.getParameters().size();
+                                            
+                                            // If advice has no parameters, check strictMatch
+                                            if (noParam && targetParamCount == 0) return true;
+                                            if (strict && noParam && maps.isEmpty() && targetParamCount > 0) return false;
+                                            
+                                            for (int i = 0; i < maps.size(); i++) {
+                                                java.util.Map<Integer, Class<?>> argMap = maps.get(i);
+                                                boolean exact = exactMatches.get(i);
+                                                
+                                                if (exact && targetParamCount != argMap.size()) continue;
+                                                if (!exact && targetParamCount < argMap.size()) continue;
+                                                if (!exact && targetParamCount < minParams) continue;
+
+                                                boolean allArgsMatch = true;
+                                                for (java.util.Map.Entry<Integer, Class<?>> entry : argMap.entrySet()) {
+                                                    int idx = entry.getKey();
+                                                    if (idx >= targetParamCount) {
+                                                        allArgsMatch = false;
+                                                        break;
+                                                    }
+                                                    Class<?> expected = entry.getValue();
+                                                    if (expected == Object.class) continue;
+                                                    net.bytebuddy.description.type.TypeDescription actual = target.getParameters().get(idx).getType().asErasure();
+                                                    if (!actual.isAssignableTo(expected)) {
+                                                        allArgsMatch = false;
+                                                        break;
+                                                    }
+                                                }
+                                                if (allArgsMatch) return true;
+                                            }
+                                            
+                                            // If no signatures match, and we have no-param advice with strictMatch=false, allow it
+                                            return noParam && !strict;
                                         }
                                     });
+                                    
                                 if (g_verbosity > 0) {
-                                    System.out.println("[ZB] Matching methods with at least " + minParams + " parameters for " + methodName);
+                                    System.out.println("[ZB] Using signature-aware matching for " + methodName + 
+                                        " (signatures: " + maps.size() + ", minParams: " + minParams + ")");
                                 }
-                            } else if (inferredTypes != null && !inferredTypes.isEmpty()) {
-                                // We can infer signature from regular parameters (not @Argument annotations)
-                                methodMatcher = SyntaxSugar.methodMatcher(methodName)
-                                    .and(ElementMatchers.takesArguments(inferredTypes.toArray(new Class<?>[0])));
-                                if (g_verbosity > 0) {
-                                    System.out.println("[ZB] Inferred method signature for " + methodName + ": " + inferredTypes);
-                                }
-                            } else {
-                                // Error: Could not infer method signature
-                                System.err.println("[ZB] ERROR: Could not infer method signature for " + className + "." + methodName + 
-                                    " from advice class " + transformedClass.getName());
-                                // Skip this patch
-                                continue;
                             }
                             
                             try {
