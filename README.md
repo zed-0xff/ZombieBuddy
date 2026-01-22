@@ -173,11 +173,15 @@ Add the following entries to your `mod.info` file:
 require=\ZombieBuddy
 javaJarFile=media/java/YourMod.jar
 javaPkgName=com.yourname.yourmod
+ZBVersionMin=1.0.0
+ZBVersionMax=1.5.0
 ```
 
 - `require=\ZombieBuddy`: Declares dependency on ZombieBuddy framework
 - `javaJarFile`: Path to your JAR file relative to the mod version directory. **Required** if you want to load Java code. **Note**: Only a single JAR file is supported per mod. Classes must be packaged in a JAR file - plain class directories are not supported.
 - `javaPkgName`: The package name where your Main class is located (if present) and where patches will be discovered. **Mandatory** if `javaJarFile` is specified. The Main class (if present) must be named `Main` and located in this package (e.g., if `javaPkgName=com.yourname.yourmod`, the Main class must be `com.yourname.yourmod.Main`). The JAR file must contain this package. **Note**: The Main class is optional - if you only have patches and no initialization code, you can omit it. ZombieBuddy will still apply patches from the package.
+- `ZBVersionMin` (Optional): Minimum ZombieBuddy version required (inclusive).
+- `ZBVersionMax` (Optional): Maximum ZombieBuddy version required (inclusive).
 
 **Important**: 
 - `javaPkgName` is **mandatory** when `javaJarFile` is specified
@@ -248,6 +252,27 @@ public static class MyPatch {
     }
 }
 ```
+
+#### Skipping the Original Method
+
+You can skip the execution of the original method by using `skipOn = true` in `@Patch.OnEnter`. When `skipOn = true`, the advice method must return a `boolean`. If it returns `true`, the original method is skipped.
+
+```java
+@Patch(className = "zombie.SomeClass", methodName = "someMethod")
+public static class SkipExample {
+    @Patch.OnEnter(skipOn = true)
+    public static boolean enter() {
+        if (shouldSkip) {
+            return true; // Original method will NOT be executed
+        }
+        return false; // Original method will proceed normally
+    }
+}
+```
+
+**Important**: 
+- The advice method must return a primitive `boolean`.
+- If skipped, the original method returns its default value (e.g., `0` for `int`, `null` for objects).
 
 **Important**: 
 - Place patch classes in the same package as your Main class (specified by `javaPkgName`). ZombieBuddy will automatically discover and apply all `@Patch` annotated classes in that package.
@@ -349,6 +374,18 @@ public static class MyPatch {
     @Patch.OnExit
     public static void exit() {
         System.out.println("Method finished!");
+    }
+}
+```
+
+You can also skip the original method execution:
+
+```java
+@Patch(className = "zombie.SomeClass", methodName = "someMethod")
+public static class MySkipPatch {
+    @Patch.OnEnter(skipOn = true)
+    public static boolean enter() {
+        return true; // Skip original method
     }
 }
 ```

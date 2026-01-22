@@ -1098,59 +1098,7 @@ public class Loader {
      * @return true if version1 is newer than version2, false otherwise
      */
     private static boolean isVersionNewer(String version1, String version2) {
-        if (version1 == null || version2 == null) {
-            return false;
-        }
-        
-        // Handle "unknown" version
-        if ("unknown".equals(version2)) {
-            return true; // Any version is newer than unknown
-        }
-        
-        try {
-            // Split versions by dots and compare each segment
-            String[] v1Parts = version1.split("\\.");
-            String[] v2Parts = version2.split("\\.");
-            
-            int maxLength = Math.max(v1Parts.length, v2Parts.length);
-            
-            for (int i = 0; i < maxLength; i++) {
-                int v1Part = 0;
-                int v2Part = 0;
-                
-                // Parse numeric part (ignore suffixes like "-beta", "-alpha", etc.)
-                if (i < v1Parts.length) {
-                    String v1Str = v1Parts[i].replaceAll("[^0-9].*", "");
-                    if (!v1Str.isEmpty()) {
-                        v1Part = Integer.parseInt(v1Str);
-                    }
-                }
-                
-                if (i < v2Parts.length) {
-                    String v2Str = v2Parts[i].replaceAll("[^0-9].*", "");
-                    if (!v2Str.isEmpty()) {
-                        v2Part = Integer.parseInt(v2Str);
-                    }
-                }
-                
-                if (v1Part > v2Part) {
-                    return true;
-                } else if (v1Part < v2Part) {
-                    return false;
-                }
-                // If equal, continue to next segment
-            }
-            
-            // If all segments are equal, check if one has more segments
-            if (v1Parts.length > v2Parts.length) {
-                return true;
-            }
-            
-            return false; // versions are equal or version1 is not newer
-        } catch (Exception e) {
-            // If parsing fails, do string comparison as fallback
-            return version1.compareTo(version2) > 0;
-        }
+        return ZombieBuddy.compareVersions(version1, version2) > 0;
     }
     
     /**

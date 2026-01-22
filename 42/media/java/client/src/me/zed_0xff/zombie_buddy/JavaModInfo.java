@@ -14,13 +14,17 @@ public record JavaModInfo(
     /** JAR file path relative to modDirectory (from javaJarFile entry) */
     String jarFile,
     /** Package name (from javaPkgName entry) */
-    String javaPkgName
+    String javaPkgName,
+    /** Minimum ZombieBuddy version required (from zbVersionMin entry) */
+    String zbVersionMin,
+    /** Maximum ZombieBuddy version required (from zbVersionMax entry) */
+    String zbVersionMax
 ) {
     /**
      * Creates a JavaModInfo with null values.
      */
     public JavaModInfo(File modDirectory, File modInfoFile) {
-        this(modDirectory, modInfoFile, null, null);
+        this(modDirectory, modInfoFile, null, null, null, null);
     }
     
     /**
@@ -56,7 +60,7 @@ public record JavaModInfo(
     /**
      * Internal record to hold parsed values from a mod.info file.
      */
-    private record ParsedValues(String jarFile, String javaPkgName) {}
+    private record ParsedValues(String jarFile, String javaPkgName, String zbVersionMin, String zbVersionMax) {}
     
     /**
      * Parses a mod.info file and extracts jarFile and javaPkgName values.
@@ -72,11 +76,13 @@ public record JavaModInfo(
         
         String jarFile = null;
         String javaPkgName = null;
+        String zbVersionMin = null;
+        String zbVersionMax = null;
         
         try (var reader = new java.io.BufferedReader(new java.io.FileReader(modInfoFile))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                if (line.length() < 13) {
+                if (line.isEmpty() || !line.contains("=")) {
                     continue;
                 }
                 
@@ -103,6 +109,10 @@ public record JavaModInfo(
                     if (!pkgName.isEmpty()) {
                         javaPkgName = pkgName;
                     }
+                } else if (lowerLine.startsWith("zbversionmin=")) {
+                    zbVersionMin = line.split("=", 2)[1].trim();
+                } else if (lowerLine.startsWith("zbversionmax=")) {
+                    zbVersionMax = line.split("=", 2)[1].trim();
                 }
             }
         } catch (Exception e) {
@@ -110,7 +120,7 @@ public record JavaModInfo(
             return null;
         }
         
-        return new ParsedValues(jarFile, javaPkgName);
+        return new ParsedValues(jarFile, javaPkgName, zbVersionMin, zbVersionMax);
     }
     
     /**
@@ -133,6 +143,8 @@ public record JavaModInfo(
         
         String jarFile = parsed.jarFile();
         String javaPkgName = parsed.javaPkgName();
+        String zbVersionMin = parsed.zbVersionMin();
+        String zbVersionMax = parsed.zbVersionMax();
         
         // Both javaJarFile and javaPkgName are required - return null if either is missing or invalid
         if (jarFile == null || jarFile.isEmpty()) {
@@ -144,8 +156,15 @@ public record JavaModInfo(
             System.err.println("[ZB] Error! Mod has javaJarFile but missing required javaPkgName: " + modInfoFile);
             return null;
         }
+
+        if (!isVersionInRange(ZombieBuddy.getVersion(), zbVersionMin, zbVersionMax)) {
+            System.err.println("[ZB] Skipping mod due to version mismatch: " + modInfoFile + 
+                " (requires: " + (zbVersionMin != null ? zbVersionMin : "any") + " to " + 
+                (zbVersionMax != null ? zbVersionMax : "any") + ", ZombieBuddy version: " + ZombieBuddy.getVersion() + ")");
+            return null;
+        }
         
-        return new JavaModInfo(modDirectory, modInfoFile, jarFile, javaPkgName);
+        return new JavaModInfo(modDirectory, modInfoFile, jarFile, javaPkgName, zbVersionMin, zbVersionMax);
     }
     
     /**
@@ -188,6 +207,8 @@ public record JavaModInfo(
         
         String jarFile = commonParsed.jarFile();
         String javaPkgName = commonParsed.javaPkgName();
+        String zbVersionMin = commonParsed.zbVersionMin();
+        String zbVersionMax = commonParsed.zbVersionMax();
         
         // Both javaJarFile and javaPkgName are required - return null if either is missing or invalid
         if (jarFile == null || jarFile.isEmpty()) {
@@ -198,13 +219,20 @@ public record JavaModInfo(
             System.err.println("[ZB] Error! Mod has javaJarFile but missing required javaPkgName: " + commonModInfoFile);
             return null;
         }
+
+        if (!isVersionInRange(ZombieBuddy.getVersion(), zbVersionMin, zbVersionMax)) {
+            System.err.println("[ZB] Skipping mod due to version mismatch: " + commonModInfoFile + 
+                " (requires: " + (zbVersionMin != null ? zbVersionMin : "any") + " to " + 
+                (zbVersionMax != null ? zbVersionMax : "any") + ", ZombieBuddy version: " + ZombieBuddy.getVersion() + ")");
+            return null;
+        }
         
         // Check if JAR exists in versionDir (using the same relative path from mod.info)
         // If it does, use versionDir as modDirectory; otherwise use commonDir
         File jarInVersion = new File(versionDir, jarFile);
         File modDirectory = jarInVersion.exists() ? versionDir : commonDir;
         
-        return new JavaModInfo(modDirectory, commonModInfoFile, jarFile, javaPkgName);
+        return new JavaModInfo(modDirectory, commonModInfoFile, jarFile, javaPkgName, zbVersionMin, zbVersionMax);
     }
     
     /**
@@ -224,6 +252,36 @@ public record JavaModInfo(
             return null;
         }
         return parseMerged(new File(commonDirPath), new File(versionDirPath));
+    }
+
+    /**
+     * Checks if a version is within the specified minimum and maximum range.
+     * 
+     * @param currentVersion The current version to check
+     * @param minVersion The minimum version allowed (inclusive), or null if no minimum
+     * @param maxVersion The maximum version allowed (inclusive), or null if no maximum
+     * @return true if the version is in range, false otherwise
+     */
+    static boolean isVersionInRange(String currentVersion, String minVersion, String maxVersion) {
+        if (currentVersion == null || currentVersion.equals("unknown")) {
+            // If we don't know our own version, we can't really check.
+            // But usually this means we are in development mode.
+            return true;
+        }
+        
+        if (minVersion != null && !minVersion.isEmpty()) {
+            if (ZombieBuddy.compareVersions(currentVersion, minVersion) < 0) {
+                return false;
+            }
+        }
+        
+        if (maxVersion != null && !maxVersion.isEmpty()) {
+            if (ZombieBuddy.compareVersions(currentVersion, maxVersion) > 0) {
+                return false;
+            }
+        }
+        
+        return true;
     }
 }
 
