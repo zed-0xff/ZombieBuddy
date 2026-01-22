@@ -6,4 +6,5 @@
 *.xcf
 test*.jar
 Rakefile
+test-results
 tmp
