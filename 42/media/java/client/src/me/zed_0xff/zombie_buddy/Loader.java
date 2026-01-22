@@ -395,20 +395,22 @@ public class Loader {
         }
 
         // Warn about MethodDelegation on already-loaded classes (won't work with retransformation)
-        for (var entry : delegationPatches.entrySet()) {
-            if (loadedClasses.contains(entry.getKey().className())) {
-                System.err.println("[ZB] WARNING: MethodDelegation patch for already-loaded class " + 
-                    entry.getKey().className() + "." + entry.getKey().methodName() + 
-                    " - this may not work! Use isAdvice=true for loaded classes.");
-            }
-        }
+        // for (var entry : delegationPatches.entrySet()) {
+        //     if (loadedClasses.contains(entry.getKey().className())) {
+        //         System.err.println("[ZB] WARNING: MethodDelegation patch for already-loaded class " + 
+        //             entry.getKey().className() + "." + entry.getKey().methodName() + 
+        //             " - this may not work! Use isAdvice=true for loaded classes.");
+        //     }
+        // }
 
         // Check if we have Advice patches on already-loaded classes
         // If so, we need to disable class format changes for retransformation to work
         boolean hasAdviceOnLoadedClasses = false;
+        Set<String> advLoadedClasses = new HashSet<>();
         for (var entry : advicePatches.entrySet()) {
             if (loadedClasses.contains(entry.getKey().className())) {
                 hasAdviceOnLoadedClasses = true;
+                advLoadedClasses.add(entry.getKey().className());
                 break;
             }
         }
@@ -867,11 +869,11 @@ public class Loader {
         // but we call retransformClasses() explicitly to trigger the transformation immediately.
         // Note: ByteBuddy's Advice may not work correctly with retransformation for already-loaded classes
         // due to JVM limitations. If this doesn't work, patches need to be loaded before the target class.
-        if (!loadedClasses.isEmpty()) {
-            System.out.println("[ZB] Explicitly retransforming " + loadedClasses.size() + " already-loaded class(es)");
+        if (!advLoadedClasses.isEmpty()) {
+            System.out.println("[ZB] Explicitly retransforming " + advLoadedClasses.size() + " already-loaded class(es)");
             System.out.println("[ZB] WARNING: Advice patches on already-loaded classes may not work due to JVM retransformation limitations.");
             System.out.println("[ZB] Consider loading patches before the target class is loaded, or use MethodDelegation instead.");
-            for (String className : loadedClasses) {
+            for (String className : advLoadedClasses) {
                 try {
                     Class<?> cls = Class.forName(className);
                     // Retransform through ByteBuddy's agent pipeline
