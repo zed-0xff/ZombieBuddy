@@ -21,16 +21,19 @@ public @interface Patch {
   @Retention(RetentionPolicy.RUNTIME)
   @Target(ElementType.METHOD)
   public @interface OnEnter {
-    Class<? extends Throwable>[] skipOn() default {};
+    boolean skipOn() default false;
   }
   
   /** Alias for net.bytebuddy.asm.Advice.OnMethodExit - mods should use Patch.OnExit instead */
   @Retention(RetentionPolicy.RUNTIME)
   @Target(ElementType.METHOD)
   public @interface OnExit {
-    Class<? extends Throwable>[] onThrowable() default {};
-    Class<? extends Throwable>[] skipOn() default {};
+    Class<? extends Throwable> onThrowable() default NoException.class;
   }
+
+  public abstract static class NoException extends Throwable {}
+  public abstract static class OnDefaultValue extends Throwable {}
+  public abstract static class OnNonDefaultValue extends Throwable {}
   
   /** Alias for net.bytebuddy.asm.Advice.Return - mods should use Patch.Return instead */
   @Retention(RetentionPolicy.RUNTIME)

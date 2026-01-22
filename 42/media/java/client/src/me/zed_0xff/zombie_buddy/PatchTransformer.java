@@ -44,11 +44,19 @@ final class PatchTransformer {
                 if (hasOnEnter || hasOnExit) {
                     Class<?> returnType = method.getReturnType();
                     if (returnType != void.class) {
-                        System.err.println("[ZB] !!!!!!!");
-                        System.err.println("[ZB] WARNING: Annotated method " + method.getName() + 
-                            "() in patch class " + patchClass.getName() + 
-                            " returns non-void. This may cause UB and diarrhea.");
-                        System.err.println("[ZB] !!!!!!!");
+                        boolean hasSkipOnSet = false;
+                        if (hasOnEnter) {
+                            var ann = method.getAnnotation(me.zed_0xff.zombie_buddy.Patch.OnEnter.class);
+                            if (ann.skipOn()) hasSkipOnSet = true;
+                        }
+                        
+                        if (!hasSkipOnSet) {
+                            System.err.println("[ZB] !!!!!!!");
+                            System.err.println("[ZB] WARNING: Annotated method " + method.getName() + 
+                                "() in patch class " + patchClass.getName() + 
+                                " returns non-void. This may cause UB and diarrhea.");
+                            System.err.println("[ZB] !!!!!!!");
+                        }
                     }
                 }
                 if (!needsTransformation) {
@@ -98,6 +106,7 @@ final class PatchTransformer {
                     final boolean isNonVoid = lastParen >= 0 && lastParen < descriptor.length() - 1 && 
                                              descriptor.charAt(lastParen + 1) != 'V';
                     final boolean[] hasPatchAnnotation = {false};
+                    final boolean[] hasSkipOnSet = {false};
                     final String methodName = name;
                     
                     MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
@@ -119,6 +128,27 @@ final class PatchTransformer {
                                 return new AnnotationVisitor(Opcodes.ASM9, av) {
                                     @Override
                                     public void visit(String name, Object value) {
+                                        if ("skipOn".equals(name) && value instanceof Boolean) {
+                                            boolean skip = (Boolean) value;
+                                            hasSkipOnSet[0] = skip;
+                                            // Translate boolean skipOn to ByteBuddy's expected Class<?> skipOn
+                                            if (skip) {
+                                                value = net.bytebuddy.jar.asm.Type.getType("Lnet/bytebuddy/asm/Advice$OnNonDefaultValue;");
+                                            } else {
+                                                value = net.bytebuddy.jar.asm.Type.getType("Lnet/bytebuddy/asm/Advice$NoException;");
+                                            }
+                                        } else if (value instanceof net.bytebuddy.jar.asm.Type) {
+                                            net.bytebuddy.jar.asm.Type type = (net.bytebuddy.jar.asm.Type) value;
+                                            String descriptor = type.getDescriptor();
+                                            
+                                            if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$NoException;")) {
+                                                value = net.bytebuddy.jar.asm.Type.getType("Lnet/bytebuddy/asm/Advice$NoException;");
+                                            } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$OnDefaultValue;")) {
+                                                value = net.bytebuddy.jar.asm.Type.getType("Lnet/bytebuddy/asm/Advice$OnDefaultValue;");
+                                            } else if (descriptor.equals("Lme/zed_0xff/zombie_buddy/Patch$OnNonDefaultValue;")) {
+                                                value = net.bytebuddy.jar.asm.Type.getType("Lnet/bytebuddy/asm/Advice$OnNonDefaultValue;");
+                                            }
+                                        }
                                         super.visit(name, value);
                                     }
                                     @Override
@@ -140,7 +170,7 @@ final class PatchTransformer {
                         
                         @Override
                         public void visitEnd() {
-                            if (hasPatchAnnotation[0] && isNonVoid) {
+                            if (hasPatchAnnotation[0] && isNonVoid && !hasSkipOnSet[0]) {
                                 System.err.println("[ZB] WARNING: Method " + methodName + 
                                     " in patch class " + patchClass.getName() + 
                                     " is annotated with @Patch.OnEnter or @Patch.OnExit but returns non-void. This may cause UB and diarrhea.");
