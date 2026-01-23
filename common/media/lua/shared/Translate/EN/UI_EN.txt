@@ -1,24 +1,36 @@
 UI_EN = {
-    UI_ZB_Install = "<H1> ZombieBuddy requires manual installation. <LINE> " ..
-                    "<LINE> " ..
-                    "<H2> Please copy the following files: <LINE> " ..
-                    "<INDENT:40><TEXT>" ..
-                        " %4 <LINE>" ..
-                    "<INDENT:0>" ..
-                    "<H2> from <LINE> " ..
-                    "<INDENT:40><TEXT>" ..
-                        " %1 <BR>" ..
-                    "<INDENT:0>" ..
-                    "<H2> to <LINE> " ..
-                    "<INDENT:40><TEXT>" ..
-                        " %2 <BR>" ..
-                    "<INDENT:0>" ..
-                    "<LINE> " ..
-                    "<H2> Then add to Steam launch options: <LINE>" ..
-                    "<INDENT:40><TEXT>" ..
-                        " %3 <BR>" ..
-                    "<INDENT:0>" ..
-                    "<LINE> " ..
-                    "<TEXT><LINE> " ..
-                        "<IMAGECENTRE:SCREENSHOT_PLACEHOLDER>",
+    UI_ZB_Install_Windows = "<H1> ZombieBuddy is not installed! <LINE> " ..
+                            "<LINE> " ..
+                            "<H2> Automated Installation (Recommended): <LINE> " ..
+                            "<TEXT>" ..
+                            " 1. Download <H2>ZombieBuddyInstaller.exe<TEXT> from: <LINE> " ..
+                            "<INDENT:40><H2> %1 <INDENT:0><LINE> " ..
+                            "<TEXT> 2. Run the installer and restart Steam. <LINE> " ..
+                            "<LINE> " ..
+                            "<H2> Manual Installation (Fallback): <LINE> " ..
+                            "<TEXT> Copy files from <H2>%2<TEXT> to <H2>%3<TEXT> and add <H2>%4<TEXT> to Steam launch options. <LINE> " ..
+                            "<LINE> " ..
+                            "<IMAGECENTRE:SCREENSHOT_PLACEHOLDER>",
+    UI_ZB_Install_Unix = "<H1> ZombieBuddy requires manual installation. <LINE> " ..
+                         "<LINE> " ..
+                         "<H2> Please copy the following files: <LINE> " ..
+                         "<INDENT:40><TEXT>" ..
+                             " %4 <LINE>" ..
+                         "<INDENT:0>" ..
+                         "<H2> from <LINE> " ..
+                         "<INDENT:40><TEXT>" ..
+                             " %1 <BR>" ..
+                         "<INDENT:0>" ..
+                         "<H2> to <LINE> " ..
+                         "<INDENT:40><TEXT>" ..
+                             " %2 <BR>" ..
+                         "<INDENT:0>" ..
+                         "<LINE> " ..
+                         "<H2> Then add to Steam launch options: <LINE>" ..
+                         "<INDENT:40><TEXT>" ..
+                             " %3 <BR>" ..
+                         "<INDENT:0>" ..
+                         "<LINE> " ..
+                         "<TEXT><LINE> " ..
+                             "<IMAGECENTRE:SCREENSHOT_PLACEHOLDER>",
 }

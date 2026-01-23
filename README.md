@@ -52,7 +52,27 @@ Previously, Java mods for Project Zomboid required bundling `.class` files and m
 > 
 > **Only install and enable Java mods from sources you trust completely.** Review the source code if available, and be aware that malicious Java mods could potentially harm your system or compromise your data. You install and use Java mods at your own risk.
 
-**Important**: ZombieBuddy requires manual installation as it runs as a Java agent. Follow these steps carefully:
+#### 🪟 Windows (Automated Installer)
+
+The easiest way to install ZombieBuddy on Windows is using the automated installer:
+
+1. **Download the latest `ZombieBuddyInstaller.exe`** from the [GitHub Releases](https://github.com/zed-0xff/ZombieBuddy/releases/) page.
+2. **Run the installer**. It will automatically:
+   - Detect your Steam and Project Zomboid installation folders.
+   - Find the ZombieBuddy Workshop content (ensure you are [subscribed on Steam](https://steamcommunity.com/sharedfiles/filedetails/?id=3619862853)).
+   - Copy `zbNative.dll` and `ZombieBuddy.jar` to your game directory.
+   - Update your Steam launch options to include `-agentlib:zbNative --`.
+3. **Restart Steam** for the changes to take effect.
+
+> **Note**: The installer handles everything for you. You don't need to manually copy files or edit launch options.
+
+#### 🐧 macOS and Linux (Manual Installation)
+
+ZombieBuddy requires manual installation on these platforms as it runs as a Java agent. Follow the steps in the **Manual Installation** section below.
+
+#### 🛠️ Manual Installation (Fallback for Windows)
+
+If you prefer to install manually on Windows, or are on macOS/Linux, follow these steps:
 
 1. **Download the mod** from the Steam Workshop or GitHub releases
 
@@ -139,6 +159,8 @@ On macOS and Linux, this workaround is not needed, so only `ZombieBuddy.jar` is 
    - **Main menu**: The ZombieBuddy version is visible at the bottom right corner of the main menu screen
 
 **Steam Launch Options Configuration:**
+
+The following screenshots show how the launch options should look after installation. If you used the Windows installer, these will be set for you automatically.
 
 **macOS/Linux:**
 ![Steam Launch Options (macOS/Linux)](common/media/ui/zb_steam_options_osx.png)

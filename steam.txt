@@ -18,17 +18,16 @@ ZombieBuddy allows modders to patch game classes at runtime using bytecode manip
 
 [b]Step 1:[/b] Subscribe to ZombieBuddy on Steam Workshop
 
-[b]Step 2:[/b] Manual installation is required ONLY ONCE for ZombieBuddy itself. Follow the instructions for your platform:
+[b]Step 2:[/b] Installation is required ONLY ONCE for ZombieBuddy itself.
 
-[b]🪟 Windows Installation:[/b]
+[b]🪟 Windows (Automated):[/b]
 [list]
-[*] Copy both ZombieBuddy.jar and zbNative.dll from the mod's [code]build/libs/[/code] directory to your game directory (typically [code]C:\Program Files (x86)\Steam\steamapps\common\ProjectZomboid\[/code])
-[*] Open Project Zomboid's launch options in Steam
-[*] Add this JVM argument: [code]-agentlib:zbNative --[/code]
-[*] [b]⚠️ IMPORTANT:[/b] The -- at the end is mandatory - do not omit it!
+[*] Download the latest [code]ZombieBuddyInstaller.exe[/code] from [url=https://github.com/zed-0xff/ZombieBuddy/releases/]GitHub Releases[/url]
+[*] Run the installer - it will automatically detect your game folder, copy the files, and set up Steam launch options.
+[*] Restart Steam.
 [/list]
 
-[b]🍎 macOS / 🐧 Linux Installation:[/b]
+[b]🍎 macOS / 🐧 Linux (Manual):[/b]
 [list]
 [*] Copy ZombieBuddy.jar from the mod's [code]build/libs/[/code] directory to:
 [list]
@@ -40,7 +39,7 @@ ZombieBuddy allows modders to patch game classes at runtime using bytecode manip
 [*] [b]⚠️ IMPORTANT:[/b] The -- at the end is mandatory - do not omit it!
 [/list]
 
-[b]Step 3:[/b] After this one-time setup, all other mods that use the ZombieBuddy framework will work automatically - no additional manual installation needed!
+[b]Step 3:[/b] After this setup, all other mods that use the ZombieBuddy framework will work automatically!
 
 [b]✅ Why This Method is Better:[/b]
 [list]

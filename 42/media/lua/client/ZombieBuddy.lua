@@ -73,7 +73,13 @@ local function checkZombieBuddyInstallation()
         end
         
         -- Get the message template and replace placeholders with actual paths, command line, and file list
-        local message = getText("UI_ZB_Install", srcDir, dstDir, cmdLine, fileList)
+        local message = ""
+        if isSystemWindows() then
+            local releasesURL = "https://github.com/zed-0xff/ZombieBuddy/releases/"
+            message = getText("UI_ZB_Install_Windows", releasesURL, srcDir, dstDir, cmdLine)
+        else
+            message = getText("UI_ZB_Install_Unix", srcDir, dstDir, cmdLine, fileList)
+        end
         
         -- Replace screenshot placeholder with actual image path
         message = string.gsub(message, "SCREENSHOT_PLACEHOLDER", screenshotImage)

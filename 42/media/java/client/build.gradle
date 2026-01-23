@@ -282,7 +282,7 @@ compileJavaTask.doFirst {
             throw new RuntimeException(
                 "gameClasspath must be provided for compilation via -PgameClasspath=<path1>,<path2>,... " +
                 "(comma-separated list of JARs or directories).\n" +
-                "Example: gradle build -PgameClasspath=../../../../../42_13/java/projectzomboid.jar\n" +
+                "Example: gradle build -PgameClasspath=../../../../../42.13/java/projectzomboid.jar\n" +
                 "Note: Tests can run without gameClasspath if classes are already compiled."
             )
         }
