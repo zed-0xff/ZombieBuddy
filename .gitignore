@@ -1,4 +1,5 @@
 *.class
+*.exe
 *.jar
 *.local
 *.log
