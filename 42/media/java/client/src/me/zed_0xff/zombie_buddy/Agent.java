@@ -71,6 +71,30 @@ public class Agent {
                         System.out.println("[ZB] experimental patches enabled");
                         break;
 
+                    case "lua_server_port":
+                        try {
+                            int serverPort;
+                            boolean isRandomPort = false;
+                            if ("random".equalsIgnoreCase(value)) {
+                                serverPort = 0; // 0 means random port
+                                isRandomPort = true;
+                                System.out.println("[ZB] Using random port for HTTP server");
+                            } else {
+                                serverPort = Integer.parseInt(value);
+                                if (serverPort == 0) {
+                                    isRandomPort = true;
+                                    System.out.println("[ZB] Using random port for HTTP server");
+                                }
+                            }
+                            HttpServer httpServer = new HttpServer(serverPort, isRandomPort);
+                            httpServer.start();
+                        } catch (NumberFormatException e) {
+                            System.err.println("[ZB] invalid server_port value: " + value);
+                        } catch (Exception e) {
+                            System.err.println("[ZB] failed to start HTTP server: " + e.getMessage());
+                        }
+                        break;
+
                     default:
                         System.err.println("[ZB] unknown agent argument: " + key);
                         break;

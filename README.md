@@ -440,6 +440,9 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 ## Links
 
 - **GitHub Repository**: https://github.com/zed-0xff/ZombieBuddy
+- **Related Projects**:
+  - [ZBSpec](https://github.com/zed-0xff/ZBSpec) - Testing framework for PZ mods (uses ZombieBuddy's Lua API)
+  - [ZScienceSkill](https://github.com/zed-0xff/ZScienceSkill) - Adds a Science skill to PZ (example of a Lua mod with ZBSpec tests)
 - **Example Mods**:
   - [ZBLuaPerfMon](https://github.com/zed-0xff/ZBLuaPerfMon) - Real-time Lua performance monitoring and OSD
   - [ZBHelloWorld](https://github.com/zed-0xff/ZBHelloWorld) - A simple example mod demonstrating patches-only mods

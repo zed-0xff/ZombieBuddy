@@ -5,6 +5,11 @@ import me.zed_0xff.zombie_buddy.*;
 import zombie.core.Core;
 import zombie.ui.TextManager;
 import zombie.ui.UIFont;
+import zombie.ZomboidFileSystem;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 
 public class Patch_Loading_Screen {
     public static boolean m_draw_watermark = false;
@@ -35,10 +40,30 @@ public class Patch_Loading_Screen {
         static void exit() {
             m_draw_watermark = false;
 
+            // Write the HTTP server port to a file ONLY if it was random
+            HttpServer httpServer = HttpServer.getInstance();
+            if (httpServer != null && httpServer.wasRandomPort()) {
+                writePortFile(httpServer.getPort());
+            }
+
             if (Loader.g_exit_after_game_init) {
                 System.out.println("[ZB] Exiting after game init as requested.");
                 Core.getInstance().quit();
             }
+        }
+    }
+    
+    public static void writePortFile(int port) {
+        try {
+            String cacheDir = ZomboidFileSystem.instance.getCacheDir();
+            File portFile = new File(cacheDir + File.separator + "zbLuaAPI.txt");
+            try (FileWriter writer = new FileWriter(portFile)) {
+                writer.write(String.valueOf(port));
+            }
+            System.out.println("[ZB] Wrote random API port " + port + " to " + portFile.getAbsolutePath());
+        } catch (IOException e) {
+            System.err.println("[ZB] Failed to write port file: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
