@@ -13,8 +13,10 @@ import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.luaj.kahluafork.compiler.FuncState;
 import se.krka.kahlua.integration.LuaReturn;
 import se.krka.kahlua.luaj.compiler.LuaCompiler;
 import se.krka.kahlua.vm.KahluaThread;
@@ -178,6 +180,24 @@ public class HttpServer {
         return defaultValue;
     }
 
+    private static String parseStringParam(String query, String name, String defaultValue) {
+        if (query == null || query.isEmpty()) {
+            return defaultValue;
+        }
+        for (String param : query.split("&")) {
+            String[] kv = param.split("=", 2);
+            if (kv.length == 2 && name.equals(kv[0])) {
+                // URL decode the value
+                try {
+                    return java.net.URLDecoder.decode(kv[1], StandardCharsets.UTF_8);
+                } catch (Exception e) {
+                    return kv[1];
+                }
+            }
+        }
+        return defaultValue;
+    }
+
     private static class RootHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
@@ -264,7 +284,9 @@ public class HttpServer {
                 return;
             }
 
-            int depth = parseIntParam(exchange.getRequestURI().getQuery(), "depth", 1);
+            String query = exchange.getRequestURI().getQuery();
+            int depth = parseIntParam(query, "depth", 1);
+            String chunkName = parseStringParam(query, "chunkname", "http_exec");
 
             String luaCode = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             if (luaCode.isEmpty()) {
@@ -274,92 +296,130 @@ public class HttpServer {
 
             AtomicReference<Object> resultRef = new AtomicReference<>();
             AtomicReference<String> errorRef = new AtomicReference<>();
+            AtomicInteger errCode = new AtomicInteger(0);
 
             try {
                 runOnLuaThread(() -> {
+                    // Set the file info for better stack traces
+                    String prevFile = FuncState.currentFile;
+                    String prevFullFile = FuncState.currentfullFile;
+                    FuncState.currentFile = chunkName;
+                    FuncState.currentfullFile = chunkName;
                     try {
                         int errorListSizeBefore = KahluaThread.m_errors_list.size();
-                        LuaClosure closure = LuaCompiler.loadstring(luaCode, "http_exec", LuaManager.env);
+                        LuaClosure closure = LuaCompiler.loadstring(luaCode, chunkName, LuaManager.env);
                         LuaReturn luaReturn = LuaManager.caller.protectedCall(LuaManager.thread, closure, new Object[0]);
+                        
                         if (luaReturn.isSuccess()) {
                             if (!luaReturn.isEmpty()) {
                                 resultRef.set(luaReturn.getFirst());
                             }
                         } else {
-                            StringBuilder err = new StringBuilder();
-                            
-                            // Check if new errors were added to KahluaThread.m_errors_list
-                            int errorListSizeAfter = KahluaThread.m_errors_list.size();
-                            if (errorListSizeAfter > errorListSizeBefore) {
-                                // Errors are added in pairs: first the exception, then the stack trace
-                                // Look through new entries for one containing the actual error message
-                                for (int i = errorListSizeBefore; i < errorListSizeAfter; i++) {
-                                    String entry = KahluaThread.m_errors_list.get(i);
-                                    if (entry != null && entry.contains("Exception")) {
-                                        // Extract the error message from the exception stack trace
-                                        String[] lines = entry.split("\n");
-                                        if (lines.length > 0) {
-                                            String firstLine = lines[0].trim();
-                                            // Format: "java.lang.RuntimeException: Tried to call nil"
-                                            int colonIdx = firstLine.indexOf(": ");
-                                            if (colonIdx > 0) {
-                                                err.append(firstLine.substring(colonIdx + 2));
-                                            } else {
-                                                err.append(firstLine);
-                                            }
-                                        }
-                                        break;
-                                    }
-                                }
-                            }
-                            
-                            // If no error from m_errors_list, try other sources
-                            if (err.length() == 0) {
-                                String errorStr = luaReturn.getErrorString();
-                                if (errorStr != null && !errorStr.trim().isEmpty()) {
-                                    err.append(errorStr.trim());
-                                }
-                            }
-                            
-                            // Add stack trace if not already included
-                            String stackTrace = luaReturn.getLuaStackTrace();
-                            if (stackTrace != null && !stackTrace.trim().isEmpty()) {
-                                String trimmedStack = stackTrace.trim();
-                                if (!err.toString().contains(trimmedStack)) {
-                                    if (err.length() > 0) err.append("\n");
-                                    err.append(trimmedStack);
-                                }
-                            }
-                            
-                            if (err.length() == 0) {
-                                err.append("Unknown Lua error");
-                            }
-                            errorRef.set(err.toString());
+                            errCode.set(1);
+                            errorRef.set(serializeLuaReturn(luaReturn, errorListSizeBefore));
                         }
                     } catch (Exception e) {
-                        StringBuilder err = new StringBuilder();
-                        err.append(e.getClass().getName()).append(": ").append(e.getMessage());
-                        for (StackTraceElement ste : e.getStackTrace()) {
-                            err.append("\n  at ").append(ste.toString());
-                        }
-                        errorRef.set(err.toString());
+                        errCode.set(2);
+                        errorRef.set(serializeJavaException(e));
+                    } finally {
+                        FuncState.currentFile = prevFile;
+                        FuncState.currentfullFile = prevFullFile;
                     }
                 });
             } catch (Exception e) {
-                StringBuilder err = new StringBuilder();
-                err.append(e.getClass().getName()).append(": ").append(e.getMessage());
-                for (StackTraceElement ste : e.getStackTrace()) {
-                    err.append("\n  at ").append(ste.toString());
-                }
-                errorRef.set(err.toString());
+                errCode.set(3);
+                errorRef.set(serializeJavaException(e));
             }
 
             if (errorRef.get() != null) {
-                sendResponse(exchange, 500, errorRef.get() + "\n");
+                String errorData = errorRef.get();
+                String response;
+                int code = errCode.get();
+                if (code == 1) {
+                    // Lua execution failed - errorData is serializeLuaReturn JSON
+                    response = "{\"err_code\": " + code + ", \"luaReturn\": " + errorData + "}";
+                } else {
+                    // Java exception (code 2 or 3) - errorData is serializeJavaException JSON
+                    response = "{\"err_code\": " + code + ", \"javaException\": " + errorData + "}";
+                }
+                sendJsonResponse(exchange, 500, response);
             } else {
-                String json = LuaJson.toJson(resultRef.get(), depth);
-                sendJsonResponse(exchange, 200, json);
+                sendJsonResponse(exchange, 200, LuaJson.toJson(resultRef.get(), depth));
             }
         }
     }
+
+    private static String serializeJavaException(Throwable ex) {
+        StringBuilder json = new StringBuilder();
+        json.append("{");
+        json.append("\"className\": \"" + escapeJson(ex.getClass().getName()) + "\"");
+        json.append(", \"message\": \"" + escapeJson(ex.getMessage()) + "\"");
+        
+        // Add first relevant stack frame
+        StackTraceElement[] stack = ex.getStackTrace();
+        if (stack != null && stack.length > 0) {
+            StackTraceElement frame = stack[0];
+            json.append(", \"file\": \"" + escapeJson(frame.getFileName()) + "\"");
+            json.append(", \"line\": " + frame.getLineNumber());
+            json.append(", \"method\": \"" + escapeJson(frame.getMethodName()) + "\"");
+        }
+        
+        json.append("}");
+        return json.toString();
+    }
+
+    private static String serializeLuaReturn(LuaReturn luaReturn, int errorListSizeBefore) {
+        StringBuilder json = new StringBuilder();
+        json.append("{");
+
+        // errorString
+        String errorStr = luaReturn.getErrorString();
+        json.append("\"errorString\": ");
+        json.append(errorStr != null ? "\"" + escapeJson(errorStr) + "\"" : "null");
+        
+        // luaStackTrace
+        String stackTrace = luaReturn.getLuaStackTrace();
+        json.append(", \"luaStackTrace\": ");
+        json.append(stackTrace != null ? "\"" + escapeJson(stackTrace) + "\"" : "null");
+        
+        // errorObject (as string)
+        Object errorObj = luaReturn.getErrorObject();
+        json.append(", \"errorObject\": ");
+        json.append(errorObj != null ? "\"" + escapeJson(String.valueOf(errorObj)) + "\"" : "null");
+        
+        // javaException
+        RuntimeException javaEx = luaReturn.getJavaException();
+        json.append(", \"javaException\": ");
+        json.append(javaEx != null ? serializeJavaException(javaEx) : "null");
+        
+        // errors from m_errors_list
+        String[] errors = extractErrorsFromList(errorListSizeBefore);
+        json.append(", \"kahluaErrors\": ");
+        if (errors != null) {
+            json.append("[");
+            for (int i = 0; i < errors.length; i++) {
+                if (i > 0) json.append(", ");
+                json.append("\"" + escapeJson(errors[i]) + "\"");
+            }
+            json.append("]");
+        } else {
+            json.append("null");
+        }
+        
+        json.append("}");
+        return json.toString();
+    }
+
+    private static String[] extractErrorsFromList(int errorListSizeBefore) {
+        int errorListSizeAfter = KahluaThread.m_errors_list.size();
+        if (errorListSizeAfter <= errorListSizeBefore) {
+            return null;
+        }
+        String[] errors = new String[errorListSizeAfter - errorListSizeBefore];
+        for (int i = errorListSizeBefore; i < errorListSizeAfter; i++) {
+            errors[i - errorListSizeBefore] = KahluaThread.m_errors_list.get(i);
+        }
+        return errors;
+    }
+
 }
