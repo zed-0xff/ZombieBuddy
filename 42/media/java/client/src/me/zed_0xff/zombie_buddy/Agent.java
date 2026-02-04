@@ -33,7 +33,7 @@ public class Agent {
                         break;
 
                     case "exit_after_game_init":
-                        Loader.g_exit_after_game_init = true;
+                        GameUtils.g_exit_after_game_init = true;
                         System.err.println("[ZB] will exit after game init");
                         break;
 
@@ -92,6 +92,15 @@ public class Agent {
                             System.err.println("[ZB] invalid server_port value: " + value);
                         } catch (Exception e) {
                             System.err.println("[ZB] failed to start HTTP server: " + e.getMessage());
+                        }
+                        break;
+
+                    case "lua_task_timeout":
+                        try {
+                            HttpServer.luaTaskTimeoutMs = Long.parseLong(value);
+                            System.out.println("[ZB] Lua task timeout set to " + HttpServer.luaTaskTimeoutMs + "ms");
+                        } catch (NumberFormatException e) {
+                            System.err.println("[ZB] invalid lua_task_timeout value: " + value);
                         }
                         break;
 

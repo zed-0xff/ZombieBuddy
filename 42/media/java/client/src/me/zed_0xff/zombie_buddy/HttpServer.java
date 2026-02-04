@@ -10,6 +10,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import se.krka.kahlua.integration.LuaReturn;
@@ -25,6 +28,66 @@ public class HttpServer {
     private int port;
     private boolean wasRandomPort;
     private static HttpServer instance;
+    
+    // Timeout for waiting for Lua task execution (in milliseconds)
+    public static long luaTaskTimeoutMs = 1000;
+    
+    // Queue for Lua tasks to be executed on the main thread (for dedicated servers)
+    private static final ConcurrentLinkedQueue<LuaTask> luaTaskQueue = new ConcurrentLinkedQueue<>();
+    
+    private static class LuaTask {
+        final Runnable task;
+        final CountDownLatch latch = new CountDownLatch(1);
+        
+        LuaTask(Runnable task) {
+            this.task = task;
+        }
+        
+        void execute() {
+            try {
+                task.run();
+            } finally {
+                latch.countDown();
+            }
+        }
+        
+        boolean await(long timeout, TimeUnit unit) throws InterruptedException {
+            return latch.await(timeout, unit);
+        }
+    }
+    
+    /**
+     * Called from the game's main thread (client or server) to process queued Lua tasks.
+     * Should be called from OnTick or similar.
+     */
+    public static void pollLuaTasks() {
+        LuaTask task;
+        while ((task = luaTaskQueue.poll()) != null) {
+            task.execute();
+        }
+    }
+    
+    private static boolean isOnLuaThread() {
+        return LuaManager.thread != null && 
+               LuaManager.thread.debugOwnerThread == Thread.currentThread();
+    }
+    
+    private static void runOnLuaThread(Runnable task) throws Exception {
+        if (isOnLuaThread()) {
+            // Already on the correct thread
+            task.run();
+        } else if (MainThread.isRunning()) {
+            // Client mode - use MainThread
+            MainThread.invokeOnMainThread(task);
+        } else {
+            // Server mode - queue and wait
+            LuaTask luaTask = new LuaTask(task);
+            luaTaskQueue.add(luaTask);
+            if (!luaTask.await(luaTaskTimeoutMs, TimeUnit.MILLISECONDS)) {
+                throw new RuntimeException("Timeout waiting for Lua task execution (" + luaTaskTimeoutMs + "ms)");
+            }
+        }
+    }
 
     public HttpServer(int port, boolean isRandomPort) {
         this.port = port;
@@ -216,7 +279,7 @@ public class HttpServer {
             AtomicReference<String> errorRef = new AtomicReference<>();
 
             try {
-                MainThread.invokeOnMainThread(() -> {
+                runOnLuaThread(() -> {
                     try {
                         int errorListSizeBefore = KahluaThread.m_errors_list.size();
                         LuaClosure closure = LuaCompiler.loadstring(luaCode, "http_exec", LuaManager.env);
