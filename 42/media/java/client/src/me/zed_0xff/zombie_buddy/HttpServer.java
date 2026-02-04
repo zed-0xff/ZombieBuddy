@@ -20,7 +20,6 @@ import se.krka.kahlua.luaj.compiler.LuaCompiler;
 import se.krka.kahlua.vm.KahluaThread;
 import se.krka.kahlua.vm.LuaClosure;
 import zombie.Lua.LuaManager;
-import zombie.MainThread;
 import zombie.ZomboidFileSystem;
 
 public class HttpServer {
@@ -76,11 +75,9 @@ public class HttpServer {
         if (isOnLuaThread()) {
             // Already on the correct thread
             task.run();
-        } else if (MainThread.isRunning()) {
-            // Client mode - use MainThread
-            MainThread.invokeOnMainThread(task);
         } else {
-            // Server mode - queue and wait
+            // Queue and wait for the game's tick to execute it on the correct thread
+            // This works for both client (IngameState.UpdateStuff) and server (ServerMap.preupdate)
             LuaTask luaTask = new LuaTask(task);
             luaTaskQueue.add(luaTask);
             if (!luaTask.await(luaTaskTimeoutMs, TimeUnit.MILLISECONDS)) {
