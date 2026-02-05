@@ -74,7 +74,7 @@ public class HttpServer {
                LuaManager.thread.debugOwnerThread == Thread.currentThread();
     }
     
-    private static void runOnLuaThread(Runnable task) throws Exception {
+    public static void runOnLuaThread(Runnable task) throws Exception {
         if (isOnLuaThread()) {
             // Already on the correct thread
             task.run();
