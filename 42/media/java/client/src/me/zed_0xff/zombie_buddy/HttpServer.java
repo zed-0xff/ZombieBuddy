@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.luaj.kahluafork.compiler.FuncState;
 import se.krka.kahlua.integration.LuaReturn;
 import se.krka.kahlua.luaj.compiler.LuaCompiler;
+import se.krka.kahlua.vm.Coroutine;
 import se.krka.kahlua.vm.KahluaThread;
 import se.krka.kahlua.vm.LuaClosure;
 import zombie.Lua.LuaManager;
@@ -202,7 +203,7 @@ public class HttpServer {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             logRequest(exchange);
-            String response = "ZombieBuddy HTTP Server\n\nEndpoints:\n  /status - server status\n  /version - version info\n  /lua - POST lua code to execute\n  /log - GET last log lines (?lines=N, default 100)\n";
+            String response = "ZombieBuddy HTTP Server\n\nEndpoints:\n  /status - server status\n  /version - version info\n  /lua - POST lua code to execute (if returns job_*, waits for async completion)\n  /log - GET last log lines (?lines=N, default 100)\n";
             sendResponse(exchange, 200, response);
         }
     }
@@ -287,6 +288,7 @@ public class HttpServer {
             String query = exchange.getRequestURI().getQuery();
             int depth = parseIntParam(query, "depth", 1);
             String chunkName = parseStringParam(query, "chunkname", "http_exec");
+            boolean rawCall = parseIntParam(query, "raw", 0) == 1;
 
             String luaCode = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             if (luaCode.isEmpty()) {
@@ -297,6 +299,7 @@ public class HttpServer {
             AtomicReference<Object> resultRef = new AtomicReference<>();
             AtomicReference<String> errorRef = new AtomicReference<>();
             AtomicInteger errCode = new AtomicInteger(0);
+            AtomicInteger errorListSizeBeforeRef = new AtomicInteger(-1);
 
             try {
                 runOnLuaThread(() -> {
@@ -307,16 +310,58 @@ public class HttpServer {
                     FuncState.currentfullFile = chunkName;
                     try {
                         int errorListSizeBefore = KahluaThread.m_errors_list.size();
+                        errorListSizeBeforeRef.set(errorListSizeBefore);
                         LuaClosure closure = LuaCompiler.loadstring(luaCode, chunkName, LuaManager.env);
-                        LuaReturn luaReturn = LuaManager.caller.protectedCall(LuaManager.thread, closure, new Object[0]);
                         
-                        if (luaReturn.isSuccess()) {
-                            if (!luaReturn.isEmpty()) {
-                                resultRef.set(luaReturn.getFirst());
+                        if (rawCall) {
+                            // Coroutine-based call - allows yielding
+                            // Save current coroutine to restore later
+                            Coroutine originalCoroutine = LuaManager.thread.getCurrentCoroutine();
+                            
+                            // Create a new coroutine with canYield=true
+                            Coroutine co = new Coroutine(
+                                LuaManager.thread.getPlatform(),
+                                LuaManager.thread.getEnvironment()
+                            );
+                            
+                            // Set up the stack properly - closure at base, arguments after
+                            // For no arguments: closure at [0], localBase=1, returnBase=0, nArguments=0
+                            co.objectStack[0] = closure;
+                            co.setTop(1);  // stack has 1 item (the closure)
+                            
+                            // Push call frame with canYield=true (last two params: localCall, insideCoroutine)
+                            // localBase=1 (after closure), returnBase=0 (where closure is), nArguments=0
+                            se.krka.kahlua.vm.LuaCallFrame callFrame = co.pushNewCallFrame(closure, null, 1, 0, 0, true, true);
+                            callFrame.init();
+                            
+                            // Set up coroutine parent relationship and thread
+                            co.resume(originalCoroutine);
+                            LuaManager.thread.currentCoroutine = co;
+                            
+                            // Run until yield or completion - use reflection since luaMainloop is private
+                            java.lang.reflect.Method luaMainloop = LuaManager.thread.getClass().getDeclaredMethod("luaMainloop");
+                            luaMainloop.setAccessible(true);
+                            luaMainloop.invoke(LuaManager.thread);
+                            
+                            // Get result from returnBase (0)
+                            if (co.getTop() > 0) {
+                                resultRef.set(co.objectStack[0]);
                             }
+                            
+                            // Restore original coroutine
+                            LuaManager.thread.currentCoroutine = originalCoroutine;
                         } else {
-                            errCode.set(1);
-                            errorRef.set(serializeLuaReturn(luaReturn, errorListSizeBefore));
+                            // Protected call - safe but can't yield
+                            LuaReturn luaReturn = LuaManager.caller.protectedCall(LuaManager.thread, closure, new Object[0]);
+                            
+                            if (luaReturn.isSuccess()) {
+                                if (!luaReturn.isEmpty()) {
+                                    resultRef.set(luaReturn.getFirst());
+                                }
+                            } else {
+                                errCode.set(1);
+                                errorRef.set(serializeLuaReturn(luaReturn, errorListSizeBefore));
+                            }
                         }
                     } catch (Exception e) {
                         errCode.set(2);
@@ -340,12 +385,20 @@ public class HttpServer {
                     response = "{\"err_code\": " + code + ", \"luaReturn\": " + errorData + "}";
                 } else {
                     // Java exception (code 2 or 3) - errorData is serializeJavaException JSON
-                    response = "{\"err_code\": " + code + ", \"javaException\": " + errorData + "}";
+                    StringBuilder responseBuilder = new StringBuilder();
+                    responseBuilder.append("{\"err_code\": ").append(code).append(", \"javaException\": ").append(errorData);
+                    String[] errors = extractErrorsFromList(errorListSizeBeforeRef.get());
+                    if (errors != null) {
+                        responseBuilder.append(", \"kahluaErrors\": ").append(serializeErrorsArray(errors));
+                    }
+                    responseBuilder.append("}");
+                    response = responseBuilder.toString();
                 }
                 sendJsonResponse(exchange, 500, response);
-            } else {
-                sendJsonResponse(exchange, 200, LuaJson.toJson(resultRef.get(), depth));
+                return;
             }
+            
+            sendJsonResponse(exchange, 200, LuaJson.toJson(resultRef.get(), depth));
         }
     }
 
@@ -420,6 +473,20 @@ public class HttpServer {
             errors[i - errorListSizeBefore] = KahluaThread.m_errors_list.get(i);
         }
         return errors;
+    }
+
+    private static String serializeErrorsArray(String[] errors) {
+        if (errors == null) {
+            return "null";
+        }
+        StringBuilder json = new StringBuilder();
+        json.append("[");
+        for (int i = 0; i < errors.length; i++) {
+            if (i > 0) json.append(", ");
+            json.append("\"").append(escapeJson(errors[i])).append("\"");
+        }
+        json.append("]");
+        return json.toString();
     }
 
 }
