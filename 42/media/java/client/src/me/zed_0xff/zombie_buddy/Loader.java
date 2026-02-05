@@ -28,7 +28,7 @@ import net.bytebuddy.implementation.MethodCall;
 import net.bytebuddy.implementation.MethodDelegation;
 import net.bytebuddy.matcher.ElementMatchers;
 
-import zombie.ZomboidFileSystem;
+import zombie.gameStates.ChooseGameInfo;
 
 public class Loader {
     public static Instrumentation g_instrumentation;
@@ -190,10 +190,7 @@ public class Loader {
         ArrayList<JavaModInfo> jModInfos = new ArrayList<>();
 
         for (String mod_id : mods) {
-            String modDir = ZomboidFileSystem.instance.getModDir(mod_id);
-            if (modDir == null) continue;
-            
-            var mod = ZomboidFileSystem.instance.getModInfoForDir(modDir);
+            var mod = ChooseGameInfo.getAvailableModDetails(mod_id);
             if (mod == null) continue;
 
             // follow lua engine logic, load common dir first, then version dir
