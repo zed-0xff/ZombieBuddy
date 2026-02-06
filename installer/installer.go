@@ -207,6 +207,9 @@ func copyCoreFiles(pzPath string, zbPath string) error {
 	for _, filename := range files {
 		var sources []string
 		if zbPath != "" {
+			// New simplified path
+			sources = append(sources, filepath.Join(zbPath, "mods", "ZombieBuddy", "libs", filename))
+			// Old path (for backwards compatibility)
 			sources = append(sources, filepath.Join(zbPath, "mods", "ZombieBuddy", "42", "media", "java", "client", "build", "libs", filename))
 		}
 

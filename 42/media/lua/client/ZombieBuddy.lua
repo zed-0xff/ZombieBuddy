@@ -55,7 +55,7 @@ local function checkZombieBuddyInstallation()
             end
         end
         
-        local srcDir = modDir .. string.gsub("/42/media/java/build/libs/", "/", getFileSeparator())
+        local srcDir = modDir .. string.gsub("/libs/", "/", getFileSeparator())
         print("[ZombieBuddy] please copy files from " .. srcDir .. " to " .. dstDir)
         
         -- Determine the command line based on OS

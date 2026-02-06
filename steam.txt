@@ -1,18 +1,9 @@
 [h1]ZombieBuddy[/h1]
 
-A powerful framework for Project Zomboid modders that enables Java bytecode manipulation and runtime patching of game classes using ByteBuddy.
-
-[b]Features:[/b]
-[list]
-[*] Annotation-based patching with [code]@Patch(className = "...", methodName = "...")[/code] annotations
-[*] Runtime class transformation - patch classes that are already loaded
-[*] Automatic patch discovery - scans for patch classes automatically
-[*] Lua integration - expose Java classes to Lua scripting
-[*] Support for both advice-based and delegation-based patching
-[/list]
+A framework that enables advanced Java mods for Project Zomboid.
 
 [b]What it does:[/b]
-ZombieBuddy allows modders to patch game classes at runtime using bytecode manipulation, without requiring access to the game's source code. No manual file replacement needed - patches are applied automatically at game startup.
+ZombieBuddy is required by some mods to work. If a mod tells you to install ZombieBuddy, follow the instructions below.
 
 [b]📦 Installation (One-Time Setup):[/b]
 
@@ -20,40 +11,46 @@ ZombieBuddy allows modders to patch game classes at runtime using bytecode manip
 
 [b]Step 2:[/b] Installation is required ONLY ONCE for ZombieBuddy itself.
 
-[b]🪟 Windows (Automated):[/b]
+[b]🪟 Windows:[/b]
+
+[u]Option A: Automated Installer (Recommended)[/u]
 [list]
-[*] Download the latest [code]ZombieBuddyInstaller.exe[/code] from [url=https://github.com/zed-0xff/ZombieBuddy/releases/]GitHub Releases[/url]
+[*] Close Steam completely (right-click Steam in system tray → Exit)
+[*] Download the latest ZombieBuddyInstaller.exe from [url=https://github.com/zed-0xff/ZombieBuddy/releases/]GitHub Releases[/url]
 [*] Run the installer - it will automatically detect your game folder, copy the files, and set up Steam launch options.
-[*] Restart Steam.
+[*] Start Steam.
 [/list]
 
-[b]🍎 macOS / 🐧 Linux (Manual):[/b]
+[u]Option B: Manual Installation[/u]
 [list]
-[*] Copy ZombieBuddy.jar from the mod's [code]build/libs/[/code] directory to:
-[list]
-[*] [b]macOS:[/b] [code]~/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app/Contents/Java/[/code]
-[*] [b]Linux:[/b] [code]~/.steam/steam/steamapps/common/ProjectZomboid/projectzomboid/java/[/code]
-[/list]
+[*] Copy ZombieBuddy.jar and zbNative.dll from:
+[code]C:\Program Files (x86)\Steam\steamapps\workshop\content\108600\3619862853\mods\ZombieBuddy\libs\[/code]
+to your Project Zomboid folder:
+[code]C:\Program Files (x86)\Steam\steamapps\common\ProjectZomboid\[/code]
 [*] Open Project Zomboid's launch options in Steam
-[*] Add this JVM argument: [code]-javaagent:ZombieBuddy.jar --[/code]
+[*] Add this launch option: -agentlib:zbNative --
 [*] [b]⚠️ IMPORTANT:[/b] The -- at the end is mandatory - do not omit it!
 [/list]
 
-[b]Step 3:[/b] After this setup, all other mods that use the ZombieBuddy framework will work automatically!
-
-[b]✅ Why This Method is Better:[/b]
+[b]🍎 macOS / 🐧 Linux:[/b]
 [list]
-[*] [b]More Reliable:[/b] Runtime bytecode patching is more stable than manual file replacements
-[*] [b]Update-Proof:[/b] Minor game updates will NOT break your mods - patches are applied at runtime, so they adapt to game changes automatically
-[*] [b]No File Conflicts:[/b] Multiple mods can patch the same class without conflicts
-[*] [b]Easy Management:[/b] Once ZombieBuddy is set up, just subscribe to mods that use it - they'll work immediately
+[*] Copy ZombieBuddy.jar from the mod's libs/ directory to:
+[list]
+[*] [b]macOS:[/b] ~/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app/Contents/Java/
+[*] [b]Linux:[/b] ~/.steam/steam/steamapps/common/ProjectZomboid/projectzomboid/java/
+[/list]
+[*] Open Project Zomboid's launch options in Steam
+[*] Add this JVM argument: -javaagent:ZombieBuddy.jar --
+[*] [b]⚠️ IMPORTANT:[/b] The -- at the end is mandatory - do not omit it!
 [/list]
 
+[b]Step 3:[/b] After this setup, all mods that require ZombieBuddy will work automatically!
+
 [b]⚠️ Security Warning:[/b]
-Java mods enabled through ZombieBuddy have unrestricted access to your system and can execute arbitrary code. Only install Java mods from sources you trust completely. Review source code when available.
+Java mods enabled through ZombieBuddy have unrestricted access to your system. Only install mods from sources you trust.
 
 [b]Links:[/b]
-[url=https://github.com/zed-0xff/ZombieBuddy]GitHub Repository[/url]
+[url=https://github.com/zed-0xff/ZombieBuddy]GitHub Repository[/url] (for modders)
 
 [b]☕ Support the Project:[/b]
 If you find ZombieBuddy useful, consider supporting its development:
