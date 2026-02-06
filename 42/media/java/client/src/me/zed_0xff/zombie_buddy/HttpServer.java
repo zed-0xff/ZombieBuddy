@@ -364,8 +364,20 @@ public class HttpServer {
                             }
                         }
                     } catch (Exception e) {
-                        errCode.set(2);
-                        errorRef.set(serializeJavaException(e));
+                        // Look for KahluaException in the exception chain for better error messages
+                        Throwable cause = e;
+                        while (cause != null) {
+                            if (cause instanceof se.krka.kahlua.vm.KahluaException) {
+                                errCode.set(1);  // Use code 1 so it formats as luaReturn
+                                errorRef.set(serializeKahluaException((se.krka.kahlua.vm.KahluaException) cause, errorListSizeBeforeRef.get()));
+                                break;
+                            }
+                            cause = cause.getCause();
+                        }
+                        if (errorRef.get() == null) {
+                            errCode.set(2);
+                            errorRef.set(serializeJavaException(e));
+                        }
                     } finally {
                         FuncState.currentFile = prevFile;
                         FuncState.currentfullFile = prevFullFile;
@@ -415,6 +427,30 @@ public class HttpServer {
             json.append(", \"file\": \"" + escapeJson(frame.getFileName()) + "\"");
             json.append(", \"line\": " + frame.getLineNumber());
             json.append(", \"method\": \"" + escapeJson(frame.getMethodName()) + "\"");
+        }
+        
+        json.append("}");
+        return json.toString();
+    }
+
+    // Serialize KahluaException with error message and any errors from m_errors_list
+    private static String serializeKahluaException(se.krka.kahlua.vm.KahluaException ex, int errorListSizeBefore) {
+        StringBuilder json = new StringBuilder();
+        json.append("{");
+        json.append("\"errorString\": \"" + escapeJson(ex.getMessage()) + "\"");
+        
+        // errors from m_errors_list (contains stack trace if flushErrorMessage was called)
+        String[] errors = extractErrorsFromList(errorListSizeBefore);
+        json.append(", \"kahluaErrors\": ");
+        if (errors != null) {
+            json.append("[");
+            for (int i = 0; i < errors.length; i++) {
+                if (i > 0) json.append(", ");
+                json.append("\"" + escapeJson(errors[i]) + "\"");
+            }
+            json.append("]");
+        } else {
+            json.append("null");
         }
         
         json.append("}");
