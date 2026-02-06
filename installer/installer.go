@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -22,12 +23,21 @@ func main() {
 	success := install()
 
 	if success {
-		fmt.Println("\nInstallation complete! Please restart Steam for changes to take effect.")
+		fmt.Println("\nInstallation complete! You can now start Steam and launch Project Zomboid.")
 	} else {
 		fmt.Println("\nInstallation encountered errors. Please review the messages above.")
 	}
 	fmt.Println("Press Enter to exit...")
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
+}
+
+func isSteamRunning() bool {
+	cmd := exec.Command("tasklist", "/FI", "IMAGENAME eq steam.exe", "/NH")
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(string(output)), "steam.exe")
 }
 
 func install() bool {
@@ -37,6 +47,20 @@ func install() bool {
 	if runtime.GOOS != "windows" {
 		fmt.Println("[!] Error: This installer is only designed for Windows.")
 		return false
+	}
+
+	// Check if Steam is running
+	steamWasRunning := false
+	for isSteamRunning() {
+		steamWasRunning = true
+		fmt.Println("\n[!] Steam is currently running.")
+		fmt.Println("    Please close Steam completely before continuing.")
+		fmt.Println("    (Right-click Steam in system tray -> Exit)")
+		fmt.Println("\nPress Enter after closing Steam...")
+		bufio.NewReader(os.Stdin).ReadBytes('\n')
+	}
+	if steamWasRunning {
+		fmt.Println("[.] Steam is now closed. Continuing installation...\n")
 	}
 
 	maxLen := len("Steam")
