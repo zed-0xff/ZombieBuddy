@@ -314,6 +314,21 @@ public class HttpServer {
                         int errorListSizeBefore = KahluaThread.m_errors_list.size();
                         errorListSizeBeforeRef.set(errorListSizeBefore);
                         
+                        // Create a shared environment for all chunks in this request
+                        // This allows spec_helper functions to be visible to spec files
+                        // without polluting the global _G
+                        se.krka.kahlua.vm.KahluaTable sharedEnv = LuaManager.env;
+                        if (chunks.size() > 1) {
+                            // Multiple chunks - create a request-scoped environment
+                            // that inherits from _G via metatable for reads only
+                            // Writes stay in sharedEnv, so spec_helper functions are
+                            // visible to spec files but don't pollute _G
+                            sharedEnv = LuaManager.platform.newTable();
+                            se.krka.kahlua.vm.KahluaTable mt = LuaManager.platform.newTable();
+                            mt.rawset("__index", LuaManager.env);
+                            sharedEnv.setMetatable(mt);
+                        }
+                        
                         // Execute all chunks in sequence, same Lua context
                         LuaClosure closure = null;
                         for (String[] chunk : chunks) {
@@ -321,7 +336,7 @@ public class HttpServer {
                             String luaCode = chunk[1];
                             FuncState.currentFile = fileName;
                             FuncState.currentfullFile = fileName;
-                            closure = LuaCompiler.loadstring(luaCode, fileName, LuaManager.env);
+                            closure = LuaCompiler.loadstring(luaCode, fileName, sharedEnv);
                             
                             if (chunks.indexOf(chunk) < chunks.size() - 1) {
                                 // Not the last chunk - execute immediately (spec_helper, etc.)
