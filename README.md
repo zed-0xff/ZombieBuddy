@@ -160,15 +160,7 @@ On macOS and Linux, this workaround is not needed, so only `ZombieBuddy.jar` is 
 
 **Steam Launch Options Configuration:**
 
-The following screenshots show how the launch options should look after installation. If you used the Windows installer, these will be set for you automatically.
-
-**macOS/Linux:**
-![Steam Launch Options (macOS/Linux)](common/media/ui/zb_steam_options_osx.png)
-
-**Windows:**
-![Steam Launch Options (Windows)](common/media/ui/zb_steam_options_win.png)
-
-> **Note**: The installation dialog will also display this image when ZombieBuddy is not properly installed.
+![Steam Launch Options](cmdline.png)
 
 ### For Modders
 
