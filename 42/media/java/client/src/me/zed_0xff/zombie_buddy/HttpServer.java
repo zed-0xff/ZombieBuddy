@@ -290,11 +290,15 @@ public class HttpServer {
             String chunkName = parseStringParam(query, "chunkname", "http_exec");
             boolean rawCall = parseIntParam(query, "raw", 0) == 1;
 
-            String luaCode = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-            if (luaCode.isEmpty()) {
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            if (body.isEmpty()) {
                 sendResponse(exchange, 400, "Empty request body\n");
                 return;
             }
+
+            // Parse multipart-like format: ---FILE:filename---\ncontent\n---FILE:...
+            // Each file is executed with its own chunkname for correct line numbers
+            final java.util.List<String[]> chunks = parseMultipartLua(body, chunkName);
 
             AtomicReference<Object> resultRef = new AtomicReference<>();
             AtomicReference<String> errorRef = new AtomicReference<>();
@@ -306,12 +310,31 @@ public class HttpServer {
                     // Set the file info for better stack traces
                     String prevFile = FuncState.currentFile;
                     String prevFullFile = FuncState.currentfullFile;
-                    FuncState.currentFile = chunkName;
-                    FuncState.currentfullFile = chunkName;
                     try {
                         int errorListSizeBefore = KahluaThread.m_errors_list.size();
                         errorListSizeBeforeRef.set(errorListSizeBefore);
-                        LuaClosure closure = LuaCompiler.loadstring(luaCode, chunkName, LuaManager.env);
+                        
+                        // Execute all chunks in sequence, same Lua context
+                        LuaClosure closure = null;
+                        for (String[] chunk : chunks) {
+                            String fileName = chunk[0];
+                            String luaCode = chunk[1];
+                            FuncState.currentFile = fileName;
+                            FuncState.currentfullFile = fileName;
+                            closure = LuaCompiler.loadstring(luaCode, fileName, LuaManager.env);
+                            
+                            if (chunks.indexOf(chunk) < chunks.size() - 1) {
+                                // Not the last chunk - execute immediately (spec_helper, etc.)
+                                LuaReturn ret = LuaManager.caller.protectedCall(LuaManager.thread, closure, new Object[0]);
+                                if (!ret.isSuccess()) {
+                                    errCode.set(1);
+                                    errorRef.set(serializeLuaReturn(ret, errorListSizeBefore));
+                                    return;
+                                }
+                            }
+                        }
+                        
+                        // Last chunk uses the configured execution mode (raw or protected)
                         
                         if (rawCall) {
                             // Coroutine-based call - allows yielding
@@ -523,6 +546,40 @@ public class HttpServer {
         }
         json.append("]");
         return json.toString();
+    }
+
+    // Parse multipart-like Lua format: ---FILE:filename---\ncontent\n---FILE:...
+    // Returns list of [filename, content] pairs
+    private static java.util.List<String[]> parseMultipartLua(String body, String defaultChunkName) {
+        java.util.List<String[]> chunks = new java.util.ArrayList<>();
+        String delimiter = "---FILE:";
+        
+        if (!body.contains(delimiter)) {
+            // No multipart format, treat as single chunk
+            chunks.add(new String[] { defaultChunkName, body });
+            return chunks;
+        }
+        
+        String[] parts = body.split("---FILE:");
+        for (String part : parts) {
+            if (part.trim().isEmpty()) continue;
+            
+            int endOfName = part.indexOf("---\n");
+            if (endOfName == -1) {
+                endOfName = part.indexOf("---\r\n");
+            }
+            
+            if (endOfName > 0) {
+                String fileName = part.substring(0, endOfName).trim();
+                String content = part.substring(endOfName + (part.charAt(endOfName + 3) == '\r' ? 5 : 4));
+                chunks.add(new String[] { fileName, content });
+            } else {
+                // Malformed, use as-is with default name
+                chunks.add(new String[] { defaultChunkName, part });
+            }
+        }
+        
+        return chunks;
     }
 
 }
