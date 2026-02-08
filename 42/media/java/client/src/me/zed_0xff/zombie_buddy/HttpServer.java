@@ -61,8 +61,17 @@ public class HttpServer {
     /**
      * Called from the game's main thread (client or server) to process queued Lua tasks.
      * Should be called from OnTick or similar.
+     * 
+     * Only executes tasks if we're on the correct Lua thread (debugOwnerThread).
+     * This handles the case where the Lua thread owner changes during loading.
      */
     public static void pollLuaTasks() {
+        // Only poll if we're on the correct Lua thread
+        // During client loading, debugOwnerThread is the loader thread, not gameThread
+        if (!isOnLuaThread()) {
+            return;
+        }
+        
         LuaTask task;
         while ((task = luaTaskQueue.poll()) != null) {
             task.execute();

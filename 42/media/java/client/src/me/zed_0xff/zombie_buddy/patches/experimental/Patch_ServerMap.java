@@ -1,4 +1,4 @@
-package me.zed_0xff.zombie_buddy.patches;
+package me.zed_0xff.zombie_buddy.patches.experimental;
 
 import me.zed_0xff.zombie_buddy.*;
 

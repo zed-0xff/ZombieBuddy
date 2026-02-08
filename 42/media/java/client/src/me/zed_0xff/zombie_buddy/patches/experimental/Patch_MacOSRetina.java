@@ -5,33 +5,43 @@ import org.lwjgl.glfw.GLFW;
 
 public class Patch_MacOSRetina {
     private static Boolean cachedPatchNeeded = null;
+    
+    // Reusable arrays for GLFW calls (avoid allocations)
+    private static final int[] fbWidth = new int[1];
+    private static final int[] fbHeight = new int[1];
 
     public static boolean isPatchNeeded() {
         if (cachedPatchNeeded == null) {
-            if (System.getProperty("os.name").contains("OS X")) {
-                boolean is_fullscreen = false;
-
-                // read "~/Zomboid/options.ini" to check if "fullScreen=false" is set
-                String userHome = System.getProperty("user.home");
-                java.io.File optionsFile = new java.io.File(userHome + "/Zomboid/options.ini");
-                if (optionsFile.exists()) {
-                    try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(optionsFile))) {
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            if (line.trim().equalsIgnoreCase("fullScreen=true")) {
-                                is_fullscreen = true;
-                            }
-                        }
-                    } catch (java.io.IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-                cachedPatchNeeded = !is_fullscreen;
-            } else {
-                cachedPatchNeeded = false;
-            }
+            // Only apply on macOS
+            cachedPatchNeeded = System.getProperty("os.name").contains("OS X");
         }
         return cachedPatchNeeded;
+    }
+    
+    /**
+     * Get current framebuffer width from GLFW.
+     * Always fetches the current value to handle window resizes.
+     */
+    public static int getFramebufferWidth() {
+        if (org.lwjglx.opengl.Display.isCreated()) {
+            long window = org.lwjglx.opengl.Display.getWindow();
+            GLFW.glfwGetFramebufferSize(window, fbWidth, fbHeight);
+            return fbWidth[0];
+        }
+        return 0;
+    }
+    
+    /**
+     * Get current framebuffer height from GLFW.
+     * Always fetches the current value to handle window resizes.
+     */
+    public static int getFramebufferHeight() {
+        if (org.lwjglx.opengl.Display.isCreated()) {
+            long window = org.lwjglx.opengl.Display.getWindow();
+            GLFW.glfwGetFramebufferSize(window, fbWidth, fbHeight);
+            return fbHeight[0];
+        }
+        return 0;
     }
 
     // Patch nglfwCreateWindow to set retina hint right before window creation
@@ -52,8 +62,11 @@ public class Patch_MacOSRetina {
     public static class Patch_DisplayGetWidth {
         @Patch.OnExit
         public static void exit(@Patch.Return(readOnly = false) int originalWidth) {
-            if (Patch_MacOSRetina.isPatchNeeded()) {
-                originalWidth = 3456;
+            if (Patch_MacOSRetina.isPatchNeeded() && org.lwjglx.opengl.Display.isCreated()) {
+                int fbWidth = Patch_MacOSRetina.getFramebufferWidth();
+                if (fbWidth > 0) {
+                    originalWidth = fbWidth;
+                }
             }
         }
     }
@@ -64,8 +77,11 @@ public class Patch_MacOSRetina {
     public static class Patch_DisplayGetHeight {
         @Patch.OnExit
         public static void exit(@Patch.Return(readOnly = false) int originalHeight) {
-            if (Patch_MacOSRetina.isPatchNeeded()) {
-                originalHeight = 2234;
+            if (Patch_MacOSRetina.isPatchNeeded() && org.lwjglx.opengl.Display.isCreated()) {
+                int fbHeight = Patch_MacOSRetina.getFramebufferHeight();
+                if (fbHeight > 0) {
+                    originalHeight = fbHeight;
+                }
             }
         }
     }
@@ -78,8 +94,12 @@ public class Patch_MacOSRetina {
     public static class Patch_DisplayGetDesktopDisplayMode {
         @Patch.OnExit
         public static void exit(@Patch.Return(readOnly = false) org.lwjglx.opengl.DisplayMode result) {
-            if (Patch_MacOSRetina.isPatchNeeded()) {
-                result = new org.lwjglx.opengl.DisplayMode(3456, 2234);
+            if (Patch_MacOSRetina.isPatchNeeded() && org.lwjglx.opengl.Display.isCreated()) {
+                int fbWidth = Patch_MacOSRetina.getFramebufferWidth();
+                int fbHeight = Patch_MacOSRetina.getFramebufferHeight();
+                if (fbWidth > 0 && fbHeight > 0) {
+                    result = new org.lwjglx.opengl.DisplayMode(fbWidth, fbHeight);
+                }
             }
         }
     }
