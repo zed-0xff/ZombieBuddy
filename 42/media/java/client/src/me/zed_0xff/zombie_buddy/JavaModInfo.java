@@ -45,19 +45,6 @@ public record JavaModInfo(
     }
     
     /**
-     * Gets the fully qualified Main class name.
-     * The Main class is always named "Main" in the package specified by javaPkgName.
-     * javaPkgName is mandatory when jarFile is present, so this should never return null
-     * for a valid Java mod.
-     */
-    public String getMainClassName() {
-        if (javaPkgName == null || javaPkgName.isEmpty()) {
-            return null;
-        }
-        return javaPkgName + ".Main";
-    }
-    
-    /**
      * Internal record to hold parsed values from a mod.info file.
      */
     private record ParsedValues(String jarFile, String javaPkgName, String zbVersionMin, String zbVersionMax) {}

@@ -330,8 +330,29 @@ public class Loader {
         }
     }
 
+    // Note: isPreMain parameter is reserved for future use
     public static void ApplyPatchesFromPackage(String packageName, ClassLoader modLoader, boolean isPreMain) {
-        // Note: isPreMain parameter is reserved for future use
+        // Load and invoke optional Main class
+        String mainClassName = packageName + ".Main";
+        if (g_known_classes.contains(mainClassName)) {
+            System.out.println("[ZB] Java class " + mainClassName + " already loaded, skipping.");
+        } else {
+            g_known_classes.add(mainClassName);
+
+            System.out.println("[ZB] loading class " + mainClassName);
+            Class<?> cls = null;
+            try {
+                cls = Class.forName(mainClassName);
+                try_call_main(cls);
+                System.out.println("[ZB] loaded " + mainClassName);
+            } catch (ClassNotFoundException e) {
+                // Main class is optional - if it doesn't exist, that's fine
+                System.out.println("[ZB] Main class " + mainClassName + " not found (optional, skipping)");
+            } catch (Exception e) {
+                System.err.println("[ZB] failed to load Java class " + mainClassName + ": " + e);
+            }
+        }
+
         List<Class<?>> patches = CollectPatches(packageName, modLoader);
         if (patches.isEmpty()) {
             System.out.println("[ZB] no patches in package " + packageName);
@@ -1009,30 +1030,6 @@ public class Loader {
             return;
         }
         
-        // Load and invoke Main class (optional)
-        String mainClassName = modInfo.getMainClassName();
-        if (mainClassName != null) {
-            if (g_known_classes.contains(mainClassName)) {
-                System.out.println("[ZB] Java class " + mainClassName + " already loaded, skipping.");
-            } else {
-                g_known_classes.add(mainClassName);
-
-                System.out.println("[ZB] loading class " + mainClassName);
-                Class<?> cls = null;
-                try {
-                    cls = Class.forName(mainClassName);
-                    try_call_main(cls);
-                    System.out.println("[ZB] loaded " + mainClassName);
-                } catch (ClassNotFoundException e) {
-                    // Main class is optional - if it doesn't exist, that's fine
-                    System.out.println("[ZB] Main class " + mainClassName + " not found (optional, skipping)");
-                } catch (Exception e) {
-                    System.err.println("[ZB] failed to load Java class " + mainClassName + ": " + e);
-                }
-            }
-        }
-        
-        // Always apply patches from the package, regardless of whether Main class exists
         ApplyPatchesFromPackage(modInfo.javaPkgName(), null, false);
         
         System.out.println("[ZB] -------------------------------------------");
