@@ -10,7 +10,8 @@ import zombie.ZomboidFileSystem;
 
 public class Main {
     public static void main(String[] args) {
-        // Configure HTTP server port and timeout from Agent.arguments (if provided)
+        // Configure HTTP server host, port and timeout from Agent.arguments (if provided)
+        String hostValue = Agent.arguments.get("lua_server_host");
         String portValue = Agent.arguments.get("lua_server_port");
         String timeoutValue = Agent.arguments.get("lua_task_timeout");
 
@@ -29,7 +30,8 @@ public class Main {
                         System.out.println("[ZB] Using random port for HTTP server");
                     }
                 }
-                HttpServer httpServer = new HttpServer(serverPort, isRandomPort);
+                String bindHost = (hostValue != null && !hostValue.isEmpty()) ? hostValue : "127.0.0.1";
+                HttpServer httpServer = new HttpServer(bindHost, serverPort, isRandomPort);
                 httpServer.start();
 
                 // Register hook to write the random port file on game init

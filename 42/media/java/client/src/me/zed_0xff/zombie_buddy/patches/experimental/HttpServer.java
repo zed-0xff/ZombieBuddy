@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -29,6 +30,7 @@ import me.zed_0xff.zombie_buddy.ZombieBuddy;
 
 public class HttpServer {
     private com.sun.net.httpserver.HttpServer server;
+    private final String host;
     private int port;
     private boolean wasRandomPort;
     private static HttpServer instance;
@@ -39,7 +41,30 @@ public class HttpServer {
     
     // Queue for Lua tasks to be executed on the main thread (for dedicated servers)
     private static final ConcurrentLinkedQueue<LuaTask> luaTaskQueue = new ConcurrentLinkedQueue<>();
-    
+
+    /** Cached result of one-time check for debugOwnerThread field on Lua thread class. 0 = not inited, 1 = present, -1 = absent. */
+    private static volatile int hasDebugOwnerThreadField = 0;
+    /** Cached Field for debugOwnerThread, set once when present. */
+    private static volatile Field cachedDebugOwnerThreadField = null;
+
+    private static void ensureDebugOwnerThreadCache() {
+        if (hasDebugOwnerThreadField != 0) return;
+        Object thread = LuaManager.thread;
+        if (thread == null) return;
+        synchronized (HttpServer.class) {
+            if (hasDebugOwnerThreadField != 0) return;
+            try {
+                // field is absent on B41, present on B42+
+                Field f = thread.getClass().getDeclaredField("debugOwnerThread");
+                f.setAccessible(true);
+                cachedDebugOwnerThreadField = f;
+                hasDebugOwnerThreadField = 1;
+            } catch (NoSuchFieldException | SecurityException e) {
+                hasDebugOwnerThreadField = -1;
+            }
+        }
+    }
+
     private static class LuaTask {
         final Runnable task;
         final CountDownLatch latch = new CountDownLatch(1);
@@ -82,8 +107,18 @@ public class HttpServer {
     }
     
     private static boolean isOnLuaThread() {
-        return LuaManager.thread != null && 
-               LuaManager.thread.debugOwnerThread == Thread.currentThread();
+        Object thread = LuaManager.thread;
+        if (thread == null) return false;
+        ensureDebugOwnerThreadCache();
+        if (hasDebugOwnerThreadField == 1 && cachedDebugOwnerThreadField != null) {
+            try {
+                Object owner = cachedDebugOwnerThreadField.get(thread);
+                return owner == Thread.currentThread();
+            } catch (IllegalAccessException e) {
+                return false;
+            }
+        }
+        return false;
     }
     
     public static void runOnLuaThread(Runnable task) throws Exception {
@@ -102,12 +137,17 @@ public class HttpServer {
     }
 
     public HttpServer(int port, boolean isRandomPort) {
+        this("127.0.0.1", port, isRandomPort);
+    }
+
+    public HttpServer(String host, int port, boolean isRandomPort) {
+        this.host = host != null && !host.isEmpty() ? host : "127.0.0.1";
         this.port = port;
         this.wasRandomPort = isRandomPort;
     }
 
     public void start() throws IOException {
-        server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
+        server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress(host, port), 0);
         // Get the actual port that was bound (important for port 0 = random)
         port = server.getAddress().getPort();
         
