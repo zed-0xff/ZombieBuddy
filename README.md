@@ -36,7 +36,7 @@ Previously, Java mods for Project Zomboid required bundling `.class` files and m
 - 🎯 **Annotation-based patching**: Use `@Patch` annotations to declare method patches
 - 🔄 **Runtime class transformation**: Patch classes that are already loaded using retransformation
 - 📦 **Automatic patch discovery**: Scans for patch classes automatically
-- 🔗 **Lua integration**: Expose Java classes to Lua scripting with ease
+- 🔗 **Lua integration**: Expose Java classes and global functions to Lua via annotations (`@Exposer.LuaClass`, `@LuaMethod(global = true)`) or the Exposer API
 - ⚡ **Advice and Method Delegation**: Support for both advice-based and delegation-based patching
 - 🔍 **Verbose logging**: Configurable verbosity levels for debugging
 
@@ -291,9 +291,43 @@ public static class SkipExample {
 **Important**: 
 - Place patch classes in the same package as your Main class (specified by `javaPkgName`). ZombieBuddy will automatically discover and apply all `@Patch` annotated classes in that package.
 
-#### 6. Expose Classes to Lua
+#### 6. Expose Classes and Functions to Lua
 
-To make your Java classes accessible from Lua scripts:
+You can expose Java to Lua in two ways: **annotation-based** (recommended, discovered automatically) or **manual** (call Exposer from your code).
+
+**Annotation-based (recommended)**
+
+- **Full class exposure**: Annotate a class with `@Exposer.LuaClass`. The loader discovers it in your package (same scan as `@Patch` classes) and registers it with the game’s Lua engine so the class and its instance methods are available in Lua.
+
+  ```java
+  import me.zed_0xff.zombie_buddy.Exposer;
+
+  @Exposer.LuaClass
+  public class MyLuaApi {
+      public String greet(String who) {
+          return "Hello, " + who;
+      }
+  }
+  ```
+
+- **Global Lua functions only**: Add `@LuaMethod(name = "luaName", global = true)` to **static** methods. The loader discovers any class in your package that has at least one such method and exposes those methods as global Lua functions. The class does **not** need `@Exposer.LuaClass`.
+
+  ```java
+  import se.krka.kahlua.integration.annotations.LuaMethod;
+
+  public class MyGlobals {
+      @LuaMethod(name = "myGlobalFunc", global = true)
+      public static String myGlobalFunc(String arg) {
+          return "got: " + arg;
+      }
+  }
+  ```
+
+  In Lua you can then call `myGlobalFunc("foo")`. A no-arg constructor is used to create the instance passed to the game’s exposer; use static methods if you don’t need instance state.
+
+**Manual API**
+
+If you need to expose a class at runtime (e.g. from Main or a patch):
 
 ```java
 import me.zed_0xff.zombie_buddy.Exposer;
@@ -404,14 +438,11 @@ public static class MySkipPatch {
 }
 ```
 
-### Exposing Classes to Lua
+### Exposing Classes and Functions to Lua
 
-```java
-import me.zed_0xff.zombie_buddy.Exposer;
-
-// In your mod's initialization code
-Exposer.exposeClassToLua(MyCustomClass.class);
-```
+- **Full class**: Add `@Exposer.LuaClass` on the class. It is discovered in your mod package and registered with Lua (class + instance methods).
+- **Global functions only**: Add `@LuaMethod(name = "luaName", global = true)` on static methods. Any class in your package with at least one such method gets those methods exposed as Lua globals; no `@Exposer.LuaClass` needed.
+- **Manual**: Call `Exposer.exposeClassToLua(MyCustomClass.class)` from your Main or patch code when you need to register a class at runtime.
 
 ## Requirements
 

@@ -5,14 +5,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 
 import me.zed_0xff.zombie_buddy.Agent;
-import me.zed_0xff.zombie_buddy.Exposer;
 import me.zed_0xff.zombie_buddy.Hooks;
 import zombie.ZomboidFileSystem;
 
 public class Main {
     public static void main(String[] args) {
-        Exposer.exposeClassToLua(ZBPacketLog.class);
-
         // Configure HTTP server port and timeout from Agent.arguments (if provided)
         String portValue = Agent.arguments.get("lua_server_port");
         String timeoutValue = Agent.arguments.get("lua_task_timeout");

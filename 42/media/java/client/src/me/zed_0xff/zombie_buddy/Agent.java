@@ -50,7 +50,7 @@ public class Agent {
         }
 
         Loader.ApplyPatchesFromPackage(ZombieBuddy.class.getPackage().getName() + ".patches", null, true);
-        
+
         // Load experimental patches if enabled
         if (arguments.containsKey("experimental")) {
             Loader.ApplyPatchesFromPackage(ZombieBuddy.class.getPackage().getName() + ".patches.experimental", null, true);
@@ -118,7 +118,7 @@ public class Agent {
             
             // Scan for patches in the specified package
             Loader.ApplyPatchesFromPackage(packageName, null, true);
-            
+
         } catch (Exception e) {
             System.err.println("[ZB] Error loading patches from JAR " + jarPath + ": " + e.getMessage());
             e.printStackTrace();

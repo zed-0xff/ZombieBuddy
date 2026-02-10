@@ -1,5 +1,7 @@
 package me.zed_0xff.zombie_buddy.patches;
 
+import java.lang.reflect.Modifier;
+
 import me.zed_0xff.zombie_buddy.Exposer;
 import me.zed_0xff.zombie_buddy.Patch;
 
@@ -15,9 +17,33 @@ public class Patch_Exposer {
                 return;
             }
 
+            // Full class exposure: only for classes in Exposer.getExposedClasses()
             for (Class<?> cls : Exposer.getExposedClasses()) {
                 System.out.println("[ZB] Exposing class to Lua: " + cls.getName());
                 zombie.Lua.LuaManager.exposer.setExposed(cls);
+            }
+            // Global functions: for every class that has @LuaMethod(global=true), even if not fully exposed
+            for (Class<?> cls : Exposer.getClassesWithGlobalLuaMethod()) {
+                Object instance = newInstance(cls);
+                if (instance != null) {
+                    try {
+                        System.out.println("[ZB] Exposing global functions from class: " + cls.getName());
+                        zombie.Lua.LuaManager.exposer.exposeGlobalFunctions(instance);
+                    } catch (Exception e) {
+                        System.err.println("[ZB] exposeGlobalFunctions(" + cls.getName() + "): " + e.getMessage());
+                    }
+                }
+            }
+        }
+
+        public static Object newInstance(Class<?> cls) {
+            try {
+                if (Modifier.isAbstract(cls.getModifiers()) || cls.isInterface()) {
+                    return null;
+                }
+                return cls.getDeclaredConstructor().newInstance();
+            } catch (Throwable t) {
+                return null;
             }
         }
     }

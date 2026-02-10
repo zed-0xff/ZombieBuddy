@@ -6,10 +6,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import se.krka.kahlua.vm.KahluaTable;
 
+import me.zed_0xff.zombie_buddy.Exposer;
+
 /**
  * Control plane for getPacket() logging. By default logging is disabled.
  * Lua can enable/disable and filter by packet class name (simple name, no package).
  */
+@Exposer.LuaClass
 public class ZBPacketLog {
     private static volatile boolean enabled = false;
     private static final Set<String> include = Collections.newSetFromMap(new ConcurrentHashMap<>());

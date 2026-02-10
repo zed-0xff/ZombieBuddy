@@ -370,7 +370,7 @@ public class Loader {
             // TODO: show error on game UI (if debug mode is enabled?)
             if (ann.className().equals("zombie.Lua.LuaManager$Exposer") && ann.methodName().equals("exposeAll") && !ann.IKnowWhatIAmDoing()) {
                 System.err.println("[ZB] XXX");
-                System.err.println("[ZB] XXX don't patch Exposer.exposeAll, use ZombieBuddy.Exposer.exposeClassToLua() instead!");
+                System.err.println("[ZB] XXX don't patch Exposer.exposeAll, use @Exposer.LuaClass annotation instead!");
                 System.err.println("[ZB] XXX");
                 continue;
             }
@@ -979,6 +979,34 @@ public class Loader {
                 } catch (Exception e) {
                     System.err.println("[ZB] Error loading patch class " + classInfo.getName() + ": " + e.getMessage());
                     e.printStackTrace();
+                }
+            }
+
+            // Same scan: expose to Lua any classes annotated with @Exposer.LuaClass (exact package only)
+            for (ClassInfo classInfo : scanResult.getClassesWithAnnotation(Exposer.LuaClass.class.getName())) {
+                if (!classInfo.getPackageName().equals(packageName)) {
+                    continue;
+                }
+                try {
+                    Class<?> cls = classInfo.loadClass();
+                    Exposer.exposeClassToLua(cls);
+                } catch (Exception e) {
+                    System.err.println("[ZB] Error exposing Lua class " + classInfo.getName() + ": " + e.getMessage());
+                }
+            }
+
+            // Same scan: register classes that have @LuaMethod(global=true) (full class may not be exposed)
+            for (ClassInfo classInfo : scanResult.getAllClasses()) {
+                if (!classInfo.getPackageName().equals(packageName)) {
+                    continue;
+                }
+                try {
+                    Class<?> cls = classInfo.loadClass();
+                    if (Exposer.hasGlobalLuaMethod(cls)) {
+                        Exposer.addClassWithGlobalLuaMethod(cls);
+                    }
+                } catch (Throwable t) {
+                    // skip (e.g. abstract, no class def)
                 }
             }
         } catch (Exception e) {
