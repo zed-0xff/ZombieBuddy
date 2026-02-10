@@ -33,7 +33,6 @@ import zombie.gameStates.ChooseGameInfo;
 public class Loader {
     public static Instrumentation g_instrumentation;
     public static int g_verbosity = 0;
-    public static boolean g_dump_env = false;
 
     static Set<String> g_known_classes = new HashSet<>();
     static Set<File> g_known_jars = new HashSet<>();

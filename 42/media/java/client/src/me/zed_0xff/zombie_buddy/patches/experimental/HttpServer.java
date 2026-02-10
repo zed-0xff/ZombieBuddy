@@ -1,4 +1,4 @@
-package me.zed_0xff.zombie_buddy;
+package me.zed_0xff.zombie_buddy.patches.experimental;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -25,6 +25,8 @@ import se.krka.kahlua.vm.LuaClosure;
 import zombie.Lua.LuaManager;
 import zombie.ZomboidFileSystem;
 
+import me.zed_0xff.zombie_buddy.ZombieBuddy;
+
 public class HttpServer {
     private com.sun.net.httpserver.HttpServer server;
     private int port;
@@ -33,6 +35,7 @@ public class HttpServer {
     
     // Timeout for waiting for Lua task execution (in milliseconds)
     public static long luaTaskTimeoutMs = 1000;
+    public static int g_verbosity = 0;
     
     // Queue for Lua tasks to be executed on the main thread (for dedicated servers)
     private static final ConcurrentLinkedQueue<LuaTask> luaTaskQueue = new ConcurrentLinkedQueue<>();
@@ -166,7 +169,7 @@ public class HttpServer {
     }
 
     private static void logRequest(HttpExchange exchange) {
-        if (Loader.g_verbosity > 0) {
+        if (g_verbosity > 0) {
             String method = exchange.getRequestMethod();
             String path = exchange.getRequestURI().toString();
             System.out.println("[ZB] " + method + " " + path);

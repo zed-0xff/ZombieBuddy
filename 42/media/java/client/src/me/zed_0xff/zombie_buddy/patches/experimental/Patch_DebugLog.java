@@ -8,7 +8,7 @@ public class Patch_DebugLog {
         @Patch.OnExit
         public static void exit() {
             System.out.println("[ZB] after DebugLog.init");
-            if (Loader.g_dump_env) {
+            if (Agent.arguments.containsKey("dump_env")) {
                 Agent.dumpEnv();
             }
         }

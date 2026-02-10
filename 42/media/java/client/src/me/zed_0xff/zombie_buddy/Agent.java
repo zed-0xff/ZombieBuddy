@@ -3,16 +3,19 @@ package me.zed_0xff.zombie_buddy;
 import java.io.File;
 import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.jar.JarFile;
+import me.zed_0xff.zombie_buddy.patches.experimental.Main;
+import zombie.core.Core;
 
 public class Agent {
+    public static final Map<String, String> arguments = new HashMap<>();
+
     public static void premain(String agentArgs, Instrumentation inst) {
         System.out.println("[ZB] activating " + ZombieBuddy.getFullVersionString());
         Loader.g_instrumentation = inst;
-
-        List<PatchesJarEntry> patchesJarEntries = new ArrayList<>();
-        boolean experimentalEnabled = false;
 
         if (agentArgs != null && !agentArgs.isEmpty()) {
             System.out.println("[ZB] agentArgs: " + agentArgs);
@@ -22,92 +25,16 @@ public class Agent {
                 String key = kv[0].toLowerCase();
                 String value = (kv.length > 1) ? kv[1] : "";
 
-                switch (key) {
-                    case "verbosity":
-                        try {
-                            Loader.g_verbosity = Integer.parseInt(value);
-                            System.err.println("[ZB] set verbosity to " + Loader.g_verbosity);
-                        } catch (NumberFormatException e) {
-                            System.err.println("[ZB] invalid verbosity value: " + value);
-                        }
-                        break;
+                arguments.put(key, value);
+            }
+        }
 
-                    case "exit_after_game_init":
-                        GameUtils.g_exit_after_game_init = true;
-                        System.err.println("[ZB] will exit after game init");
-                        break;
-
-                    case "dump_env":
-                        Loader.g_dump_env = true;
-                        dumpEnv();
-                        break;
-
-                    case "patches_jar":
-                        // Support multiple JARs separated by semicolon
-                        // Each entry must be in format <path>:<package_name>
-                        String[] entries = value.split(";");
-                        for (String entry : entries) {
-                            entry = entry.trim();
-                            if (!entry.isEmpty()) {
-                                String[] parts = entry.split(":", 2);
-                                if (parts.length != 2) {
-                                    System.err.println("[ZB] patches_jar entry must be in format <path>:<package_name>, got: " + entry);
-                                    continue;
-                                }
-                                String jarPath = parts[0].trim();
-                                String packageName = parts[1].trim();
-                                if (jarPath.isEmpty() || packageName.isEmpty()) {
-                                    System.err.println("[ZB] patches_jar entry must have non-empty path and package name, got: " + entry);
-                                    continue;
-                                }
-                                patchesJarEntries.add(new PatchesJarEntry(jarPath, packageName));
-                            }
-                        }
-                        System.out.println("[ZB] patches_jar specified: " + value + " (" + patchesJarEntries.size() + " JAR(s))");
-                        break;
-
-                    case "experimental":
-                        experimentalEnabled = true;
-                        System.out.println("[ZB] experimental patches enabled");
-                        break;
-
-                    case "lua_server_port":
-                        try {
-                            int serverPort;
-                            boolean isRandomPort = false;
-                            if ("random".equalsIgnoreCase(value)) {
-                                serverPort = 0; // 0 means random port
-                                isRandomPort = true;
-                                System.out.println("[ZB] Using random port for HTTP server");
-                            } else {
-                                serverPort = Integer.parseInt(value);
-                                if (serverPort == 0) {
-                                    isRandomPort = true;
-                                    System.out.println("[ZB] Using random port for HTTP server");
-                                }
-                            }
-                            HttpServer httpServer = new HttpServer(serverPort, isRandomPort);
-                            httpServer.start();
-                        } catch (NumberFormatException e) {
-                            System.err.println("[ZB] invalid server_port value: " + value);
-                        } catch (Exception e) {
-                            System.err.println("[ZB] failed to start HTTP server: " + e.getMessage());
-                        }
-                        break;
-
-                    case "lua_task_timeout":
-                        try {
-                            HttpServer.luaTaskTimeoutMs = Long.parseLong(value);
-                            System.out.println("[ZB] Lua task timeout set to " + HttpServer.luaTaskTimeoutMs + "ms");
-                        } catch (NumberFormatException e) {
-                            System.err.println("[ZB] invalid lua_task_timeout value: " + value);
-                        }
-                        break;
-
-                    default:
-                        System.err.println("[ZB] unknown agent argument: " + key);
-                        break;
-                }
+        if( arguments.containsKey("verbosity")) {
+            try {
+                Loader.g_verbosity = Integer.parseInt(arguments.get("verbosity"));
+                System.err.println("[ZB] set verbosity to " + Loader.g_verbosity);
+            } catch (NumberFormatException e) {
+                System.err.println("[ZB] invalid verbosity value: " + arguments.get("verbosity"));
             }
         }
 
@@ -125,16 +52,54 @@ public class Agent {
         Loader.ApplyPatchesFromPackage(ZombieBuddy.class.getPackage().getName() + ".patches", null, true);
         
         // Load experimental patches if enabled
-        if (experimentalEnabled) {
+        if (arguments.containsKey("experimental")) {
             Loader.ApplyPatchesFromPackage(ZombieBuddy.class.getPackage().getName() + ".patches.experimental", null, true);
         }
         
-        // Load patches from external JAR(s) if specified
-        for (PatchesJarEntry entry : patchesJarEntries) {
-            loadPatchesFromJar(entry.jarPath, entry.packageName);
+        if( arguments.containsKey("patches_jar")) {
+            // Support multiple JARs separated by semicolon
+            // Each entry must be in format <path>:<package_name>
+            List<PatchesJarEntry> patchesJarEntries = new ArrayList<>();
+            String[] entries = arguments.get("patches_jar").split(";");
+            for (String entry : entries) {
+                entry = entry.trim();
+                if (!entry.isEmpty()) {
+                    String[] parts = entry.split(":", 2);
+                    if (parts.length != 2) {
+                        System.err.println(
+                                "[ZB] patches_jar entry must be in format <path>:<package_name>, got: " + entry);
+                        continue;
+                    }
+                    String jarPath = parts[0].trim();
+                    String packageName = parts[1].trim();
+                    if (jarPath.isEmpty() || packageName.isEmpty()) {
+                        System.err.println(
+                                "[ZB] patches_jar entry must have non-empty path and package name, got: " + entry);
+                        continue;
+                    }
+                    patchesJarEntries.add(new PatchesJarEntry(jarPath, packageName));
+                }
+            }
+
+            for (PatchesJarEntry entry : patchesJarEntries) {
+                loadPatchesFromJar(entry.jarPath, entry.packageName);
+            }
         }
         
+        // Register onGameInitComplete hooks based on arguments
+        if (arguments.containsKey("exit_after_game_init")) {
+            Hooks.register("onGameInitComplete", Agent::onGameInitCompleteExitHook);
+        }
+
         System.out.println("[ZB] Agent installed.");
+    }
+
+    /** Called from Hooks when exit_after_game_init was requested. */
+    private static void onGameInitCompleteExitHook() {
+        if (arguments.containsKey("exit_after_game_init")) {
+            System.out.println("[ZB] Exiting after game init as requested.");
+            Core.getInstance().quit();
+        }
     }
     
     private static void loadPatchesFromJar(String jarPath, String packageName) {
