@@ -192,19 +192,26 @@ public class Loader {
             var mod = ChooseGameInfo.getAvailableModDetails(mod_id);
             if (mod == null) continue;
 
-            // follow lua engine logic, load common dir first, then version dir
-            // so version dir could override common dir
-            JavaModInfo jModInfoCommon = JavaModInfo.parse(mod.getCommonDir());
-            JavaModInfo jModInfoVersion = JavaModInfo.parse(mod.getVersionDir());
+            if (Utils.hasMethod(mod, "getVersionDir") && Utils.hasMethod(mod, "getCommonDir")) {
+                // B42+
+                // follow lua engine logic, load common dir first, then version dir
+                // so version dir could override common dir
+                JavaModInfo jModInfoCommon = JavaModInfo.parse(mod.getCommonDir());
+                JavaModInfo jModInfoVersion = JavaModInfo.parse(mod.getVersionDir());
 
-            if (jModInfoCommon != null) {
-                jModInfos.add(jModInfoCommon);
-                if (jModInfoVersion == null) {
-                    // when mod.info is in common dir, but JAR is in version dir
-                    jModInfoVersion = JavaModInfo.parseMerged(mod.getCommonDir(), mod.getVersionDir());
+                if (jModInfoCommon != null) {
+                    jModInfos.add(jModInfoCommon);
+                    if (jModInfoVersion == null) {
+                        // when mod.info is in common dir, but JAR is in version dir
+                        jModInfoVersion = JavaModInfo.parseMerged(mod.getCommonDir(), mod.getVersionDir());
+                    }
                 }
+                if (jModInfoVersion != null) jModInfos.add(jModInfoVersion);
+            } else {
+                // B41
+                JavaModInfo jModInfo = JavaModInfo.parse(mod.getDir());
+                if (jModInfo != null) jModInfos.add(jModInfo);
             }
-            if (jModInfoVersion != null) jModInfos.add(jModInfoVersion);
         }
 
         System.out.println("[ZB] java mod list to load:");
@@ -370,7 +377,7 @@ public class Loader {
             // TODO: show error on game UI (if debug mode is enabled?)
             if (ann.className().equals("zombie.Lua.LuaManager$Exposer") && ann.methodName().equals("exposeAll") && !ann.IKnowWhatIAmDoing()) {
                 System.err.println("[ZB] XXX");
-                System.err.println("[ZB] XXX don't patch Exposer.exposeAll, use @Exposer.LuaClass annotation instead!");
+                System.err.println("[ZB] XXX don't patch Exposer.exposeAll, use ZombieBuddy.Exposer.exposeClassToLua() instead!");
                 System.err.println("[ZB] XXX");
                 continue;
             }
