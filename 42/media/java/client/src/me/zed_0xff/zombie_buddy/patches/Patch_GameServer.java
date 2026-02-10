@@ -6,6 +6,6 @@ import me.zed_0xff.zombie_buddy.*;
 public class Patch_GameServer {
     @Patch.OnEnter
     static void enter() {
-        GameUtils.onGameInitComplete();
+        Hooks.run("onGameInitComplete");
     }
 }
