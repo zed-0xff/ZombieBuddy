@@ -48,7 +48,10 @@ public final class Accessor {
         }
     }
 
-    private static Field findField(Class<?> cls, String fieldName) {
+    /**
+     * Finds a field by name in {@code cls} or any superclass. Returns null if not found.
+     */
+    public static Field findField(Class<?> cls, String fieldName) {
         for (Class<?> c = cls; c != null; c = c.getSuperclass()) {
             try {
                 return c.getDeclaredField(fieldName);

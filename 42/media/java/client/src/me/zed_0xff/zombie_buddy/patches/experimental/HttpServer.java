@@ -54,14 +54,13 @@ public class HttpServer {
         if (thread == null) return;
         synchronized (HttpServer.class) {
             if (hasDebugOwnerThreadField != 0) return;
-            try {
-                // field is absent on B41, present on B42+
-                Field f = thread.getClass().getDeclaredField("debugOwnerThread");
-                f.setAccessible(true);
+            // field is on KahluaThread (B42+); search hierarchy in case runtime class is a subclass
+            Field f = Accessor.findField(thread.getClass(), "debugOwnerThread");
+            if (f != null) {
                 cachedDebugOwnerThreadField = f;
                 hasDebugOwnerThreadField = 1;
-            } catch (NoSuchFieldException | SecurityException e) {
-                hasDebugOwnerThreadField = -1;
+            } else {
+                hasDebugOwnerThreadField = -1;  // B41 or field absent
             }
         }
     }
