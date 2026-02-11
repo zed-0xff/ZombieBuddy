@@ -28,7 +28,7 @@ public final class Hooks {
             return;
         }
         if (!isKnownHook(name)) {
-            Logger.err.println("[ZB] Hooks.register: unknown hook name: " + name);
+            Logger.error("Hooks.register: unknown hook name: " + name);
             return;
         }
         if ("onGameInitComplete".equals(name)) {
@@ -50,14 +50,14 @@ public final class Hooks {
      */
     public static void run(String name) {
         if (!isKnownHook(name)) {
-            Logger.err.println("[ZB] Hooks.run: unknown hook name: " + name);
+            Logger.error("Hooks.run: unknown hook name: " + name);
             return;
         }
         if (isHookAlreadyRan(name)) {
             return;
         }
         setHookAlreadyRan(name);
-        Logger.out.println("[ZB] Running hooks for: " + name);
+        Logger.info("Running hooks for: " + name);
         for (OnGameInitComplete hook : gameInitCompleteHooks) {
             try {
                 hook.onGameInitComplete();

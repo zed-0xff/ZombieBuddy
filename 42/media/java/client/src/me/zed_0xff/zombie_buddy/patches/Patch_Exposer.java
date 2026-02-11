@@ -11,16 +11,16 @@ public class Patch_Exposer {
     public static class Patch_exposeAll {
         @Patch.OnEnter
         public static void enter() {
-            Logger.out.println("[ZB] before Exposer.exposeAll");
+            Logger.info("before Exposer.exposeAll");
 
             if ( zombie.Lua.LuaManager.exposer == null ) {
-                Logger.out.println("[ZB] Error! LuaManager.exposer is null!");
+                Logger.info("Error! LuaManager.exposer is null!");
                 return;
             }
 
             // Full class exposure: only for classes in Exposer.getExposedClasses()
             for (Class<?> cls : Exposer.getExposedClasses()) {
-                Logger.out.println("[ZB] Exposing class to Lua: " + cls.getName());
+                Logger.info("Exposing class to Lua: " + cls.getName());
                 zombie.Lua.LuaManager.exposer.setExposed(cls);
             }
             // Global functions: for every class that has @LuaMethod(global=true), even if not fully exposed
@@ -28,10 +28,10 @@ public class Patch_Exposer {
                 Object instance = newInstance(cls);
                 if (instance != null) {
                     try {
-                        Logger.out.println("[ZB] Exposing global functions from class: " + cls.getName());
+                        Logger.info("Exposing global functions from class: " + cls.getName());
                         zombie.Lua.LuaManager.exposer.exposeGlobalFunctions(instance);
                     } catch (Exception e) {
-                        Logger.err.println("[ZB] exposeGlobalFunctions(" + cls.getName() + "): " + e.getMessage());
+                        Logger.error("exposeGlobalFunctions(" + cls.getName() + "): " + e.getMessage());
                     }
                 }
             }

@@ -113,11 +113,11 @@ public class Exposer {
                     Class<?> cls = classInfo.loadClass();
                     exposeClassToLua(cls);
                 } catch (Exception e) {
-                    Logger.err.println("[ZB] Exposer: failed to load " + classInfo.getName() + ": " + e.getMessage());
+                    Logger.error("Exposer: failed to load " + classInfo.getName() + ": " + e.getMessage());
                 }
             }
         } catch (Exception e) {
-            Logger.err.println("[ZB] Exposer.exposeAnnotatedClassesInPackage(" + packageName + "): " + e.getMessage());
+            Logger.error("Exposer.exposeAnnotatedClassesInPackage(" + packageName + "): " + e.getMessage());
         }
     }
 

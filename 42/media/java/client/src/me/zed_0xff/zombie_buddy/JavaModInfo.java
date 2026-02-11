@@ -76,20 +76,20 @@ public record JavaModInfo(
                 String lowerLine = line.toLowerCase();
                 if (lowerLine.startsWith("javajarfile=")) {
                     if (jarFile != null) {
-                        Logger.err.println("[ZB] Warning! Multiple javaJarFile entries found, only the first one will be used: " + modInfoFile);
+                        Logger.error("Warning! Multiple javaJarFile entries found, only the first one will be used: " + modInfoFile);
                         continue;
                     }
                     String jarPath = line.split("=", 2)[1].trim();
                     if (!jarPath.isEmpty()) {
                         if (!jarPath.endsWith(".jar")) {
-                            Logger.err.println("[ZB] Error! javaJarFile entry must end with \".jar\": " + jarPath);
+                            Logger.error("Error! javaJarFile entry must end with \".jar\": " + jarPath);
                             continue;
                         }
                         jarFile = jarPath;
                     }
                 } else if (lowerLine.startsWith("javapkgname=")) {
                     if (javaPkgName != null) {
-                        Logger.err.println("[ZB] Warning! Multiple javaPkgName entries found, only the first one will be used: " + modInfoFile);
+                        Logger.error("Warning! Multiple javaPkgName entries found, only the first one will be used: " + modInfoFile);
                         continue;
                     }
                     String pkgName = line.split("=", 2)[1].trim();
@@ -103,7 +103,7 @@ public record JavaModInfo(
                 }
             }
         } catch (Exception e) {
-            Logger.err.println("[ZB] error reading " + modInfoFile + ": " + e);
+            Logger.error("error reading " + modInfoFile + ": " + e);
             return null;
         }
         
@@ -120,7 +120,7 @@ public record JavaModInfo(
     public static JavaModInfo parse(File modDirectory) {
         if (modDirectory == null || !modDirectory.isDirectory()) {
             if (Loader.g_verbosity > 0) {
-                Logger.out.println("[ZB] Mod directory does not exist or is not a directory: " + modDirectory);
+                Logger.info("Mod directory does not exist or is not a directory: " + modDirectory);
             }
             return null;
         }
@@ -129,7 +129,7 @@ public record JavaModInfo(
         ParsedValues parsed = parseModInfoFile(modInfoFile);
         if (parsed == null) {
             if (Loader.g_verbosity > 0) {
-                Logger.out.println("[ZB] mod.info not found or failed to parse in directory: " + modDirectory);
+                Logger.info("mod.info not found or failed to parse in directory: " + modDirectory);
             }
             return null;
         }
@@ -142,18 +142,18 @@ public record JavaModInfo(
         // Both javaJarFile and javaPkgName are required - return null if either is missing or invalid
         if (jarFile == null || jarFile.isEmpty()) {
             if (Loader.g_verbosity > 0) {
-                Logger.out.println("[ZB] No javaJarFile entry found in mod.info, skipping Java mod: " + modInfoFile);
+                Logger.info("No javaJarFile entry found in mod.info, skipping Java mod: " + modInfoFile);
             }
             return null;
         }
         
         if (javaPkgName == null || javaPkgName.isEmpty()) {
-            Logger.err.println("[ZB] Error! Mod has javaJarFile but missing required javaPkgName: " + modInfoFile);
+            Logger.error("Error! Mod has javaJarFile but missing required javaPkgName: " + modInfoFile);
             return null;
         }
 
         if (!isVersionInRange(ZombieBuddy.getVersion(), zbVersionMin, zbVersionMax)) {
-            Logger.err.println("[ZB] Skipping mod due to version mismatch: " + modInfoFile + 
+            Logger.error("Skipping mod due to version mismatch: " + modInfoFile + 
                 " (requires: " + (zbVersionMin != null ? zbVersionMin : "any") + " to " + 
                 (zbVersionMax != null ? zbVersionMax : "any") + ", ZombieBuddy version: " + ZombieBuddy.getVersion() + ")");
             return null;
@@ -211,12 +211,12 @@ public record JavaModInfo(
         }
         
         if (javaPkgName == null || javaPkgName.isEmpty()) {
-            Logger.err.println("[ZB] Error! Mod has javaJarFile but missing required javaPkgName: " + commonModInfoFile);
+            Logger.error("Error! Mod has javaJarFile but missing required javaPkgName: " + commonModInfoFile);
             return null;
         }
 
         if (!isVersionInRange(ZombieBuddy.getVersion(), zbVersionMin, zbVersionMax)) {
-            Logger.err.println("[ZB] Skipping mod due to version mismatch: " + commonModInfoFile + 
+            Logger.error("Skipping mod due to version mismatch: " + commonModInfoFile + 
                 " (requires: " + (zbVersionMin != null ? zbVersionMin : "any") + " to " + 
                 (zbVersionMax != null ? zbVersionMax : "any") + ", ZombieBuddy version: " + ZombieBuddy.getVersion() + ")");
             return null;

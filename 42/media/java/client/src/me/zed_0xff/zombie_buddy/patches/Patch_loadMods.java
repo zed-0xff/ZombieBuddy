@@ -20,7 +20,7 @@ public class Patch_loadMods {
     //     loader 'app' attempted duplicate class definition for zombie.ZomboidFileSystem. (zombie.ZomboidFileSystem is in unnamed module of loader 'app')
     @Patch.OnEnter
     public static void enter(ArrayList<String> mods) {
-        Logger.out.println("[ZB] before ZomboidFileSystem.loadMods: " + mods.size() + " mods");
+        Logger.info("before ZomboidFileSystem.loadMods: " + mods.size() + " mods");
 
         Loader.loadMods(mods);
     }

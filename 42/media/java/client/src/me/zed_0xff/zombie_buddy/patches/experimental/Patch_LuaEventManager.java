@@ -8,7 +8,7 @@ public class Patch_LuaEventManager {
     @Patch.OnEnter
     public static void enter(@Patch.Argument(0) String eventName) {
         if (ZBEventLog.shouldLog(eventName)) {
-            Logger.out.println("[ZB] triggerEvent: " + eventName);
+            Logger.info("triggerEvent: " + eventName);
         }
     }
 }

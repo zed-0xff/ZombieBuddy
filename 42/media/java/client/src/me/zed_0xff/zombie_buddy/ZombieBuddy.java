@@ -18,7 +18,7 @@ public class ZombieBuddy {
                 }
             }
         } catch (Exception e) {
-            Logger.err.println("[ZB] Could not load version info: " + e.getMessage());
+            Logger.error("Could not load version info: " + e.getMessage());
         }
     }
     

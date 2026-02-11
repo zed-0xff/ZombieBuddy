@@ -51,11 +51,11 @@ final class PatchTransformer {
                         }
                         
                         if (!hasSkipOnSet) {
-                            Logger.err.println("[ZB] !!!!!!!");
-                            Logger.err.println("[ZB] WARNING: Annotated method " + method.getName() + 
+                            Logger.error("!!!!!!!");
+                            Logger.error("WARNING: Annotated method " + method.getName() + 
                                 "() in patch class " + patchClass.getName() + 
                                 " returns non-void. This may cause UB and diarrhea.");
-                            Logger.err.println("[ZB] !!!!!!!");
+                            Logger.error("!!!!!!!");
                         }
                     }
                 }
@@ -75,7 +75,7 @@ final class PatchTransformer {
             }
 
             if (verbosity > 1) {
-                Logger.out.println("[ZB] class " + patchClass.getName() + " needs transformation: " + needsTransformation);
+                Logger.info("class " + patchClass.getName() + " needs transformation: " + needsTransformation);
             }
             
             if (!needsTransformation) {
@@ -87,7 +87,7 @@ final class PatchTransformer {
             String classFileName = className + ".class";
             InputStream classStream = patchClass.getClassLoader().getResourceAsStream(classFileName);
             if (classStream == null) {
-                Logger.err.println("[ZB] Could not read class file for " + patchClass.getName());
+                Logger.error("Could not read class file for " + patchClass.getName());
                 return patchClass;
             }
 
@@ -171,7 +171,7 @@ final class PatchTransformer {
                         @Override
                         public void visitEnd() {
                             if (hasPatchAnnotation[0] && isNonVoid && !hasSkipOnSet[0]) {
-                                Logger.err.println("[ZB] WARNING: Method " + methodName + 
+                                Logger.error("WARNING: Method " + methodName + 
                                     " in patch class " + patchClass.getName() + 
                                     " is annotated with @Patch.OnEnter or @Patch.OnExit but returns non-void. This may cause UB and diarrhea.");
                             }
@@ -226,7 +226,7 @@ final class PatchTransformer {
                     instrumentation.redefineClasses(classDef);
                     return patchClass; // Return the redefined class
                 } catch (Exception e) {
-                    Logger.err.println("[ZB] Failed to redefine class " + patchClass.getName() + ": " + e.getMessage());
+                    Logger.error("Failed to redefine class " + patchClass.getName() + ": " + e.getMessage());
                     if (verbosity > 0) {
                         e.printStackTrace();
                     }
@@ -241,7 +241,7 @@ final class PatchTransformer {
                 return (Class<?>) defineClass.invoke(patchClass.getClassLoader(), 
                     patchClass.getName() + "$ZBTransformed", transformedBytes, 0, transformedBytes.length);
             } catch (Exception e) {
-                Logger.err.println("[ZB] Failed to define transformed class: " + e.getMessage());
+                Logger.error("Failed to define transformed class: " + e.getMessage());
                 if (verbosity > 0) {
                     e.printStackTrace();
                 }
@@ -249,7 +249,7 @@ final class PatchTransformer {
             
             return patchClass; // Fall back to original
         } catch (Exception e) {
-            Logger.err.println("[ZB] Failed to transform patch class " + patchClass.getName() + ": " + e.getMessage());
+            Logger.error("Failed to transform patch class " + patchClass.getName() + ": " + e.getMessage());
             if (verbosity > 0) {
                 e.printStackTrace();
             }

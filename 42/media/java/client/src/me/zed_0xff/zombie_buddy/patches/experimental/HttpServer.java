@@ -166,7 +166,7 @@ public class HttpServer {
         server.start();
         
         instance = this;
-        Logger.out.println("[ZB] HTTP server started at http://127.0.0.1:" + port);
+        Logger.info("HTTP server started at http://127.0.0.1:" + port);
     }
 
     public int getPort() {
@@ -184,7 +184,7 @@ public class HttpServer {
     public void stop() {
         if (server != null) {
             server.stop(0);
-            Logger.out.println("[ZB] HTTP server stopped");
+            Logger.info("HTTP server stopped");
         }
     }
 
@@ -218,7 +218,7 @@ public class HttpServer {
         if (g_verbosity > 0) {
             String method = exchange.getRequestMethod();
             String path = exchange.getRequestURI().toString();
-            Logger.out.println("[ZB] " + method + " " + path);
+            Logger.info("" + method + " " + path);
         }
     }
 

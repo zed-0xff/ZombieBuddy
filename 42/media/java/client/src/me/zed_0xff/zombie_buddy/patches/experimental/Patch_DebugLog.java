@@ -7,7 +7,7 @@ public class Patch_DebugLog {
     public static class Patch_setOut {
         @Patch.OnExit
         public static void exit() {
-            Logger.out.println("[ZB] after DebugLog.init");
+            Logger.info("after DebugLog.init");
             if (Agent.arguments.containsKey("dump_env")) {
                 Agent.dumpEnv();
             }

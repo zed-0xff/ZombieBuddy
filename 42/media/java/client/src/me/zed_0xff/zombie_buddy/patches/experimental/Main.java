@@ -24,12 +24,12 @@ public class Main {
                 if ("random".equalsIgnoreCase(portValue)) {
                     serverPort = 0; // 0 means random port
                     isRandomPort = true;
-                    Logger.out.println("[ZB] Using random port for HTTP server");
+                    Logger.info("Using random port for HTTP server");
                 } else {
                     serverPort = Integer.parseInt(portValue);
                     if (serverPort == 0) {
                         isRandomPort = true;
-                        Logger.out.println("[ZB] Using random port for HTTP server");
+                        Logger.info("Using random port for HTTP server");
                     }
                 }
                 String bindHost = (hostValue != null && !hostValue.isEmpty()) ? hostValue : "127.0.0.1";
@@ -46,9 +46,9 @@ public class Main {
                     });
                 }
             } catch (NumberFormatException e) {
-                Logger.err.println("[ZB] invalid server_port value: " + portValue);
+                Logger.error("invalid server_port value: " + portValue);
             } catch (Exception e) {
-                Logger.err.println("[ZB] failed to start HTTP server: " + e.getMessage());
+                Logger.error("failed to start HTTP server: " + e.getMessage());
             }
         }
 
@@ -56,9 +56,9 @@ public class Main {
         if (timeoutValue != null && !timeoutValue.isEmpty()) {
             try {
                 HttpServer.luaTaskTimeoutMs = Long.parseLong(timeoutValue);
-                Logger.out.println("[ZB] Lua task timeout set to " + HttpServer.luaTaskTimeoutMs + "ms");
+                Logger.info("Lua task timeout set to " + HttpServer.luaTaskTimeoutMs + "ms");
             } catch (NumberFormatException e) {
-                Logger.err.println("[ZB] invalid lua_task_timeout value: " + timeoutValue);
+                Logger.error("invalid lua_task_timeout value: " + timeoutValue);
             }
         }
     }
@@ -70,9 +70,9 @@ public class Main {
             try (FileWriter writer = new FileWriter(portFile)) {
                 writer.write(String.valueOf(port));
             }
-            Logger.out.println("[ZB] Wrote random API port " + port + " to " + portFile.getAbsolutePath());
+            Logger.info("Wrote random API port " + port + " to " + portFile.getAbsolutePath());
         } catch (IOException e) {
-            Logger.err.println("[ZB] Failed to write port file: " + e.getMessage());
+            Logger.error("Failed to write port file: " + e.getMessage());
             e.printStackTrace();
         }
     }

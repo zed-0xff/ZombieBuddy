@@ -28,9 +28,9 @@ public class Patch_PacketsCache {
 
         INetworkPacket pkt = (INetworkPacket) obj;
         try {
-            Logger.out.println(prefix + pkt.getDescription());
+            Logger.info(prefix + pkt.getDescription());
         } catch (Exception e) {
-            Logger.out.println(prefix + simpleName + " - " + e.getMessage());
+            Logger.info(prefix + simpleName + " - " + e.getMessage());
         }
     }
 }

@@ -214,7 +214,7 @@ public class Loader {
             }
         }
 
-        Logger.out.println("[ZB] java mod list to load:");
+        Logger.info("java mod list to load:");
         printModList(jModInfos);
 
         // Find the last occurrence index for each package name
@@ -262,7 +262,7 @@ public class Loader {
                             try {
                                 Certificate[] certs = verifyJarAndGetCerts(jarFile);
                                 if (certs != null && certs.length > 0) {
-                                    Logger.out.println("[ZB] " + jarFile + " is signed with " + certs.length + " certificate(s)");
+                                    Logger.info("" + jarFile + " is signed with " + certs.length + " certificate(s)");
                                     for (int certIdx = 0; certIdx < certs.length; certIdx++) {
                                         if (certs[certIdx] instanceof X509Certificate) {
                                             X509Certificate x509Cert = (X509Certificate) certs[certIdx];
@@ -287,7 +287,7 @@ public class Loader {
                                     }
                                 }
                             } catch (Exception e) {
-                                Logger.err.println("[ZB] Error verifying JAR signature: " + e.getMessage());
+                                Logger.error("Error verifying JAR signature: " + e.getMessage());
                             }
                         } else {
                             reason += " (" + (jarFile != null ? jarFile.getAbsolutePath() : "null") + " not found)";
@@ -299,7 +299,7 @@ public class Loader {
                         }
                     }
                     
-                    Logger.out.println("[ZB] Excluded: " + jModInfo.modDirectory().getAbsolutePath() + reason);
+                    Logger.info("Excluded: " + jModInfo.modDirectory().getAbsolutePath() + reason);
                 }
             }
             
@@ -310,7 +310,7 @@ public class Loader {
                     modsToLoad.add(jModInfos.get(i));
                 }
             }
-            Logger.out.println("[ZB] java mod list after processing:");
+            Logger.info("java mod list after processing:");
             printModList(modsToLoad);
         }
 
@@ -330,9 +330,9 @@ public class Loader {
             }
         }
 
-        String formatString = "[ZB]     %-" + longestPathLength + "s %s";
+        String formatString = "    %-" + longestPathLength + "s %s";
         for (JavaModInfo jModInfo : jModInfos) {
-            Logger.out.println(String.format(formatString, jModInfo.modDirectory().getAbsolutePath(), jModInfo.javaPkgName()));
+            Logger.info(String.format(formatString, jModInfo.modDirectory().getAbsolutePath(), jModInfo.javaPkgName()));
         }
     }
 
@@ -341,27 +341,27 @@ public class Loader {
         // Load and invoke optional Main class
         String mainClassName = packageName + ".Main";
         if (g_known_classes.contains(mainClassName)) {
-            Logger.out.println("[ZB] Java class " + mainClassName + " already loaded, skipping.");
+            Logger.info("Java class " + mainClassName + " already loaded, skipping.");
         } else {
             g_known_classes.add(mainClassName);
 
-            Logger.out.println("[ZB] loading class " + mainClassName);
+            Logger.info("loading class " + mainClassName);
             Class<?> cls = null;
             try {
                 cls = Class.forName(mainClassName);
                 try_call_main(cls);
-                Logger.out.println("[ZB] loaded " + mainClassName);
+                Logger.info("loaded " + mainClassName);
             } catch (ClassNotFoundException e) {
                 // Main class is optional - if it doesn't exist, that's fine
-                Logger.out.println("[ZB] Main class " + mainClassName + " not found (optional, skipping)");
+                Logger.info("Main class " + mainClassName + " not found (optional, skipping)");
             } catch (Exception e) {
-                Logger.err.println("[ZB] failed to load Java class " + mainClassName + ": " + e);
+                Logger.error("failed to load Java class " + mainClassName + ": " + e);
             }
         }
 
         List<Class<?>> patches = CollectPatches(packageName, modLoader);
         if (patches.isEmpty()) {
-            Logger.out.println("[ZB] no patches in package " + packageName);
+            Logger.info("no patches in package " + packageName);
             return;
         }
 
@@ -376,9 +376,9 @@ public class Loader {
 
             // TODO: show error on game UI (if debug mode is enabled?)
             if (ann.className().equals("zombie.Lua.LuaManager$Exposer") && ann.methodName().equals("exposeAll") && !ann.IKnowWhatIAmDoing()) {
-                Logger.err.println("[ZB] XXX");
-                Logger.err.println("[ZB] XXX don't patch Exposer.exposeAll, use ZombieBuddy.Exposer.exposeClassToLua() instead!");
-                Logger.err.println("[ZB] XXX");
+                Logger.error("XXX");
+                Logger.error("XXX don't patch Exposer.exposeAll, use ZombieBuddy.Exposer.exposeClassToLua() instead!");
+                Logger.error("XXX");
                 continue;
             }
 
@@ -393,7 +393,7 @@ public class Loader {
                 advicePatches.computeIfAbsent(target, k -> new ArrayList<>()).add(patch);
             } else {
                 if (delegationPatches.containsKey(target)) {
-                    Logger.out.println("[ZB] WARNING: multiple MethodDelegation patches for " + 
+                    Logger.info("WARNING: multiple MethodDelegation patches for " + 
                         ann.className() + "." + ann.methodName() + " - only last one will apply!");
                 }
                 delegationPatches.put(target, patch);
@@ -414,13 +414,13 @@ public class Loader {
             }
         }
         if (!loadedClasses.isEmpty() && g_verbosity > 0) {
-            Logger.out.println("[ZB] Already loaded classes to retransform: " + loadedClasses);
+            Logger.info("Already loaded classes to retransform: " + loadedClasses);
         }
 
         // Warn about MethodDelegation on already-loaded classes (won't work with retransformation)
         // for (var entry : delegationPatches.entrySet()) {
         //     if (loadedClasses.contains(entry.getKey().className())) {
-        //         Logger.err.println("[ZB] WARNING: MethodDelegation patch for already-loaded class " + 
+        //         Logger.error("WARNING: MethodDelegation patch for already-loaded class " + 
         //             entry.getKey().className() + "." + entry.getKey().methodName() + 
         //             " - this may not work! Use isAdvice=true for loaded classes.");
         //     }
@@ -453,7 +453,7 @@ public class Loader {
         // This is needed for retransformation to work, but breaks MethodDelegation
         if (hasAdviceOnLoadedClasses) {
             if (g_verbosity > 0) {
-                Logger.out.println("[ZB] Disabling class format changes for Advice patches on already-loaded classes");
+                Logger.info("Disabling class format changes for Advice patches on already-loaded classes");
             }
             builder = builder.disableClassFormatChanges();
         }
@@ -468,13 +468,13 @@ public class Loader {
                                              net.bytebuddy.utility.JavaModule jm,
                                              boolean loaded,
                                              net.bytebuddy.dynamic.DynamicType dt) {
-                    Logger.out.println("[ZB] Transformed: " + td.getName() + (loaded ? " (retransformed)" : " (new load)"));
+                    Logger.info("Transformed: " + td.getName() + (loaded ? " (retransformed)" : " (new load)"));
                 }
 
                 @Override
                 public void onError(String typeName, ClassLoader cl, net.bytebuddy.utility.JavaModule jm,
                                    boolean loaded, Throwable throwable) {
-                    Logger.err.println("[ZB] ERROR transforming " + typeName + ": " + throwable.getMessage());
+                    Logger.error("ERROR transforming " + typeName + ": " + throwable.getMessage());
                     throwable.printStackTrace();
                 }
 
@@ -486,7 +486,7 @@ public class Loader {
                     // Log ignored classes that we're targeting
                     String className = td.getName();
                     if (targetClasses.contains(className)) {
-                        Logger.err.println("[ZB] WARNING: Target class IGNORED: " + className + " (loaded=" + loaded + ")");
+                        Logger.error("WARNING: Target class IGNORED: " + className + " (loaded=" + loaded + ")");
                     }
                 }
             });
@@ -517,12 +517,12 @@ public class Loader {
                         String methodName = entry.getKey();
                         List<Class<?>> advices = entry.getValue();
                         
-                        Logger.out.println("[ZB] patching " + className + "." + methodName + " with " + advices.size() + " advice(s)");
+                        Logger.info("patching " + className + "." + methodName + " with " + advices.size() + " advice(s)");
                         
                         // Check if method exists in the type description
                         var methods = td.getDeclaredMethods().filter(SyntaxSugar.methodMatcher(methodName));
                         if (methods.isEmpty()) {
-                            Logger.err.println("[ZB] WARNING: Method " + methodName + " not found in " + td.getName());
+                            Logger.error("WARNING: Method " + methodName + " not found in " + td.getName());
                         }
                         
                         // Apply each advice via separate .visit() calls - they stack
@@ -536,11 +536,11 @@ public class Loader {
                             try {
                                 transformedClass = PatchTransformer.transformPatchClass(adviceClass, g_instrumentation, g_verbosity, false);
                                 if (transformedClass == null) {
-                                    Logger.err.println("[ZB] ERROR: PatchTransformer returned null for " + adviceClass.getName());
+                                    Logger.error("ERROR: PatchTransformer returned null for " + adviceClass.getName());
                                     continue;
                                 }
                             } catch (Exception e) {
-                                Logger.err.println("[ZB] ERROR: Failed to transform patch class " + adviceClass.getName() + ": " + e.getMessage());
+                                Logger.error("ERROR: Failed to transform patch class " + adviceClass.getName() + ": " + e.getMessage());
                                 e.printStackTrace();
                                 continue;
                             }
@@ -679,9 +679,9 @@ public class Loader {
                                         }
                                         if (g_verbosity > 1) {
                                             if (hasCompleteSequence) {
-                                                Logger.out.println("[ZB] DEBUG: Complete @Argument sequence (0 to " + maxIndex + "), matching methods with at least " + requiredParamCount + " parameters");
+                                                Logger.info("DEBUG: Complete @Argument sequence (0 to " + maxIndex + "), matching methods with at least " + requiredParamCount + " parameters");
                                             } else {
-                                                Logger.out.println("[ZB] DEBUG: Incomplete @Argument sequence, requires at least " + requiredParamCount + " parameters");
+                                                Logger.info("DEBUG: Incomplete @Argument sequence, requires at least " + requiredParamCount + " parameters");
                                             }
                                         }
                                         
@@ -726,17 +726,17 @@ public class Loader {
                             // so ByteBuddy can match each method to the appropriate overload
                             boolean hasMultipleSignatures = allInferredSignatures.size() > 1;
                             if (g_verbosity > 1) {
-                                Logger.out.println("[ZB] DEBUG: allInferredSignatures.size() = " + allInferredSignatures.size() + " for " + className + "." + methodName);
+                                Logger.info("DEBUG: allInferredSignatures.size() = " + allInferredSignatures.size() + " for " + className + "." + methodName);
                                 for (List<Class<?>> sig : allInferredSignatures) {
-                                    Logger.out.println("[ZB] DEBUG:   signature: " + sig);
+                                    Logger.info("DEBUG:   signature: " + sig);
                                 }
                             }
                             if (hasMultipleSignatures) {
                                 inferredTypes = null; // Clear inferred types to force name-based matching
                             }
 
-                            Logger.out.println(
-                                    "[ZB] hasMultipleSignatures: " + hasMultipleSignatures +
+                            Logger.info(
+                                    "hasMultipleSignatures: " + hasMultipleSignatures +
                                     ", hasAllArguments: " + hasAllArguments +
                                     ", hasNoParamMethod: " + hasNoParamMethod +
                                     ", inferredTypes: " + inferredTypes
@@ -746,12 +746,12 @@ public class Loader {
                             if (hasAllArguments) {
                                 // @AllArguments = match all overloads by name
                                 if (g_verbosity > 0) {
-                                    Logger.out.println("[ZB] Using name-based matching for " + methodName + " (has @AllArguments)");
+                                    Logger.info("Using name-based matching for " + methodName + " (has @AllArguments)");
                                 }
                             } else if (hasNoParamMethod && !strictMatch && allAdviceMaps.isEmpty()) {
                                 // Match any method (default behavior for no-param advice when strictMatch=false)
                                 if (g_verbosity > 0) {
-                                    Logger.out.println("[ZB] Matching any method for " + methodName + " (strictMatch=false, default)");
+                                    Logger.info("Matching any method for " + methodName + " (strictMatch=false, default)");
                                 }
                             } else {
                                 // Signature-aware matching for overloads and @Argument annotations
@@ -803,7 +803,7 @@ public class Loader {
                                     });
                                     
                                 if (g_verbosity > 0) {
-                                    Logger.out.println("[ZB] Using signature-aware matching for " + methodName + 
+                                    Logger.info("Using signature-aware matching for " + methodName + 
                                         " (signatures: " + maps.size() + ", minParams: " + minParams + ")");
                                 }
                             }
@@ -811,10 +811,10 @@ public class Loader {
                             try {
                                 result = result.visit(Advice.to(transformedClass).on(methodMatcher));
                                 if (g_verbosity > 0) {
-                                    Logger.out.println("[ZB] Applied advice to " + className + "." + methodName);
+                                    Logger.info("Applied advice to " + className + "." + methodName);
                                 }
                             } catch (Exception e) {
-                                Logger.err.println("[ZB] ERROR: Failed to apply advice to " + className + "." + methodName + ": " + e.getMessage());
+                                Logger.error("ERROR: Failed to apply advice to " + className + "." + methodName + ": " + e.getMessage());
                                 if (g_verbosity > 0) {
                                     e.printStackTrace();
                                 }
@@ -830,11 +830,11 @@ public class Loader {
                         // Transform the delegation class to convert Patch.* annotations to ByteBuddy annotations
                         Class<?> transformedDelegationClass = PatchTransformer.transformPatchClass(delegationClass, g_instrumentation, g_verbosity, true);
                         if (transformedDelegationClass == null) {
-                            Logger.err.println("[ZB] ERROR: PatchTransformer returned null for " + delegationClass.getName());
+                            Logger.error("ERROR: PatchTransformer returned null for " + delegationClass.getName());
                             transformedDelegationClass = delegationClass; // Fall back to original
                         }
                         
-                        Logger.out.println("[ZB] patching " + className + "." + methodName + " with delegation");
+                        Logger.info("patching " + className + "." + methodName + " with delegation");
                         
                         // Special handling for constructors: always use Object's constructor when overriding
                         if (methodName.equals("<init>")) {
@@ -865,7 +865,7 @@ public class Loader {
                                     .intercept(MethodCall.invoke(objectConstructor)
                                         .andThen(MethodDelegation.to(transformedDelegationClass)));
                             } catch (Exception e) {
-                                Logger.err.println("[ZB] ERROR: Could not set up constructor delegation: " + e.getMessage());
+                                Logger.error("ERROR: Could not set up constructor delegation: " + e.getMessage());
                                 if (g_verbosity > 0) {
                                     e.printStackTrace();
                                 }
@@ -893,21 +893,21 @@ public class Loader {
         // Note: ByteBuddy's Advice may not work correctly with retransformation for already-loaded classes
         // due to JVM limitations. If this doesn't work, patches need to be loaded before the target class.
         if (!advLoadedClasses.isEmpty()) {
-            Logger.out.println("[ZB] Explicitly retransforming " + advLoadedClasses.size() + " already-loaded class(es)");
-            Logger.out.println("[ZB] WARNING: Advice patches on already-loaded classes may not work due to JVM retransformation limitations.");
-            Logger.out.println("[ZB] Consider loading patches before the target class is loaded, or use MethodDelegation instead.");
+            Logger.info("Explicitly retransforming " + advLoadedClasses.size() + " already-loaded class(es)");
+            Logger.info("WARNING: Advice patches on already-loaded classes may not work due to JVM retransformation limitations.");
+            Logger.info("Consider loading patches before the target class is loaded, or use MethodDelegation instead.");
             for (String className : advLoadedClasses) {
                 try {
                     Class<?> cls = Class.forName(className);
                     // Retransform through ByteBuddy's agent pipeline
                     g_instrumentation.retransformClasses(cls);
                     if (g_verbosity > 0) {
-                        Logger.out.println("[ZB] Retransformed: " + className);
+                        Logger.info("Retransformed: " + className);
                     }
                 } catch (ClassNotFoundException e) {
-                    Logger.err.println("[ZB] Could not find class for retransformation: " + className);
+                    Logger.error("Could not find class for retransformation: " + className);
                 } catch (Exception e) {
-                    Logger.err.println("[ZB] Error retransforming class " + className + ": " + e.getMessage());
+                    Logger.error("Error retransforming class " + className + ": " + e.getMessage());
                     if (g_verbosity > 0) {
                         e.printStackTrace();
                     }
@@ -917,14 +917,14 @@ public class Loader {
 
         // Warm up classes _AFTER_ installing the agent builder
         for (String className : classesToWarmUp) {
-            Logger.out.println("[ZB] warming up class: " + className);
+            Logger.info("warming up class: " + className);
             try {
                 Class<?> cls = Class.forName(className);
                 builder = builder.warmUp(cls);
             } catch (ClassNotFoundException e) {
-                Logger.err.println("[ZB] Could not find class for warm-up: " + className);
+                Logger.error("Could not find class for warm-up: " + className);
             } catch (Exception e) {
-                Logger.err.println("[ZB] Error warming up class " + className + ": " + e.getMessage());
+                Logger.error("Error warming up class " + className + ": " + e.getMessage());
                 e.printStackTrace();
             }
         }
@@ -970,7 +970,7 @@ public class Loader {
         try (ScanResult scanResult = classGraph.scan()) {
             // Log the number of classes scanned
             int totalClassesScanned = scanResult.getAllClasses().size();
-            Logger.out.println("[ZB] Scanned " + totalClassesScanned + " classes in package " + packageName);
+            Logger.info("Scanned " + totalClassesScanned + " classes in package " + packageName);
 
             // Find all classes annotated with @Patch
             for (ClassInfo classInfo : scanResult.getClassesWithAnnotation(Patch.class.getName())) {
@@ -981,10 +981,10 @@ public class Loader {
                     if (!classPackage.equals(packageName)) {
                         continue; // Skip classes from subpackages
                     }
-                    Logger.out.println("[ZB] Found patch class: " + patchClass.getName());
+                    Logger.info("Found patch class: " + patchClass.getName());
                     patches.add(patchClass);
                 } catch (Exception e) {
-                    Logger.err.println("[ZB] Error loading patch class " + classInfo.getName() + ": " + e.getMessage());
+                    Logger.error("Error loading patch class " + classInfo.getName() + ": " + e.getMessage());
                     e.printStackTrace();
                 }
             }
@@ -998,7 +998,7 @@ public class Loader {
                     Class<?> cls = classInfo.loadClass();
                     Exposer.exposeClassToLua(cls);
                 } catch (Exception e) {
-                    Logger.err.println("[ZB] Error exposing Lua class " + classInfo.getName() + ": " + e.getMessage());
+                    Logger.error("Error exposing Lua class " + classInfo.getName() + ": " + e.getMessage());
                 }
             }
 
@@ -1024,49 +1024,49 @@ public class Loader {
     }
 
     public static void loadJavaMod(JavaModInfo modInfo) {
-        Logger.out.println("[ZB] ------------------------------------------- loading Java mod: " + modInfo.modDirectory());
+        Logger.info("------------------------------------------- loading Java mod: " + modInfo.modDirectory());
         
         // Load JAR file
         File jarFile = modInfo.getJarFileAsFile();
         if (jarFile == null) {
-            Logger.err.println("[ZB] Error! No JAR file specified for mod: " + modInfo.modDirectory());
-            Logger.out.println("[ZB] -------------------------------------------");
+            Logger.error("Error! No JAR file specified for mod: " + modInfo.modDirectory());
+            Logger.info("-------------------------------------------");
             return;
         }
         
         try {
             if (jarFile.exists()) {
                 if (g_known_jars.contains(jarFile)) {
-                    Logger.out.println("[ZB] " + jarFile + " already added, skipping.");
-                    Logger.out.println("[ZB] -------------------------------------------");
+                    Logger.info("" + jarFile + " already added, skipping.");
+                    Logger.info("-------------------------------------------");
                     return;
                 } else {
                     // Validate that JAR contains the specified package
                     if (!validatePackageInJar(jarFile, modInfo.javaPkgName())) {
-                        Logger.err.println("[ZB] Error! JAR does not contain package " + modInfo.javaPkgName() + ": " + jarFile);
-                        Logger.out.println("[ZB] -------------------------------------------");
+                        Logger.error("Error! JAR does not contain package " + modInfo.javaPkgName() + ": " + jarFile);
+                        Logger.info("-------------------------------------------");
                         return;
                     }
                     
                     JarFile jf = new JarFile(jarFile);
                     g_instrumentation.appendToSystemClassLoaderSearch(jf);
                     g_known_jars.add(jarFile);
-                    Logger.out.println("[ZB] added to classpath: " + jarFile);
+                    Logger.info("added to classpath: " + jarFile);
                 }
             } else {
-                Logger.err.println("[ZB] classpath not found: " + jarFile);
-                Logger.out.println("[ZB] -------------------------------------------");
+                Logger.error("classpath not found: " + jarFile);
+                Logger.info("-------------------------------------------");
                 return;
             }
         } catch (Exception e) {
-            Logger.err.println("[ZB] Error! invalid classpath: " + jarFile + " " + e);
-            Logger.out.println("[ZB] -------------------------------------------");
+            Logger.error("Error! invalid classpath: " + jarFile + " " + e);
+            Logger.info("-------------------------------------------");
             return;
         }
         
         ApplyPatchesFromPackage(modInfo.javaPkgName(), null, false);
         
-        Logger.out.println("[ZB] -------------------------------------------");
+        Logger.info("-------------------------------------------");
     }
     
     /**
@@ -1076,12 +1076,12 @@ public class Loader {
      */
     private static byte[] getCertFingerprint(X509Certificate cert, int certNumber) {
         if (g_verbosity > 0) {
-            Logger.out.println("[ZB]   Certificate " + certNumber + ":");
-            Logger.out.println("[ZB]     Subject: " + cert.getSubjectX500Principal().getName());
-            Logger.out.println("[ZB]     Issuer: " + cert.getIssuerX500Principal().getName());
-            Logger.out.println("[ZB]     Serial Number: " + cert.getSerialNumber().toString(16).toUpperCase());
-            Logger.out.println("[ZB]     Valid From: " + cert.getNotBefore());
-            Logger.out.println("[ZB]     Valid Until: " + cert.getNotAfter());
+            Logger.info("  Certificate " + certNumber + ":");
+            Logger.info("    Subject: " + cert.getSubjectX500Principal().getName());
+            Logger.info("    Issuer: " + cert.getIssuerX500Principal().getName());
+            Logger.info("    Serial Number: " + cert.getSerialNumber().toString(16).toUpperCase());
+            Logger.info("    Valid From: " + cert.getNotBefore());
+            Logger.info("    Valid Until: " + cert.getNotAfter());
         }
         
         try {
@@ -1089,11 +1089,11 @@ public class Loader {
             byte[] sha256Bytes = sha256.digest(cert.getEncoded());
             if (g_verbosity > 0) {
                 String sha256Fingerprint = bytesToHex(sha256Bytes);
-                Logger.out.println("[ZB]     SHA-256 Fingerprint: " + sha256Fingerprint);
+                Logger.info("    SHA-256 Fingerprint: " + sha256Fingerprint);
             }
             return sha256Bytes;
         } catch (Exception e) {
-            Logger.err.println("[ZB]     Error computing certificate fingerprints: " + e.getMessage());
+            Logger.error("    Error computing certificate fingerprints: " + e.getMessage());
         }
         return null;
     }
@@ -1151,7 +1151,7 @@ public class Loader {
         try (JarFile jar = new JarFile(jarFile, true)) {
             return jar.getManifest();
         } catch (Exception e) {
-            Logger.err.println("[ZB] Error getting JAR manifest: " + e);
+            Logger.error("Error getting JAR manifest: " + e);
             return null;
         }
     }
@@ -1211,7 +1211,7 @@ public class Loader {
                 }
             }
         } catch (Exception e) {
-            Logger.err.println("[ZB] Error getting current JAR file path: " + e.getMessage());
+            Logger.error("Error getting current JAR file path: " + e.getMessage());
         }
         return null;
     }
@@ -1222,33 +1222,33 @@ public class Loader {
             return;
         }
         g_new_version = manifestVersion;
-        Logger.out.println("[ZB] replacing " + currentJarFile + " with " + jarFile);
+        Logger.info("replacing " + currentJarFile + " with " + jarFile);
         try {
             // Try to rename existing JAR to .bak before replacing
             File backupFile = new File(currentJarFile.getAbsolutePath() + ".bak");
             if (currentJarFile.exists()) {
                 try {
                     Files.move(currentJarFile.toPath(), backupFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                    Logger.out.println("[ZB] Renamed existing JAR to " + backupFile);
+                    Logger.info("Renamed existing JAR to " + backupFile);
                 } catch (Exception e) {
                     // On Windows, this might fail if JAR is still locked - continue anyway
-                    Logger.out.println("[ZB] Could not rename existing JAR (may be locked): " + e.getMessage());
+                    Logger.info("Could not rename existing JAR (may be locked): " + e.getMessage());
                 }
             }
             
             // Try to replace the current JAR with the new one
             Files.copy(jarFile.toPath(), currentJarFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            Logger.out.println("[ZB] Successfully replaced JAR file");
+            Logger.info("Successfully replaced JAR file");
         } catch (Exception e) {
             // If replacement failed (e.g., JAR is locked on Windows), copy to .new as fallback
-            Logger.err.println("[ZB] Error replacing JAR file: " + e.getMessage());
-            Logger.err.println("[ZB] JAR may be locked (e.g., on Windows). Copying to .new file for deferred update...");
+            Logger.error("Error replacing JAR file: " + e.getMessage());
+            Logger.error("JAR may be locked (e.g., on Windows). Copying to .new file for deferred update...");
             try {
                 File newJarFile = new File(currentJarFile.getAbsolutePath() + ".new");
                 Files.copy(jarFile.toPath(), newJarFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                Logger.out.println("[ZB] Copied new JAR to " + newJarFile + " - update will be applied on next game launch");
+                Logger.info("Copied new JAR to " + newJarFile + " - update will be applied on next game launch");
             } catch (Exception e2) {
-                Logger.err.println("[ZB] Error copying to .new file: " + e2.getMessage());
+                Logger.error("Error copying to .new file: " + e2.getMessage());
                 e2.printStackTrace();
             }
             e.printStackTrace();
@@ -1287,7 +1287,7 @@ public class Loader {
             }
             return false;
         } catch (Exception e) {
-            Logger.err.println("[ZB] Error validating package in JAR: " + e);
+            Logger.error("Error validating package in JAR: " + e);
             return false;
         }
     }
@@ -1299,7 +1299,7 @@ public class Loader {
         } catch (java.lang.NoSuchMethodException e) {
             return;
         } catch (Exception e) {
-            Logger.err.println("[ZB] " + cls + ": error getting main(): " + e);
+            Logger.error("" + cls + ": error getting main(): " + e);
             return;
         }
 
@@ -1307,9 +1307,9 @@ public class Loader {
         try {
             String[] args = {}; // no arguments for now
             main.invoke(null, (Object) args);
-            Logger.out.println("[ZB] " + cls + ": main() invoked successfully");
+            Logger.info("" + cls + ": main() invoked successfully");
         } catch (Exception e) {
-            Logger.err.println("[ZB] " + cls + ": error invoking main(): " + e);
+            Logger.error("" + cls + ": error invoking main(): " + e);
         }
     }
 }
