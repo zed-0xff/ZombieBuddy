@@ -26,6 +26,7 @@ import se.krka.kahlua.vm.LuaClosure;
 import zombie.Lua.LuaManager;
 import zombie.ZomboidFileSystem;
 
+import me.zed_0xff.zombie_buddy.Logger;
 import me.zed_0xff.zombie_buddy.ZombieBuddy;
 
 public class HttpServer {
@@ -165,7 +166,7 @@ public class HttpServer {
         server.start();
         
         instance = this;
-        System.out.println("[ZB] HTTP server started at http://127.0.0.1:" + port);
+        Logger.out.println("[ZB] HTTP server started at http://127.0.0.1:" + port);
     }
 
     public int getPort() {
@@ -183,7 +184,7 @@ public class HttpServer {
     public void stop() {
         if (server != null) {
             server.stop(0);
-            System.out.println("[ZB] HTTP server stopped");
+            Logger.out.println("[ZB] HTTP server stopped");
         }
     }
 
@@ -217,7 +218,7 @@ public class HttpServer {
         if (g_verbosity > 0) {
             String method = exchange.getRequestMethod();
             String path = exchange.getRequestURI().toString();
-            System.out.println("[ZB] " + method + " " + path);
+            Logger.out.println("[ZB] " + method + " " + path);
         }
     }
 

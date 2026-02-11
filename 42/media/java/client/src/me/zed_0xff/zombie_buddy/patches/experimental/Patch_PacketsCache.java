@@ -1,6 +1,8 @@
 package me.zed_0xff.zombie_buddy.patches.experimental;
 
+import me.zed_0xff.zombie_buddy.Logger;
 import me.zed_0xff.zombie_buddy.Patch;
+
 import zombie.Lua.LuaManager;
 import zombie.network.packets.INetworkPacket;
 
@@ -26,9 +28,9 @@ public class Patch_PacketsCache {
 
         INetworkPacket pkt = (INetworkPacket) obj;
         try {
-            System.out.println(prefix + pkt.getDescription());
+            Logger.out.println(prefix + pkt.getDescription());
         } catch (Exception e) {
-            System.out.println(prefix + simpleName + " - " + e.getMessage());
+            Logger.out.println(prefix + simpleName + " - " + e.getMessage());
         }
     }
 }

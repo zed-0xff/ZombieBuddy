@@ -6,6 +6,8 @@ import java.io.IOException;
 
 import me.zed_0xff.zombie_buddy.Agent;
 import me.zed_0xff.zombie_buddy.Hooks;
+import me.zed_0xff.zombie_buddy.Logger;
+
 import zombie.ZomboidFileSystem;
 
 public class Main {
@@ -22,12 +24,12 @@ public class Main {
                 if ("random".equalsIgnoreCase(portValue)) {
                     serverPort = 0; // 0 means random port
                     isRandomPort = true;
-                    System.out.println("[ZB] Using random port for HTTP server");
+                    Logger.out.println("[ZB] Using random port for HTTP server");
                 } else {
                     serverPort = Integer.parseInt(portValue);
                     if (serverPort == 0) {
                         isRandomPort = true;
-                        System.out.println("[ZB] Using random port for HTTP server");
+                        Logger.out.println("[ZB] Using random port for HTTP server");
                     }
                 }
                 String bindHost = (hostValue != null && !hostValue.isEmpty()) ? hostValue : "127.0.0.1";
@@ -44,9 +46,9 @@ public class Main {
                     });
                 }
             } catch (NumberFormatException e) {
-                System.err.println("[ZB] invalid server_port value: " + portValue);
+                Logger.err.println("[ZB] invalid server_port value: " + portValue);
             } catch (Exception e) {
-                System.err.println("[ZB] failed to start HTTP server: " + e.getMessage());
+                Logger.err.println("[ZB] failed to start HTTP server: " + e.getMessage());
             }
         }
 
@@ -54,9 +56,9 @@ public class Main {
         if (timeoutValue != null && !timeoutValue.isEmpty()) {
             try {
                 HttpServer.luaTaskTimeoutMs = Long.parseLong(timeoutValue);
-                System.out.println("[ZB] Lua task timeout set to " + HttpServer.luaTaskTimeoutMs + "ms");
+                Logger.out.println("[ZB] Lua task timeout set to " + HttpServer.luaTaskTimeoutMs + "ms");
             } catch (NumberFormatException e) {
-                System.err.println("[ZB] invalid lua_task_timeout value: " + timeoutValue);
+                Logger.err.println("[ZB] invalid lua_task_timeout value: " + timeoutValue);
             }
         }
     }
@@ -68,9 +70,9 @@ public class Main {
             try (FileWriter writer = new FileWriter(portFile)) {
                 writer.write(String.valueOf(port));
             }
-            System.out.println("[ZB] Wrote random API port " + port + " to " + portFile.getAbsolutePath());
+            Logger.out.println("[ZB] Wrote random API port " + port + " to " + portFile.getAbsolutePath());
         } catch (IOException e) {
-            System.err.println("[ZB] Failed to write port file: " + e.getMessage());
+            Logger.err.println("[ZB] Failed to write port file: " + e.getMessage());
             e.printStackTrace();
         }
     }

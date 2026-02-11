@@ -2,6 +2,7 @@ package me.zed_0xff.zombie_buddy.patches;
 
 import me.zed_0xff.zombie_buddy.Patch;
 import me.zed_0xff.zombie_buddy.Loader;
+import me.zed_0xff.zombie_buddy.Logger;
 
 import java.util.ArrayList;
 import java.io.File;
@@ -19,7 +20,7 @@ public class Patch_loadMods {
     //     loader 'app' attempted duplicate class definition for zombie.ZomboidFileSystem. (zombie.ZomboidFileSystem is in unnamed module of loader 'app')
     @Patch.OnEnter
     public static void enter(ArrayList<String> mods) {
-        System.out.println("[ZB] before ZomboidFileSystem.loadMods: " + mods.size() + " mods");
+        Logger.out.println("[ZB] before ZomboidFileSystem.loadMods: " + mods.size() + " mods");
 
         Loader.loadMods(mods);
     }
