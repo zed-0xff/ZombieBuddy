@@ -2,12 +2,18 @@ package me.zed_0xff.zombie_buddy;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Helper to read (including private) field values from objects via reflection.
  * Returns a default value if the field is missing or inaccessible.
  */
 public final class Accessor {
+
+    private static final ConcurrentHashMap<String, Boolean> hasPublicMethodCache = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Optional<Field>> findFieldCache = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Optional<Method>> findMethodCache = new ConcurrentHashMap<>();
 
     private Accessor() {}
 
@@ -90,8 +96,14 @@ public final class Accessor {
 
     /**
      * Finds a field by name in {@code cls} or any superclass. Returns null if not found.
+     * Results are cached per (class name, field name).
      */
     public static Field findField(Class<?> cls, String fieldName) {
+        String key = cls.getName() + "\0" + fieldName;
+        return findFieldCache.computeIfAbsent(key, k -> Optional.ofNullable(findFieldUncached(cls, fieldName))).orElse(null);
+    }
+
+    private static Field findFieldUncached(Class<?> cls, String fieldName) {
         for (Class<?> c = cls; c != null; c = c.getSuperclass()) {
             try {
                 return c.getDeclaredField(fieldName);
@@ -111,9 +123,25 @@ public final class Accessor {
 
     /**
      * Finds a method by name and parameter types in {@code cls} or any superclass. Returns null if not found.
-     * Pass empty array or null for no-arg method.
+     * Pass empty array or null for no-arg method. Results are cached per (class name, method name, parameter types).
      */
     public static Method findMethod(Class<?> cls, String methodName, Class<?>... parameterTypes) {
+        String key = buildFindMethodCacheKey(cls, methodName, parameterTypes);
+        return findMethodCache.computeIfAbsent(key, k -> Optional.ofNullable(findMethodUncached(cls, methodName, parameterTypes))).orElse(null);
+    }
+
+    private static String buildFindMethodCacheKey(Class<?> cls, String methodName, Class<?>[] parameterTypes) {
+        StringBuilder sb = new StringBuilder(cls.getName()).append('\0').append(methodName).append('\0');
+        if (parameterTypes != null && parameterTypes.length > 0) {
+            for (int i = 0; i < parameterTypes.length; i++) {
+                if (i > 0) sb.append('\0');
+                sb.append(parameterTypes[i].getName());
+            }
+        }
+        return sb.toString();
+    }
+
+    private static Method findMethodUncached(Class<?> cls, String methodName, Class<?>[] parameterTypes) {
         for (Class<?> c = cls; c != null; c = c.getSuperclass()) {
             try {
                 if (parameterTypes == null || parameterTypes.length == 0) {
@@ -125,6 +153,28 @@ public final class Accessor {
             }
         }
         return null;
+    }
+
+    /**
+     * Returns true if {@code obj}'s class (including inherited public methods) has a public
+     * method with the given name (any parameter count).
+     *
+     * @throws IllegalArgumentException if obj or methodName is null, or methodName is empty
+     */
+    public static boolean hasPublicMethod(Object obj, String methodName) {
+        if (obj == null || methodName == null || methodName.isEmpty()) {
+            throw new IllegalArgumentException("obj and methodName must be non-null and non-empty");
+        }
+        Class<?> cls = obj.getClass();
+        String cacheKey = cls.getName() + "\0" + methodName;
+        return hasPublicMethodCache.computeIfAbsent(cacheKey, k -> {
+            for (Method m : cls.getMethods()) {
+                if (methodName.equals(m.getName())) {
+                    return true;
+                }
+            }
+            return false;
+        });
     }
 
     /**

@@ -192,7 +192,7 @@ public class Loader {
             var mod = ChooseGameInfo.getAvailableModDetails(mod_id);
             if (mod == null) continue;
 
-            if (Utils.hasMethod(mod, "getVersionDir") && Utils.hasMethod(mod, "getCommonDir")) {
+            if (Accessor.hasPublicMethod(mod, "getVersionDir") && Accessor.hasPublicMethod(mod, "getCommonDir")) {
                 // B42+
                 // follow lua engine logic, load common dir first, then version dir
                 // so version dir could override common dir
@@ -1313,4 +1313,3 @@ public class Loader {
         }
     }
 }
-
