@@ -1,4 +1,4 @@
-package me.zed_0xff.zombie_buddy.patches.experimental;
+package me.zed_0xff.zombie_buddy;
 
 import java.lang.reflect.Field;
 
@@ -45,6 +45,45 @@ public final class Accessor {
             return field.get(obj);
         } catch (Throwable t) {
             return defaultValue;
+        }
+    }
+
+    /**
+     * Sets the named field on {@code obj} to {@code value}. Uses {@link Field#set(Object, Object)}
+     * so primitive fields accept boxed values (e.g. Integer, Boolean).
+     *
+     * @param obj       the instance to write to (may be null)
+     * @param fieldName the field name (searches this class and superclasses)
+     * @param value     the value to set
+     * @return true if the field was set successfully, false if obj/fieldName is null, field not found, or set threw
+     */
+    public static boolean setField(Object obj, String fieldName, Object value) {
+        if (obj == null || fieldName == null || fieldName.isEmpty()) {
+            return false;
+        }
+        Field field = findField(obj.getClass(), fieldName);
+        return setField(obj, field, value);
+    }
+
+    /**
+     * Sets {@code field} on {@code obj} to {@code value}. Uses {@link Field#set(Object, Object)}
+     * so primitive fields accept boxed values (e.g. Integer, Boolean).
+     *
+     * @param obj   the instance to write to (may be null)
+     * @param field the field to set (may be null)
+     * @param value the value to set
+     * @return true if the field was set successfully, false if obj/field is null or set threw
+     */
+    public static boolean setField(Object obj, Field field, Object value) {
+        if (obj == null || field == null) {
+            return false;
+        }
+        try {
+            field.setAccessible(true);
+            field.set(obj, value);
+            return true;
+        } catch (Throwable t) {
+            return false;
         }
     }
 

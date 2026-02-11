@@ -26,6 +26,7 @@ import se.krka.kahlua.vm.LuaClosure;
 import zombie.Lua.LuaManager;
 import zombie.ZomboidFileSystem;
 
+import me.zed_0xff.zombie_buddy.Accessor;
 import me.zed_0xff.zombie_buddy.Logger;
 import me.zed_0xff.zombie_buddy.ZombieBuddy;
 

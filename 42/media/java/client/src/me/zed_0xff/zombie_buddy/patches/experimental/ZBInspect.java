@@ -3,6 +3,7 @@ package me.zed_0xff.zombie_buddy.patches.experimental;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
+import me.zed_0xff.zombie_buddy.Accessor;
 import se.krka.kahlua.integration.annotations.LuaMethod;
 import se.krka.kahlua.vm.KahluaTable;
 import se.krka.kahlua.vm.KahluaTableIterator;
