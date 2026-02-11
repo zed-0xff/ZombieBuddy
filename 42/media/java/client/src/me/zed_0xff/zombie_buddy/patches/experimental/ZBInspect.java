@@ -111,13 +111,8 @@ public class ZBInspect {
                         continue;
                     }
                     String name = f.getName();
-                    try {
-                        f.setAccessible(true);
-                        Object value = f.get(obj);
-                        result.rawset(name, value);
-                    } catch (Throwable t) {
-                        result.rawset(name, "[inaccessible]");
-                    }
+                    Object value = Accessor.getFieldValueOrDefault(obj, f, "[inaccessible]");
+                    result.rawset(name, value);
                 }
             }
         } else {
@@ -127,12 +122,8 @@ public class ZBInspect {
                     continue;
                 }
                 String name = f.getName();
-                try {
-                    Object value = f.get(obj);
-                    result.rawset(name, value);
-                } catch (Throwable t) {
-                    result.rawset(name, "[inaccessible]");
-                }
+                Object value = Accessor.getFieldValueOrDefault(obj, f, "[inaccessible]");
+                result.rawset(name, value);
             }
         }
 

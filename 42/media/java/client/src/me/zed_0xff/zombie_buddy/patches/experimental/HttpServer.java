@@ -117,12 +117,8 @@ public class HttpServer {
             return true;
         }
         if (hasDebugOwnerThreadField == 1 && cachedDebugOwnerThreadField != null) {
-            try {
-                Object owner = cachedDebugOwnerThreadField.get(thread);
-                return owner == Thread.currentThread();
-            } catch (IllegalAccessException e) {
-                return false;
-            }
+            Object owner = Accessor.getFieldValueOrDefault(thread, cachedDebugOwnerThreadField, null);
+            return owner == Thread.currentThread();
         }
         return false;
     }
@@ -218,7 +214,7 @@ public class HttpServer {
         if (g_verbosity > 0) {
             String method = exchange.getRequestMethod();
             String path = exchange.getRequestURI().toString();
-            Logger.info("" + method + " " + path);
+            Logger.info(method + " " + path);
         }
     }
 
