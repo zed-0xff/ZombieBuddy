@@ -109,7 +109,12 @@ public class HttpServer {
     private static boolean isOnLuaThread() {
         Object thread = LuaManager.thread;
         if (thread == null) return false;
+
         ensureDebugOwnerThreadCache();
+        if (hasDebugOwnerThreadField == -1) {
+            // B41 has no debugOwnerThread field
+            return true;
+        }
         if (hasDebugOwnerThreadField == 1 && cachedDebugOwnerThreadField != null) {
             try {
                 Object owner = cachedDebugOwnerThreadField.get(thread);

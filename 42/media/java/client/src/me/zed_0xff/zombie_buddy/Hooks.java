@@ -36,6 +36,14 @@ public final class Hooks {
         }
     }
 
+    private static final List<String> alreadyRanHooks = new CopyOnWriteArrayList<>();
+    private static boolean isHookAlreadyRan(String name) {
+        return alreadyRanHooks.contains(name);
+    }
+    private static void setHookAlreadyRan(String name) {
+        alreadyRanHooks.add(name);
+    }
+
     /**
      * Run all hooks registered under the given name.
      * For now only supports "onGameInitComplete".
@@ -45,6 +53,11 @@ public final class Hooks {
             System.err.println("[ZB] Hooks.run: unknown hook name: " + name);
             return;
         }
+        if (isHookAlreadyRan(name)) {
+            return;
+        }
+        setHookAlreadyRan(name);
+        System.out.println("[ZB] Running hooks for: " + name);
         for (OnGameInitComplete hook : gameInitCompleteHooks) {
             try {
                 hook.onGameInitComplete();

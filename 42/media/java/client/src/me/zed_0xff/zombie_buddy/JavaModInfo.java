@@ -119,12 +119,18 @@ public record JavaModInfo(
      */
     public static JavaModInfo parse(File modDirectory) {
         if (modDirectory == null || !modDirectory.isDirectory()) {
+            if (Loader.g_verbosity > 0) {
+                System.out.println("[ZB] Mod directory does not exist or is not a directory: " + modDirectory);
+            }
             return null;
         }
         
         File modInfoFile = new File(modDirectory, "mod.info");
         ParsedValues parsed = parseModInfoFile(modInfoFile);
         if (parsed == null) {
+            if (Loader.g_verbosity > 0) {
+                System.out.println("[ZB] mod.info not found or failed to parse in directory: " + modDirectory);
+            }
             return null;
         }
         
@@ -135,7 +141,9 @@ public record JavaModInfo(
         
         // Both javaJarFile and javaPkgName are required - return null if either is missing or invalid
         if (jarFile == null || jarFile.isEmpty()) {
-            // No Java mod configuration found, return null
+            if (Loader.g_verbosity > 0) {
+                System.out.println("[ZB] No javaJarFile entry found in mod.info, skipping Java mod: " + modInfoFile);
+            }
             return null;
         }
         
