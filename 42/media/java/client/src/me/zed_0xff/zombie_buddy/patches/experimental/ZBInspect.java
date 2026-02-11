@@ -112,7 +112,7 @@ public class ZBInspect {
                         continue;
                     }
                     String name = f.getName();
-                    Object value = Accessor.getFieldValueOrDefault(obj, f, "[inaccessible]");
+                    Object value = Accessor.tryGet(obj, f, "[inaccessible]");
                     result.rawset(name, value);
                 }
             }
@@ -123,7 +123,7 @@ public class ZBInspect {
                     continue;
                 }
                 String name = f.getName();
-                Object value = Accessor.getFieldValueOrDefault(obj, f, "[inaccessible]");
+                Object value = Accessor.tryGet(obj, f, "[inaccessible]");
                 result.rawset(name, value);
             }
         }

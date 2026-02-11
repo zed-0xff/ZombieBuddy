@@ -21,12 +21,12 @@ public class PatchConstructorDelegationA {
     {
         System.out.println("[ZB TEST] PatchConstructorDelegation.constructor called with value=" + value + ", name=" + name);
 
-        Accessor.setField(self, "value", Integer.valueOf(value * 10));
-        Accessor.setField(self, "name", name + " patched");
+        Accessor.trySet(self, "value", Integer.valueOf(value * 10));
+        Accessor.trySet(self, "name", name + " patched");
 
-        Accessor.setField(self, "patchIntercepted", Boolean.TRUE);
+        Accessor.trySet(self, "patchIntercepted", Boolean.TRUE);
         System.out.println("[ZB TEST] Setting patchIntercepted=true");
-        Object patchIntercepted = Accessor.getFieldValueOrDefault(self, "patchIntercepted", Boolean.FALSE);
+        Object patchIntercepted = Accessor.tryGet(self, "patchIntercepted", Boolean.FALSE);
         System.out.println("[ZB TEST] patchIntercepted is now: " + patchIntercepted);
     }
 }

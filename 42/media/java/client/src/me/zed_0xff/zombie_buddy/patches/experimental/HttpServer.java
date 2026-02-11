@@ -117,7 +117,7 @@ public class HttpServer {
             return true;
         }
         if (hasDebugOwnerThreadField == 1 && cachedDebugOwnerThreadField != null) {
-            Object owner = Accessor.getFieldValueOrDefault(thread, cachedDebugOwnerThreadField, null);
+            Object owner = Accessor.tryGet(thread, cachedDebugOwnerThreadField, null);
             return owner == Thread.currentThread();
         }
         return false;

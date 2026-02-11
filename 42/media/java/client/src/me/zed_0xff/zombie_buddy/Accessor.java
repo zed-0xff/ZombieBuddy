@@ -19,12 +19,12 @@ public final class Accessor {
      * @param defaultValue value to return when the field cannot be read
      * @return the field value (including null), or {@code defaultValue} only if the field could not be read
      */
-    public static Object getFieldValueOrDefault(Object obj, String fieldName, Object defaultValue) {
+    public static Object tryGet(Object obj, String fieldName, Object defaultValue) {
         if (obj == null || fieldName == null || fieldName.isEmpty()) {
             return defaultValue;
         }
         Field field = findField(obj.getClass(), fieldName);
-        return getFieldValueOrDefault(obj, field, defaultValue);
+        return tryGet(obj, field, defaultValue);
     }
 
     /**
@@ -36,7 +36,7 @@ public final class Accessor {
      * @param defaultValue value to return when the field cannot be read
      * @return the field value (including null), or {@code defaultValue} only if the field could not be read
      */
-    public static Object getFieldValueOrDefault(Object obj, Field field, Object defaultValue) {
+    public static Object tryGet(Object obj, Field field, Object defaultValue) {
         if (obj == null || field == null) {
             return defaultValue;
         }
@@ -57,12 +57,12 @@ public final class Accessor {
      * @param value     the value to set
      * @return true if the field was set successfully, false if obj/fieldName is null, field not found, or set threw
      */
-    public static boolean setField(Object obj, String fieldName, Object value) {
+    public static boolean trySet(Object obj, String fieldName, Object value) {
         if (obj == null || fieldName == null || fieldName.isEmpty()) {
             return false;
         }
         Field field = findField(obj.getClass(), fieldName);
-        return setField(obj, field, value);
+        return trySet(obj, field, value);
     }
 
     /**
@@ -74,7 +74,7 @@ public final class Accessor {
      * @param value the value to set
      * @return true if the field was set successfully, false if obj/field is null or set threw
      */
-    public static boolean setField(Object obj, Field field, Object value) {
+    public static boolean trySet(Object obj, Field field, Object value) {
         if (obj == null || field == null) {
             return false;
         }
