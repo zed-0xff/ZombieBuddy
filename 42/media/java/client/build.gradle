@@ -379,18 +379,27 @@ task test_patched(type: Test) {
     ]
 }
 
-// Main test task - runs both vanilla and patched tests
+// Unit tests (test/ source set) - e.g. AccessorTest, VersionCheckTest, PatchTest
+task unitTest(type: Test) {
+    description = 'Runs unit tests from test/ directory'
+    group = 'verification'
+    useJUnitPlatform()
+    dependsOn testJar
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+}
+
+// Main test task - runs unit tests, vanilla, and patched tests
 // Run with: gradle test
-// Note: This is a coordinator task that runs test_vanilla and test_patched
 tasks.named('test', Test) {
-    description = 'Runs both vanilla and patched tests'
+    description = 'Runs unit, vanilla, and patched tests'
     group = 'verification'
     
     // Don't discover tests from the default test source set
     testClassesDirs = files()
     classpath = files()
     
-    // Depend on the actual test tasks - they will execute
+    dependsOn unitTest
     dependsOn test_vanilla
     dependsOn test_patched
     

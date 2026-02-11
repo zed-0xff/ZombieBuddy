@@ -2,6 +2,7 @@ package me.zed_0xff.zombie_buddy;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -20,8 +21,10 @@ public final class Accessor {
     /**
      * Gets the value of the named field on {@code obj}, or {@code defaultValue} if
      * the object is null, the field does not exist, or it cannot be read.
+     * If {@code obj} is a {@link Class}, the field is looked up on that class and
+     * read as a static field (instance argument is ignored for static fields).
      *
-     * @param obj          the instance to read from (may be null)
+     * @param obj          the instance to read from, or a Class for static field lookup (may be null)
      * @param fieldName    the field name (searches this class and superclasses)
      * @param defaultValue value to return when the field cannot be read
      * @return the field value (including null), or {@code defaultValue} only if the field could not be read
@@ -30,21 +33,26 @@ public final class Accessor {
         if (obj == null || fieldName == null || fieldName.isEmpty()) {
             return defaultValue;
         }
-        Field field = findField(obj.getClass(), fieldName);
-        return tryGet(obj, field, defaultValue);
+        Class<?> cls = obj instanceof Class ? (Class<?>) obj : obj.getClass();
+        Field field = findField(cls, fieldName);
+        Object instance = obj instanceof Class ? null : obj;
+        return tryGet(instance, field, defaultValue);
     }
 
     /**
      * Gets the value of {@code field} on {@code obj}, or {@code defaultValue} if
-     * the object is null, the field is null, or it cannot be read.
+     * the field is null or it cannot be read. For static fields, {@code obj} may be null.
      *
-     * @param obj          the instance to read from (may be null)
+     * @param obj          the instance to read from (null for static fields)
      * @param field        the field to read (may be null)
      * @param defaultValue value to return when the field cannot be read
      * @return the field value (including null), or {@code defaultValue} only if the field could not be read
      */
     public static Object tryGet(Object obj, Field field, Object defaultValue) {
-        if (obj == null || field == null) {
+        if (field == null) {
+            return defaultValue;
+        }
+        if (obj == null && !Modifier.isStatic(field.getModifiers())) {
             return defaultValue;
         }
         try {
@@ -95,10 +103,29 @@ public final class Accessor {
     }
 
     /**
-     * Finds a field by name in {@code cls} or any superclass. Returns null if not found.
-     * Results are cached per (class name, field name).
+     * Finds a field by name in {@code cls} or any superclass. Accepts multiple candidate
+     * names and returns the first found. Results are cached per (class name, field name).
+     *
+     * @param cls        the class to search (and its superclasses)
+     * @param fieldNames one or more field names to try in order; null/empty names are skipped
+     * @return the first found field, or null if none exist
      */
-    public static Field findField(Class<?> cls, String fieldName) {
+    public static Field findField(Class<?> cls, String... fieldNames) {
+        if (cls == null || fieldNames == null || fieldNames.length == 0) {
+            return null;
+        }
+        for (String fieldName : fieldNames) {
+            if (fieldName != null && !fieldName.isEmpty()) {
+                Field f = findFieldCached(cls, fieldName);
+                if (f != null) {
+                    return f;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static Field findFieldCached(Class<?> cls, String fieldName) {
         String key = cls.getName() + "\0" + fieldName;
         return findFieldCache.computeIfAbsent(key, k -> Optional.ofNullable(findFieldUncached(cls, fieldName))).orElse(null);
     }
