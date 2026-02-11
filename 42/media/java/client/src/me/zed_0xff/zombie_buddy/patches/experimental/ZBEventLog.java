@@ -11,20 +11,20 @@ import se.krka.kahlua.vm.KahluaTable;
 import me.zed_0xff.zombie_buddy.Exposer;
 
 /**
- * Control plane for getPacket() logging. By default logging is disabled.
- * Lua can enable/disable and filter by packet class name (simple name, no package).
+ * Control plane for Lua event (triggerEvent) logging. By default logging is disabled.
+ * Lua can enable/disable and filter by event name.
  */
 @Exposer.LuaClass
-public class ZBPacketLog {
+public class ZBEventLog {
     private static volatile boolean enabled = false;
     private static final Set<String> include = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private static final Set<String> exclude = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-    /** Returns true if getPacket() should log the given packet (simple class name). */
-    public static boolean shouldLog(String simpleClassName) {
+    /** Returns true if triggerEvent() should log the given event name. */
+    public static boolean shouldLog(String eventName) {
         if (!enabled) return false;
-        if (exclude.contains(simpleClassName)) return false;
-        if (!include.isEmpty() && !include.contains(simpleClassName)) return false;
+        if (exclude.contains(eventName)) return false;
+        if (!include.isEmpty() && !include.contains(eventName)) return false;
         return true;
     }
 
@@ -44,7 +44,7 @@ public class ZBPacketLog {
         enabled = false;
     }
 
-    /** Add packet class names to include filter. Accepts KahluaTable (array of strings). */
+    /** Add event names to include filter. Accepts KahluaTable (array of strings). */
     public static void include(KahluaTable names) {
         addNames(names, include);
     }
@@ -53,7 +53,7 @@ public class ZBPacketLog {
         include.add(name);
     }
 
-    /** Add packet class names to exclude filter. Accepts KahluaTable (array of strings). */
+    /** Add event names to exclude filter. Accepts KahluaTable (array of strings). */
     public static void exclude(KahluaTable names) {
         addNames(names, exclude);
     }
@@ -62,12 +62,12 @@ public class ZBPacketLog {
         exclude.add(name);
     }
 
-    /** Returns a copy of the current include filter (packet class names). */
+    /** Returns a copy of the current include filter (event names). */
     public static List<String> getIncludes() {
         return new ArrayList<>(include);
     }
 
-    /** Returns a copy of the current exclude filter (packet class names). */
+    /** Returns a copy of the current exclude filter (event names). */
     public static List<String> getExcludes() {
         return new ArrayList<>(exclude);
     }
