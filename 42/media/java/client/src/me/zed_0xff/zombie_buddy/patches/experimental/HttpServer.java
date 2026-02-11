@@ -431,9 +431,7 @@ public class HttpServer {
                             LuaManager.thread.currentCoroutine = co;
                             
                             // Run until yield or completion - use reflection since luaMainloop is private
-                            java.lang.reflect.Method luaMainloop = LuaManager.thread.getClass().getDeclaredMethod("luaMainloop");
-                            luaMainloop.setAccessible(true);
-                            luaMainloop.invoke(LuaManager.thread);
+                            Accessor.call(LuaManager.thread, "luaMainloop");
                             
                             // Get result from returnBase (0)
                             if (co.getTop() > 0) {

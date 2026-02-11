@@ -1,6 +1,7 @@
 package me.zed_0xff.zombie_buddy;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 /**
  * Helper to read (including private) field values from objects via reflection.
@@ -99,5 +100,70 @@ public final class Accessor {
             }
         }
         return null;
+    }
+
+    /**
+     * Finds a no-arg method by name in {@code cls} or any superclass. Returns null if not found.
+     */
+    public static Method findMethod(Class<?> cls, String methodName) {
+        return findMethod(cls, methodName, (Class<?>[]) null);
+    }
+
+    /**
+     * Finds a method by name and parameter types in {@code cls} or any superclass. Returns null if not found.
+     * Pass empty array or null for no-arg method.
+     */
+    public static Method findMethod(Class<?> cls, String methodName, Class<?>... parameterTypes) {
+        for (Class<?> c = cls; c != null; c = c.getSuperclass()) {
+            try {
+                if (parameterTypes == null || parameterTypes.length == 0) {
+                    return c.getDeclaredMethod(methodName);
+                }
+                return c.getDeclaredMethod(methodName, parameterTypes);
+            } catch (NoSuchMethodException e) {
+                // continue to superclass
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Invokes the named no-arg method on {@code obj}. Searches class hierarchy for the method,
+     * sets it accessible, then invokes. Does not catch exceptions; callers must handle
+     * ReflectiveOperationException (or IllegalAccessException, InvocationTargetException, etc.).
+     *
+     * @param obj        the instance to call on (may not be null)
+     * @param methodName the name of the no-arg method
+     * @return the return value of the method (possibly null)
+     * @throws NoSuchMethodException  if the method is not found
+     * @throws ReflectiveOperationException if setAccessible or invoke fails
+     */
+    public static Object call(Object obj, String methodName) throws ReflectiveOperationException {
+        return call(obj, methodName, (Class<?>[]) null);
+    }
+
+    /**
+     * Invokes the named method on {@code obj} with the given parameter types and arguments.
+     * Searches class hierarchy for the method, sets it accessible, then invokes. Does not catch
+     * exceptions; callers must handle ReflectiveOperationException.
+     *
+     * @param obj             the instance to call on (may not be null)
+     * @param methodName      the name of the method
+     * @param parameterTypes  the method parameter types (null or empty for no-arg)
+     * @param args            the arguments to pass (will be unboxed for primitive params)
+     * @return the return value of the method (possibly null)
+     * @throws NoSuchMethodException  if the method is not found
+     * @throws ReflectiveOperationException if setAccessible or invoke fails
+     */
+    public static Object call(Object obj, String methodName, Class<?>[] parameterTypes, Object... args) throws ReflectiveOperationException {
+        if (obj == null || methodName == null || methodName.isEmpty()) {
+            throw new IllegalArgumentException("obj and methodName must be non-null and non-empty");
+        }
+        Method m = findMethod(obj.getClass(), methodName, parameterTypes);
+        if (m == null) {
+            throw new NoSuchMethodException(methodName);
+        }
+        m.setAccessible(true);
+        return m.invoke(obj, args);
     }
 }
