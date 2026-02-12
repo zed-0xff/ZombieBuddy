@@ -265,13 +265,13 @@ public record JavaModInfo(
         }
         
         if (minVersion != null && !minVersion.isEmpty()) {
-            if (ZombieBuddy.compareVersions(currentVersion, minVersion) < 0) {
+            if (Utils.compareVersions(currentVersion, minVersion) < 0) {
                 return false;
             }
         }
         
         if (maxVersion != null && !maxVersion.isEmpty()) {
-            if (ZombieBuddy.compareVersions(currentVersion, maxVersion) > 0) {
+            if (Utils.compareVersions(currentVersion, maxVersion) > 0) {
                 return false;
             }
         }

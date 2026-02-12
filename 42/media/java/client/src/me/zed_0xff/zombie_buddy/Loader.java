@@ -277,7 +277,7 @@ public class Loader {
                                                         
                                                         // Compare with current version
                                                         String currentVersion = ZombieBuddy.getVersion();
-                                                        if (isVersionNewer(manifestVersion, currentVersion)) {
+                                                        if (Utils.isVersionNewer(manifestVersion, currentVersion)) {
                                                             updateSelf(jarFile, manifestVersion);
                                                         }
                                                     }
@@ -1088,7 +1088,7 @@ public class Loader {
             MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
             byte[] sha256Bytes = sha256.digest(cert.getEncoded());
             if (g_verbosity > 0) {
-                String sha256Fingerprint = bytesToHex(sha256Bytes);
+                String sha256Fingerprint = Utils.bytesToHex(sha256Bytes);
                 Logger.info("    SHA-256 Fingerprint: " + sha256Fingerprint);
             }
             return sha256Bytes;
@@ -1098,52 +1098,6 @@ public class Loader {
         return null;
     }
     
-    /**
-     * Converts a hexadecimal string with colons to a byte array.
-     * @param hexString The hexadecimal string (e.g., "A7:75:10:1B:...")
-     * @return The byte array representation
-     */
-    private static byte[] hexToBytes(String hexString) {
-        // Remove colons and convert to bytes
-        String cleanHex = hexString.replace(":", "").replace(" ", "");
-        if (cleanHex.length() % 2 != 0) {
-            throw new IllegalArgumentException("Hex string must have even length");
-        }
-        byte[] bytes = new byte[cleanHex.length() / 2];
-        for (int i = 0; i < bytes.length; i++) {
-            int index = i * 2;
-            bytes[i] = (byte) Integer.parseInt(cleanHex.substring(index, index + 2), 16);
-        }
-        return bytes;
-    }
-    
-    /**
-     * Compares two semantic version strings to determine if version1 is newer than version2.
-     * Supports formats like "1.0.0", "1.2.3", "2.0.0-beta", etc.
-     * @param version1 The first version to compare
-     * @param version2 The second version to compare
-     * @return true if version1 is newer than version2, false otherwise
-     */
-    private static boolean isVersionNewer(String version1, String version2) {
-        return ZombieBuddy.compareVersions(version1, version2) > 0;
-    }
-    
-    /**
-     * Converts a byte array to a hexadecimal string with colons (standard fingerprint format).
-     * @param bytes The byte array to convert
-     * @return The hexadecimal string representation
-     */
-    private static String bytesToHex(byte[] bytes) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < bytes.length; i++) {
-            if (i > 0) {
-                sb.append(":");
-            }
-            sb.append(String.format("%02X", bytes[i]));
-        }
-        return sb.toString();
-    }
-
     public static Manifest getJarManifest(File jarFile){
         if (jarFile == null) {
             return null;

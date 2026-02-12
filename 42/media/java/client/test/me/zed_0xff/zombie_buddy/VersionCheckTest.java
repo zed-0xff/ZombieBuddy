@@ -6,15 +6,15 @@ import static org.junit.jupiter.api.Assertions.*;
 public class VersionCheckTest {
     @Test
     void testCompareVersions() {
-        assertEquals(0, ZombieBuddy.compareVersions("1.0.0", "1.0.0"));
-        assertEquals(1, ZombieBuddy.compareVersions("1.1.0", "1.0.0"));
-        assertEquals(-1, ZombieBuddy.compareVersions("1.0.0", "1.1.0"));
-        assertEquals(1, ZombieBuddy.compareVersions("1.10.0", "1.2.0"));
-        assertEquals(-1, ZombieBuddy.compareVersions("1.2.0", "1.10.0"));
-        assertEquals(0, ZombieBuddy.compareVersions("1.0.0-beta", "1.0.0"));
-        assertEquals(1, ZombieBuddy.compareVersions("2.0", "1.9.9"));
-        assertEquals(-1, ZombieBuddy.compareVersions("unknown", "1.0.0"));
-        assertEquals(1, ZombieBuddy.compareVersions("1.0.0", "unknown"));
+        assertEquals(0, Utils.compareVersions("1.0.0", "1.0.0"));
+        assertEquals(1, Utils.compareVersions("1.1.0", "1.0.0"));
+        assertEquals(-1, Utils.compareVersions("1.0.0", "1.1.0"));
+        assertEquals(1, Utils.compareVersions("1.10.0", "1.2.0"));
+        assertEquals(-1, Utils.compareVersions("1.2.0", "1.10.0"));
+        assertEquals(0, Utils.compareVersions("1.0.0-beta", "1.0.0"));
+        assertEquals(1, Utils.compareVersions("2.0", "1.9.9"));
+        assertEquals(-1, Utils.compareVersions("unknown", "1.0.0"));
+        assertEquals(1, Utils.compareVersions("1.0.0", "unknown"));
     }
 
     @Test
