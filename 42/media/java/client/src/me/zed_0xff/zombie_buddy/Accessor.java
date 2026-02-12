@@ -74,7 +74,7 @@ public final class Accessor {
      * @param value     the value to set
      * @return true if the field was set successfully, false if obj/fieldName is null, field not found, or set threw
      */
-    public static boolean trySet(Object obj, String fieldName, Object value) {
+    public static <T> boolean trySet(Object obj, String fieldName, T value) {
         if (obj == null || fieldName == null || fieldName.isEmpty()) {
             return false;
         }
@@ -94,7 +94,7 @@ public final class Accessor {
      * @param value the value to set
      * @return true if the field was set successfully, false if field is null, or obj is null for instance field, or set threw
      */
-    public static boolean trySet(Object obj, Field field, Object value) {
+    public static <T> boolean trySet(Object obj, Field field, T value) {
         if (field == null) {
             return false;
         }
@@ -131,6 +131,26 @@ public final class Accessor {
             }
         }
         return null;
+    }
+
+    /**
+     * Finds a field by name in the class named {@code className} or any superclass.
+     * Accepts multiple candidate names and returns the first found.
+     *
+     * @param className  fully qualified class name
+     * @param fieldNames one or more field names to try in order; null/empty names are skipped
+     * @return the first found field, or null if the class cannot be loaded or no field exists
+     */
+    public static Field findField(String className, String... fieldNames) {
+        if (className == null || className.isEmpty() || fieldNames == null || fieldNames.length == 0) {
+            return null;
+        }
+        try {
+            Class<?> cls = Class.forName(className);
+            return findField(cls, fieldNames);
+        } catch (ClassNotFoundException e) {
+            return null;
+        }
     }
 
     private static Field findFieldCached(Class<?> cls, String fieldName) {

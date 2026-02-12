@@ -45,7 +45,7 @@ public class AccessorFindFieldTest {
 
     @Test
     void findField_nullClass_returnsNull() {
-        assertNull(Accessor.findField(null, "first"));
+        assertNull(Accessor.findField((Class<?>) null, "first"));
     }
 
     @Test
