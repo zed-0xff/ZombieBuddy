@@ -29,7 +29,7 @@ public final class Accessor {
      * @param defaultValue value to return when the field cannot be read
      * @return the field value (including null), or {@code defaultValue} only if the field could not be read
      */
-    public static Object tryGet(Object obj, String fieldName, Object defaultValue) {
+    public static <T> T tryGet(Object obj, String fieldName, T defaultValue) {
         if (obj == null || fieldName == null || fieldName.isEmpty()) {
             return defaultValue;
         }
@@ -48,7 +48,8 @@ public final class Accessor {
      * @param defaultValue value to return when the field cannot be read
      * @return the field value (including null), or {@code defaultValue} only if the field could not be read
      */
-    public static Object tryGet(Object obj, Field field, Object defaultValue) {
+    @SuppressWarnings("unchecked")
+    public static <T> T tryGet(Object obj, Field field, T defaultValue) {
         if (field == null) {
             return defaultValue;
         }
@@ -57,7 +58,7 @@ public final class Accessor {
         }
         try {
             field.setAccessible(true);
-            return field.get(obj);
+            return (T) field.get(obj);
         } catch (Throwable t) {
             return defaultValue;
         }
@@ -66,8 +67,9 @@ public final class Accessor {
     /**
      * Sets the named field on {@code obj} to {@code value}. Uses {@link Field#set(Object, Object)}
      * so primitive fields accept boxed values (e.g. Integer, Boolean).
+     * If {@code obj} is a {@link Class}, the field is looked up on that class and set as a static field.
      *
-     * @param obj       the instance to write to (may be null)
+     * @param obj       the instance to write to, or a Class for static field lookup
      * @param fieldName the field name (searches this class and superclasses)
      * @param value     the value to set
      * @return true if the field was set successfully, false if obj/fieldName is null, field not found, or set threw
@@ -76,21 +78,27 @@ public final class Accessor {
         if (obj == null || fieldName == null || fieldName.isEmpty()) {
             return false;
         }
-        Field field = findField(obj.getClass(), fieldName);
-        return trySet(obj, field, value);
+        Class<?> cls = obj instanceof Class ? (Class<?>) obj : obj.getClass();
+        Field field = findField(cls, fieldName);
+        Object instance = obj instanceof Class ? null : obj;
+        return trySet(instance, field, value);
     }
 
     /**
      * Sets {@code field} on {@code obj} to {@code value}. Uses {@link Field#set(Object, Object)}
      * so primitive fields accept boxed values (e.g. Integer, Boolean).
+     * For static fields, {@code obj} may be null.
      *
-     * @param obj   the instance to write to (may be null)
+     * @param obj   the instance to write to (null for static fields)
      * @param field the field to set (may be null)
      * @param value the value to set
-     * @return true if the field was set successfully, false if obj/field is null or set threw
+     * @return true if the field was set successfully, false if field is null, or obj is null for instance field, or set threw
      */
     public static boolean trySet(Object obj, Field field, Object value) {
-        if (obj == null || field == null) {
+        if (field == null) {
+            return false;
+        }
+        if (obj == null && !Modifier.isStatic(field.getModifiers())) {
             return false;
         }
         try {
