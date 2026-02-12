@@ -5,15 +5,9 @@ import java.io.InputStream;
 import java.lang.ClassLoader;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Method;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
-import java.security.cert.Certificate;
-import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 import java.util.List;
@@ -36,14 +30,6 @@ public class Loader {
 
     static Set<String> g_known_classes = new HashSet<>();
     static Set<File> g_known_jars = new HashSet<>();
-    static String g_new_version = null;
-
-    private static final byte[] EXPECTED_FINGERPRINT = {
-        (byte)0xA7, (byte)0x75, (byte)0x10, (byte)0x1B, (byte)0xFB, (byte)0x6C, (byte)0x33, (byte)0xA9,
-        (byte)0x2C, (byte)0xDF, (byte)0x25, (byte)0x20, (byte)0xAC, (byte)0x8D, (byte)0x02, (byte)0x95,
-        (byte)0xCE, (byte)0xBF, (byte)0x89, (byte)0x0C, (byte)0x84, (byte)0x05, (byte)0x97, (byte)0x37,
-        (byte)0x7F, (byte)0xD0, (byte)0x9B, (byte)0x17, (byte)0xD0, (byte)0xEA, (byte)0xDD, (byte)0x97
-    };
 
     // Key for grouping patches by class+method
     private static record PatchTarget(String className, String methodName) {}
@@ -254,44 +240,8 @@ public class Loader {
                     
                     // Skip ZombieBuddy itself - it's loaded as a Java agent
                     if (jModInfo.javaPkgName().equals(myPackageName)) {
-                        reason = " (loaded as Java agent, skipping normal mod loading)";
-                        
-                        // Read signature and version from JAR manifest
-                        File jarFile = jModInfo.getJarFileAsFile();
-                        if (jarFile != null && jarFile.exists()) {
-                            try {
-                                Certificate[] certs = verifyJarAndGetCerts(jarFile);
-                                if (certs != null && certs.length > 0) {
-                                    Logger.info("" + jarFile + " is signed with " + certs.length + " certificate(s)");
-                                    for (int certIdx = 0; certIdx < certs.length; certIdx++) {
-                                        if (certs[certIdx] instanceof X509Certificate) {
-                                            X509Certificate x509Cert = (X509Certificate) certs[certIdx];
-                                            byte[] fingerprint = getCertFingerprint(x509Cert, certIdx + 1);
-                                            if (fingerprint != null && java.util.Arrays.equals(fingerprint, EXPECTED_FINGERPRINT)) {
-                                                // get version from manifest
-                                                Manifest manifest = getJarManifest(jarFile);
-                                                if (manifest != null) {
-                                                    String manifestVersion = manifest.getMainAttributes().getValue("Implementation-Version");
-                                                    if (manifestVersion != null) {
-                                                        reason += " (version " + manifestVersion + ")";
-                                                        
-                                                        // Compare with current version
-                                                        String currentVersion = ZombieBuddy.getVersion();
-                                                        if (Utils.isVersionNewer(manifestVersion, currentVersion)) {
-                                                            updateSelf(jarFile, manifestVersion);
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } catch (Exception e) {
-                                Logger.error("Error verifying JAR signature: " + e.getMessage());
-                            }
-                        } else {
-                            reason += " (" + (jarFile != null ? jarFile.getAbsolutePath() : "null") + " not found)";
-                        }
+                        reason = " (loaded as Java agent, skipping normal mod loading)"
+                            + SelfUpdater.getExclusionReasonSuffix(jModInfo.getJarFileAsFile());
                     } else {
                         Integer lastIndex = lastPkgNameIndex.get(jModInfo.javaPkgName());
                         if (lastIndex != null && lastIndex > i) {
@@ -946,7 +896,7 @@ public class Loader {
             
             // Always include the current JAR (ZombieBuddy's own JAR) so ClassGraph can scan it
             // This is especially important on Windows with fat JARs
-            File currentJar = getCurrentJarFile();
+            File currentJar = Utils.getCurrentJarFile();
             if (currentJar != null && currentJar.exists()) {
                 jarPaths.add(currentJar.getAbsolutePath());
             }
@@ -1067,146 +1017,6 @@ public class Loader {
         ApplyPatchesFromPackage(modInfo.javaPkgName(), null, false);
         
         Logger.info("-------------------------------------------");
-    }
-    
-    /**
-     * Prints detailed information about an X.509 certificate including fingerprints.
-     * @param cert The X.509 certificate to print
-     * @param certNumber The certificate number (for display purposes)
-     */
-    private static byte[] getCertFingerprint(X509Certificate cert, int certNumber) {
-        if (g_verbosity > 0) {
-            Logger.info("  Certificate " + certNumber + ":");
-            Logger.info("    Subject: " + cert.getSubjectX500Principal().getName());
-            Logger.info("    Issuer: " + cert.getIssuerX500Principal().getName());
-            Logger.info("    Serial Number: " + cert.getSerialNumber().toString(16).toUpperCase());
-            Logger.info("    Valid From: " + cert.getNotBefore());
-            Logger.info("    Valid Until: " + cert.getNotAfter());
-        }
-        
-        try {
-            MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
-            byte[] sha256Bytes = sha256.digest(cert.getEncoded());
-            if (g_verbosity > 0) {
-                String sha256Fingerprint = Utils.bytesToHex(sha256Bytes);
-                Logger.info("    SHA-256 Fingerprint: " + sha256Fingerprint);
-            }
-            return sha256Bytes;
-        } catch (Exception e) {
-            Logger.error("    Error computing certificate fingerprints: " + e.getMessage());
-        }
-        return null;
-    }
-    
-    public static Manifest getJarManifest(File jarFile){
-        if (jarFile == null) {
-            return null;
-        }
-        try (JarFile jar = new JarFile(jarFile, true)) {
-            return jar.getManifest();
-        } catch (Exception e) {
-            Logger.error("Error getting JAR manifest: " + e);
-            return null;
-        }
-    }
-    
-    public static Certificate[] verifyJarAndGetCerts(File jarPath) throws Exception {
-        Manifest mf = getJarManifest(jarPath);
-        if (mf == null)
-            return null;
-
-        try (JarFile jar = new JarFile(jarPath, true)) {
-            Certificate[] signer = null;
-    
-            var entries = jar.entries();
-            while (entries.hasMoreElements()) {
-                JarEntry e = entries.nextElement();
-                if (e.isDirectory()) continue;
-    
-                try (InputStream is = jar.getInputStream(e)) {
-                    // Read the entire entry to force verification.
-                    is.readAllBytes();
-                }
-    
-                // If this entry was signed, it will have certs here.
-                Certificate[] certs = e.getCertificates();
-                if (certs != null) {
-                    signer = certs;
-                }
-            }
-    
-            if (signer == null)
-                throw new SecurityException("No signed entries found");
-    
-            return signer;
-        }
-    }    
-
-    public static String getNewVersion() {
-        return g_new_version;
-    }
-
-    /**
-     * Gets the File object representing the JAR file that contains the currently running code.
-     * @return The JAR file, or null if not found or not running from a JAR
-     */
-    public static File getCurrentJarFile() {
-        try {
-            java.security.CodeSource codeSource = Loader.class.getProtectionDomain().getCodeSource();
-            if (codeSource != null) {
-                java.net.URL location = codeSource.getLocation();
-                if (location != null) {
-                    // Convert URL to File, handling file:// URLs
-                    java.net.URI uri = location.toURI();
-                    File jarFile = new File(uri);
-                    if (jarFile.exists() && jarFile.getName().endsWith(".jar")) {
-                        return jarFile;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            Logger.error("Error getting current JAR file path: " + e.getMessage());
-        }
-        return null;
-    }
-    
-    private static void updateSelf(File jarFile, String manifestVersion) {
-        File currentJarFile = getCurrentJarFile();
-        if (currentJarFile == null) {
-            return;
-        }
-        g_new_version = manifestVersion;
-        Logger.info("replacing " + currentJarFile + " with " + jarFile);
-        try {
-            // Try to rename existing JAR to .bak before replacing
-            File backupFile = new File(currentJarFile.getAbsolutePath() + ".bak");
-            if (currentJarFile.exists()) {
-                try {
-                    Files.move(currentJarFile.toPath(), backupFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                    Logger.info("Renamed existing JAR to " + backupFile);
-                } catch (Exception e) {
-                    // On Windows, this might fail if JAR is still locked - continue anyway
-                    Logger.info("Could not rename existing JAR (may be locked): " + e.getMessage());
-                }
-            }
-            
-            // Try to replace the current JAR with the new one
-            Files.copy(jarFile.toPath(), currentJarFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            Logger.info("Successfully replaced JAR file");
-        } catch (Exception e) {
-            // If replacement failed (e.g., JAR is locked on Windows), copy to .new as fallback
-            Logger.error("Error replacing JAR file: " + e.getMessage());
-            Logger.error("JAR may be locked (e.g., on Windows). Copying to .new file for deferred update...");
-            try {
-                File newJarFile = new File(currentJarFile.getAbsolutePath() + ".new");
-                Files.copy(jarFile.toPath(), newJarFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                Logger.info("Copied new JAR to " + newJarFile + " - update will be applied on next game launch");
-            } catch (Exception e2) {
-                Logger.error("Error copying to .new file: " + e2.getMessage());
-                e2.printStackTrace();
-            }
-            e.printStackTrace();
-        }
     }
 
     /**

@@ -1,5 +1,7 @@
 package me.zed_0xff.zombie_buddy;
 
+import java.io.File;
+
 /**
  * Shared utility methods used by Loader and other classes.
  */
@@ -68,5 +70,29 @@ public final class Utils {
             sb.append(String.format("%02X", bytes[i]));
         }
         return sb.toString();
+    }
+
+    /**
+     * Returns the JAR file that contains the currently running ZombieBuddy code.
+     *
+     * @return the JAR file, or null if not found or not running from a JAR
+     */
+    public static File getCurrentJarFile() {
+        try {
+            java.security.CodeSource codeSource = Utils.class.getProtectionDomain().getCodeSource();
+            if (codeSource != null) {
+                java.net.URL location = codeSource.getLocation();
+                if (location != null) {
+                    java.net.URI uri = location.toURI();
+                    File jarFile = new File(uri);
+                    if (jarFile.exists() && jarFile.getName().endsWith(".jar")) {
+                        return jarFile;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Logger.error("Error getting current JAR file path: " + e.getMessage());
+        }
+        return null;
     }
 }

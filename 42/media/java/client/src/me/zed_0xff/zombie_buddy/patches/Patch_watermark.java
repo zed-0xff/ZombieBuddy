@@ -25,7 +25,7 @@ public class Patch_watermark {
 
     public static void draw_watermark() {
         String watermark = "ZB " + ZombieBuddy.getVersion();
-        String newVersion = Loader.getNewVersion();
+        String newVersion = SelfUpdater.getNewVersion();
         if (newVersion != null) {
             watermark += " (New version " + newVersion + " installed. Please restart the game)";
         }

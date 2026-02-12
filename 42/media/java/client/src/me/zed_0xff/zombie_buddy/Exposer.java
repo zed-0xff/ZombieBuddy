@@ -90,7 +90,7 @@ public class Exposer {
 
         // Use same classpath as Loader so we see classes from current JAR and any g_known_jars
         ArrayList<String> jarPaths = new ArrayList<>();
-        File currentJar = Loader.getCurrentJarFile();
+        File currentJar = Utils.getCurrentJarFile();
         if (currentJar != null && currentJar.exists()) {
             jarPaths.add(currentJar.getAbsolutePath());
         }
