@@ -7,7 +7,7 @@ namespace "42_12" do
     env = {
       "JAVA_HOME" => "/Library/Java/JavaVirtualMachines/openjdk-17.jdk/Contents/Home"
     }
-    cp_root = File.join(PROJECT_ROOT, "42.12/java")
+    cp_root = File.join(PROJECT_ROOT, "versions/42.12/java")
     cp = [cp_root, File.join(cp_root, "lwjgl-glfw.jar")].join(",")
 
     sh env, "gradle build --warning-mode all -PgameClasspath=#{cp}"
@@ -20,7 +20,7 @@ namespace "42_13" do
     env = {
       "JAVA_HOME" => "/Library/Java/JavaVirtualMachines/openjdk-24.jdk/Contents/Home"
     }
-    cp_root = File.join(PROJECT_ROOT, "42.13/java")
+    cp_root = File.join(PROJECT_ROOT, "versions/42.13/java")
     cp = [File.join(cp_root, "projectzomboid.jar")].join(",")
 
     sh env, "gradle build --warning-mode all -PgameClasspath=#{cp}"

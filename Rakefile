@@ -1,4 +1,6 @@
 PROJECT_ROOT = File.expand_path("~/projects/zomboid")
+
+# only for install/launch tasks
 GAME_ROOT    = File.expand_path("~/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app/Contents/")
 
 Dir["lib/tasks/*.rake"].each { |r| load r }
