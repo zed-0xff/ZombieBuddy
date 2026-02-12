@@ -18,8 +18,6 @@ import zombie.core.Core;
 public class Patch_searchForModInfo {
     @Patch.OnExit
     public static void exit(String str, List<String> list) {
-        Logger.info("after ZomboidFileSystem.getAllModFoldersAux: str:" + str + " list:" + list);
-
         if (Core.getInstance().getGameVersion().getMajor() == 41) {
             append_subdir_41(str, list);
         }
