@@ -7,6 +7,6 @@ import me.zed_0xff.zombie_buddy.*;
 public class Patch_ServerMap {
     @Patch.OnEnter
     static void enter() {
-        HttpServer.pollLuaTasks();
+        HttpServer.maybeRunLuaTasks();
     }
 }
