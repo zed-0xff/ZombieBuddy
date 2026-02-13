@@ -6,7 +6,6 @@ import java.lang.reflect.Method;
 import me.zed_0xff.zombie_buddy.Accessor;
 import se.krka.kahlua.integration.annotations.LuaMethod;
 import se.krka.kahlua.vm.KahluaTable;
-import se.krka.kahlua.vm.KahluaTableIterator;
 import zombie.Lua.LuaManager;
 
 public class ZBInspect {
@@ -22,16 +21,8 @@ public class ZBInspect {
             return null;
         }
         KahluaTable result = LuaManager.platform.newTable();
-        KahluaTable methods = zbMethods(obj, bPrivate);
-        KahluaTable fields = zbFields(obj, bPrivate);
-        KahluaTableIterator it = methods.iterator();
-        while (it.advance()) {
-            result.rawset(it.getKey(), it.getValue());
-        }
-        it = fields.iterator();
-        while (it.advance()) {
-            result.rawset(it.getKey(), it.getValue());
-        }
+        result.rawset("fields", zbFields(obj, bPrivate));
+        result.rawset("methods", zbMethods(obj, bPrivate));
         return result;
     }
 
