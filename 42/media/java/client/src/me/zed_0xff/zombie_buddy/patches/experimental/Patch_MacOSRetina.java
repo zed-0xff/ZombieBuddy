@@ -107,12 +107,11 @@ public class Patch_MacOSRetina {
     // Patch Mouse.addMoveEvent() to scale mouse coordinates for Retina displays
     // Mouse coordinates from GLFW are in window space, but the game expects framebuffer space
     // On Retina displays, we need to scale by 2x (content scale factor)
-    @Patch(className = "org.lwjglx.input.Mouse", methodName = "addMoveEvent", isAdvice = false)
+    @Patch(className = "org.lwjglx.input.Mouse", methodName = "addMoveEvent")
     public static class Patch_MouseAddMoveEvent {
-        @Patch.RuntimeType
-        public static void addMoveEvent(@Patch.Argument(0) double mouseX, 
-                                        @Patch.Argument(1) double mouseY,
-                                        @Patch.SuperMethod java.lang.reflect.Method superMethod) throws Throwable {
+        @Patch.OnEnter
+        public static void enter(@Patch.Argument(value = 0, readOnly = false) double mouseX, 
+                                 @Patch.Argument(value = 1, readOnly = false) double mouseY) {
             if (Patch_MacOSRetina.isPatchNeeded() && org.lwjglx.opengl.Display.isCreated()) {
                 long window = org.lwjglx.opengl.Display.getWindow();
                 float[] xscale = new float[1];
@@ -122,8 +121,6 @@ public class Patch_MacOSRetina {
                 mouseX *= xscale[0];
                 mouseY *= yscale[0];
             }
-            // Call original method with scaled coordinates
-            superMethod.invoke(null, mouseX, mouseY);
         }
     }
 }
