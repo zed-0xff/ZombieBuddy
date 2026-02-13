@@ -121,4 +121,9 @@ public class ZBInspect {
 
         return result;
     }
+
+    @LuaMethod(name = "zbGet", global = true)
+    public static Object zbGet(Object obj, String name) {
+        return Accessor.tryGet(obj, name, null);
+    }
 }
