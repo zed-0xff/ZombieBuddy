@@ -515,18 +515,43 @@ public class HttpServer {
     private static String serializeJavaException(Throwable ex) {
         StringBuilder json = new StringBuilder();
         json.append("{");
-        json.append("\"className\": \"" + escapeJson(ex.getClass().getName()) + "\"");
-        json.append(", \"message\": \"" + escapeJson(ex.getMessage()) + "\"");
-        
-        // Add first relevant stack frame
+        json.append("\"className\": \"").append(escapeJson(ex.getClass().getName())).append("\"");
+        // Prefer getMessage(); if null/empty use toString(); then append cause chain
+        String message = ex.getMessage();
+        if (message == null || message.isEmpty()) {
+            message = ex.toString();
+        }
+        StringBuilder fullMessage = new StringBuilder(message);
+        Throwable cause = ex.getCause();
+        while (cause != null) {
+            fullMessage.append(" Caused by: ");
+            String cm = cause.getMessage();
+            fullMessage.append(cm != null && !cm.isEmpty() ? cm : cause.toString());
+            cause = cause.getCause();
+        }
+        json.append(", \"message\": \"").append(escapeJson(fullMessage.toString())).append("\"");
+        // First frame (kept for backward compatibility)
         StackTraceElement[] stack = ex.getStackTrace();
         if (stack != null && stack.length > 0) {
             StackTraceElement frame = stack[0];
-            json.append(", \"file\": \"" + escapeJson(frame.getFileName()) + "\"");
-            json.append(", \"line\": " + frame.getLineNumber());
-            json.append(", \"method\": \"" + escapeJson(frame.getMethodName()) + "\"");
+            json.append(", \"file\": \"").append(escapeJson(frame.getFileName())).append("\"");
+            json.append(", \"line\": ").append(frame.getLineNumber());
+            json.append(", \"method\": \"").append(escapeJson(frame.getMethodName())).append("\"");
         }
-        
+        // Full stack trace
+        if (stack != null && stack.length > 0) {
+            json.append(", \"stackTrace\": [");
+            for (int i = 0; i < stack.length; i++) {
+                if (i > 0) json.append(", ");
+                StackTraceElement f = stack[i];
+                String fn = f.getFileName();
+                int ln = f.getLineNumber();
+                String mn = f.getMethodName();
+                String cn = f.getClassName();
+                json.append("\"").append(escapeJson(cn + "." + mn + "(" + (fn != null ? fn : "?") + ":" + ln + ")")).append("\"");
+            }
+            json.append("]");
+        }
         json.append("}");
         return json.toString();
     }
