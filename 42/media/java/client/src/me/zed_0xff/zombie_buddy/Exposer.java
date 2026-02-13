@@ -59,9 +59,17 @@ public class Exposer {
         g_exposed_classes.add(cls);
     }
 
-    public static void exposeClassesToLua(Class<?>... classes) {
-        for (Class<?> cls : classes) {
+    /** Resolves the class by name and exposes it to Lua. Returns true if the class was found and exposed, false otherwise. */
+    public static boolean exposeClassToLua(String className) {
+        if (className == null || className.isEmpty()) {
+            return false;
+        }
+        try {
+            Class<?> cls = Class.forName(className);
             exposeClassToLua(cls);
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
         }
     }
 
