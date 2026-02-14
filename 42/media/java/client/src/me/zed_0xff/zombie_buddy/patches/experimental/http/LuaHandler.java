@@ -55,8 +55,6 @@ public class LuaHandler implements HttpHandler {
 
         try {
             HttpServer.runOnLuaThread(() -> {
-                String prevFile = FuncState.currentFile;
-                String prevFullFile = FuncState.currentfullFile;
                 KahluaTable sharedEnv = LuaManager.env;
                 try {
                     int errorListSizeBefore = KahluaThread.m_errors_list.size();
@@ -127,8 +125,8 @@ public class LuaHandler implements HttpHandler {
                             if (value != null) errorGlobalValues.put(name, value);
                         }
                     }
-                    FuncState.currentFile = prevFile;
-                    FuncState.currentfullFile = prevFullFile;
+                    FuncState.currentFile = null;
+                    FuncState.currentfullFile = null;
                 }
             });
         } catch (Exception e) {
