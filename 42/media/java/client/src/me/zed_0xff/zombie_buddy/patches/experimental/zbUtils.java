@@ -8,7 +8,7 @@ import se.krka.kahlua.integration.annotations.LuaMethod;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
 
-public class ZBInspect {
+public class zbUtils {
 
     @LuaMethod(name = "zbInspect", global = true)
     public static KahluaTable zbInspect(Object obj) {
@@ -140,5 +140,54 @@ public class ZBInspect {
     @LuaMethod(name = "zbCall", global = true)
     public static Object zbCall(Object obj, String name, Object... args) throws ReflectiveOperationException {
         return Accessor.callByName(obj, name, args);
+    }
+
+    /**
+     * Returns a new Lua table containing the keys of the given table (1-based integer indices).
+     * Only works for KahluaTable; returns null otherwise. Kahlua has no built-in "keys" API,
+     * so we iterate via {@link KahluaTable#iterator()} and collect keys.
+     */
+    @LuaMethod(name = "zbKeys", global = true)
+    public static KahluaTable zbKeys(Object obj) {
+        if (!(obj instanceof KahluaTable tbl)) {
+            return null;
+        }
+        KahluaTable out = LuaManager.platform.newTable();
+        var it = tbl.iterator();
+        int i = 1;
+        while (it.advance()) {
+            out.rawset(i++, it.getKey());
+        }
+        return out;
+    }
+
+    @LuaMethod(name = "zbValues", global = true)
+    public static KahluaTable zbValues(Object obj) {
+        if (!(obj instanceof KahluaTable tbl)) {
+            return null;
+        }
+        KahluaTable out = LuaManager.platform.newTable();
+        var it = tbl.iterator();
+        int i = 1;
+        while (it.advance()) {
+            out.rawset(i++, it.getValue());
+        }
+        return out;
+    }
+
+    @LuaMethod(name = "zbGrep", global = true)
+    public static KahluaTable zbGrep(Object obj, String pattern) {
+        if (!(obj instanceof KahluaTable tbl)) {
+            return null;
+        }
+        KahluaTable out = LuaManager.platform.newTable();
+        var it = tbl.iterator();
+        int i = 1;
+        while (it.advance()) {
+            if (it.getValue().toString().matches(pattern)) {    
+                out.rawset(i++, it.getValue());
+            }
+        }
+        return out;
     }
 }
