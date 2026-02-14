@@ -8,7 +8,12 @@ import java.util.HashSet;
 import zombie.Lua.LuaManager;
 
 public class Patch_KahluaThread {
-    public static final HashSet<String> METHODS = new HashSet<>(Arrays.asList("zbInspect", "zbGet"));
+    public static final HashSet<String> METHODS = new HashSet<>(Arrays.asList(
+        "zbCall",
+        "zbInspect", 
+        "zbGet",
+        "zbSet"
+    ));
 
     /**
      * When key is "zbInspect" and table is a Java object (not a KahluaTable), return the global

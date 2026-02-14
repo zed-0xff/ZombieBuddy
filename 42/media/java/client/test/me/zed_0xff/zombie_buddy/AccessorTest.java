@@ -7,7 +7,7 @@ import java.lang.reflect.Field;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for {@link Accessor} tryGet, trySet, findMethod, hasPublicMethod, and call.
+ * Tests for {@link Accessor} tryGet, trySet, findExactMethod, hasPublicMethod, and call.
  */
 public class AccessorTest {
 
@@ -193,16 +193,16 @@ public class AccessorTest {
         assertFalse(Accessor.trySet(t, "doesNotExist", 1));
     }
 
-    // --- findMethod ---
+    // --- findExactMethod ---
 
     @Test
     void findMethod_noArg_found() {
-        assertNotNull(Accessor.findMethod(Target.class, "getPublicString"));
+        assertNotNull(Accessor.findExactMethod(Target.class, "getPublicString"));
     }
 
     @Test
     void findMethod_noArg_notFound() {
-        assertNull(Accessor.findMethod(Target.class, "noSuchMethod"));
+        assertNull(Accessor.findExactMethod(Target.class, "noSuchMethod"));
     }
 
     // --- hasPublicMethod ---
@@ -235,12 +235,12 @@ public class AccessorTest {
     @Test
     void call_noArg_returnsValue() throws Exception {
         Target t = new Target();
-        assertEquals("hello", Accessor.call(t, "getPublicString"));
+        assertEquals("hello", Accessor.callNoArg(t, "getPublicString"));
     }
 
     @Test
     void call_notFound_throws() {
         Target t = new Target();
-        assertThrows(Exception.class, () -> Accessor.call(t, "noSuchMethod"));
+        assertThrows(Exception.class, () -> Accessor.callNoArg(t, "noSuchMethod"));
     }
 }

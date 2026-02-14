@@ -3,6 +3,9 @@ package me.zed_0xff.zombie_buddy;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -170,17 +173,40 @@ public final class Accessor {
     }
 
     /**
+     * Finds all methods with the given name in {@code cls} and its superclasses (declared on each class).
+     * Includes overloads and overrides. Order: current class methods first, then superclass, etc.
+     *
+     * @param cls        the class to search (and its superclasses)
+     * @param methodName the method name to match
+     * @return list of matching methods (possibly empty); never null
+     */
+    public static List<Method> findMethodsByName(Class<?> cls, String methodName) {
+        if (cls == null || methodName == null || methodName.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Method> out = new ArrayList<>();
+        for (Class<?> c = cls; c != null; c = c.getSuperclass()) {
+            for (Method m : c.getDeclaredMethods()) {
+                if (methodName.equals(m.getName())) {
+                    out.add(m);
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
      * Finds a no-arg method by name in {@code cls} or any superclass. Returns null if not found.
      */
-    public static Method findMethod(Class<?> cls, String methodName) {
-        return findMethod(cls, methodName, (Class<?>[]) null);
+    public static Method findNoArgMethod(Class<?> cls, String methodName) {
+        return findExactMethod(cls, methodName, (Class<?>[]) null);
     }
 
     /**
      * Finds a method by name and parameter types in {@code cls} or any superclass. Returns null if not found.
      * Pass empty array or null for no-arg method. Results are cached per (class name, method name, parameter types).
      */
-    public static Method findMethod(Class<?> cls, String methodName, Class<?>... parameterTypes) {
+    public static Method findExactMethod(Class<?> cls, String methodName, Class<?>... parameterTypes) {
         String key = buildFindMethodCacheKey(cls, methodName, parameterTypes);
         return findMethodCache.computeIfAbsent(key, k -> Optional.ofNullable(findMethodUncached(cls, methodName, parameterTypes))).orElse(null);
     }
@@ -243,8 +269,8 @@ public final class Accessor {
      * @throws NoSuchMethodException  if the method is not found
      * @throws ReflectiveOperationException if setAccessible or invoke fails
      */
-    public static Object call(Object obj, String methodName) throws ReflectiveOperationException {
-        return call(obj, methodName, (Class<?>[]) null);
+    public static Object callNoArg(Object obj, String methodName) throws ReflectiveOperationException {
+        return callExact(obj, methodName, (Class<?>[]) null);
     }
 
     /**
@@ -260,15 +286,48 @@ public final class Accessor {
      * @throws NoSuchMethodException  if the method is not found
      * @throws ReflectiveOperationException if setAccessible or invoke fails
      */
-    public static Object call(Object obj, String methodName, Class<?>[] parameterTypes, Object... args) throws ReflectiveOperationException {
+    public static Object callExact(Object obj, String methodName, Class<?>[] parameterTypes, Object... args) throws ReflectiveOperationException {
         if (obj == null || methodName == null || methodName.isEmpty()) {
             throw new IllegalArgumentException("obj and methodName must be non-null and non-empty");
         }
-        Method m = findMethod(obj.getClass(), methodName, parameterTypes);
+        Method m = findExactMethod(obj.getClass(), methodName, parameterTypes);
         if (m == null) {
             throw new NoSuchMethodException(methodName);
         }
         m.setAccessible(true);
         return m.invoke(obj, args);
+    }
+
+    /**
+     * Invokes a method with the given name on {@code obj}, choosing an overload by argument count
+     * and compatibility. Uses {@link #findMethodsByName} and tries each candidate with matching
+     * parameter count; the first that accepts the arguments (via normal invoke boxing/assignment)
+     * is used. Does not catch exceptions; callers must handle ReflectiveOperationException.
+     *
+     * @param obj        the instance to call on (may not be null)
+     * @param methodName the name of the method
+     * @param args       the arguments to pass (null treated as no arguments)
+     * @return the return value of the method (possibly null)
+     * @throws NoSuchMethodException  if no compatible overload is found
+     * @throws ReflectiveOperationException if setAccessible or invoke fails
+     */
+    public static Object callByName(Object obj, String methodName, Object... args) throws ReflectiveOperationException {
+        if (obj == null || methodName == null || methodName.isEmpty()) {
+            throw new IllegalArgumentException("obj and methodName must be non-null and non-empty");
+        }
+        int nArgs = args == null ? 0 : args.length;
+        for (Method m : findMethodsByName(obj.getClass(), methodName)) {
+            if (m.getParameterCount() != nArgs) {
+                continue;
+            }
+            try {
+                m.setAccessible(true);
+                return m.invoke(obj, args == null ? new Object[0] : args);
+            } catch (IllegalArgumentException e) {
+                // argument types don't match this overload, try next
+                continue;
+            }
+        }
+        throw new NoSuchMethodException("no compatible overload for " + methodName + " with " + nArgs + " argument(s)");
     }
 }

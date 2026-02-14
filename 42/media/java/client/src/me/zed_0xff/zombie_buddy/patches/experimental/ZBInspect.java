@@ -126,4 +126,19 @@ public class ZBInspect {
     public static Object zbGet(Object obj, String name) {
         return Accessor.tryGet(obj, name, null);
     }
+
+    @LuaMethod(name = "zbGet", global = true)
+    public static Object zbGet(Object obj, String name, Object defaultValue) {
+        return Accessor.tryGet(obj, name, defaultValue);
+    }
+
+    @LuaMethod(name = "zbSet", global = true)
+    public static boolean zbSet(Object obj, String name, Object value) {
+        return Accessor.trySet(obj, name, value);
+    }
+
+    @LuaMethod(name = "zbCall", global = true)
+    public static Object zbCall(Object obj, String name, Object... args) throws ReflectiveOperationException {
+        return Accessor.callByName(obj, name, args);
+    }
 }

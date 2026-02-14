@@ -439,7 +439,7 @@ public class HttpServer {
                             LuaManager.thread.currentCoroutine = co;
                             
                             // Run until yield or completion - use reflection since luaMainloop is private
-                            Accessor.call(LuaManager.thread, "luaMainloop");
+                            Accessor.callNoArg(LuaManager.thread, "luaMainloop");
                             
                             // Get result from returnBase (0)
                             if (co.getTop() > 0) {

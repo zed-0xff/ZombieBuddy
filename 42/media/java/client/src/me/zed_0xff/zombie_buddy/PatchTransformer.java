@@ -235,7 +235,7 @@ final class PatchTransformer {
             
             // Fallback: try to define as a new class (won't work if class is already loaded)
             try {
-                return (Class<?>) Accessor.call(patchClass.getClassLoader(), "defineClass",
+                return (Class<?>) Accessor.callExact(patchClass.getClassLoader(), "defineClass",
                     new Class<?>[] { String.class, byte[].class, int.class, int.class },
                     patchClass.getName() + "$ZBTransformed", transformedBytes, 0, transformedBytes.length);
             } catch (Exception e) {
