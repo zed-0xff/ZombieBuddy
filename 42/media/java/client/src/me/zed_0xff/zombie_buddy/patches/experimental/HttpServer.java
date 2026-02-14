@@ -351,6 +351,7 @@ public class HttpServer {
             int depth = parseIntParam(query, "depth", 1);
             String chunkName = parseStringParam(query, "chunkname", "http_exec");
             boolean rawCall = parseIntParam(query, "raw", 0) == 1;
+            boolean sandbox = !"false".equalsIgnoreCase(parseStringParam(query, "sandbox", "true"));
 
             String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             if (body.isEmpty()) {
@@ -376,19 +377,16 @@ public class HttpServer {
                         int errorListSizeBefore = KahluaThread.m_errors_list.size();
                         errorListSizeBeforeRef.set(errorListSizeBefore);
                         
-                        // Create a shared environment for all chunks in this request
-                        // This allows spec_helper functions to be visible to spec files
-                        // without polluting the global _G
+                        // Use sandbox (request-scoped env) unless sandbox=false
+                        // Sandbox: inherits from _G for reads; writes stay in request env.
+                        // Override _G in the sandbox so that _G.foo = x writes to sandbox, not real _G.
                         se.krka.kahlua.vm.KahluaTable sharedEnv = LuaManager.env;
-                        if (chunks.size() > 1) {
-                            // Multiple chunks - create a request-scoped environment
-                            // that inherits from _G via metatable for reads only
-                            // Writes stay in sharedEnv, so spec_helper functions are
-                            // visible to spec files but don't pollute _G
+                        if (sandbox) {
                             sharedEnv = LuaManager.platform.newTable();
                             se.krka.kahlua.vm.KahluaTable mt = LuaManager.platform.newTable();
                             mt.rawset("__index", LuaManager.env);
                             sharedEnv.setMetatable(mt);
+                            sharedEnv.rawset("_G", sharedEnv);
                         }
                         
                         // Execute all chunks in sequence, same Lua context
