@@ -28,6 +28,7 @@ dependencies {
     implementation 'net.bytebuddy:byte-buddy:1.18.4'
     implementation 'net.bytebuddy:byte-buddy-agent:1.18.4'
     implementation 'io.github.classgraph:classgraph:4.8.184'
+    implementation 'org.sharegov:mjson:1.4.2'
 
     // Only add game classpath if provided (needed for compilation, not for running tests)
     if (!GAME_CLASSPATH.isEmpty()) {

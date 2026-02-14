@@ -8,8 +8,15 @@ import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import mjson.Json;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -21,6 +28,7 @@ import org.luaj.kahluafork.compiler.FuncState;
 import se.krka.kahlua.integration.LuaReturn;
 import se.krka.kahlua.luaj.compiler.LuaCompiler;
 import se.krka.kahlua.vm.Coroutine;
+import se.krka.kahlua.vm.KahluaTable;
 import se.krka.kahlua.vm.KahluaThread;
 import se.krka.kahlua.vm.LuaClosure;
 import zombie.Lua.LuaManager;
@@ -48,6 +56,9 @@ public class HttpServer {
     private static volatile int hasDebugOwnerThreadField = 0;
     /** Cached Field for debugOwnerThread, set once when present. */
     private static volatile Field cachedDebugOwnerThreadField = null;
+
+    /** Request header: comma-separated global variable names to capture on error; their values are added to JSON as errorGlobals. The Lua code (e.g. ZBSpec.lua) sets those globals; we only read them when an error occurs. */
+    private static final String HEADER_ERROR_GLOBALS = "X-ZombieBuddy-Error-Globals";
 
     private static void ensureDebugOwnerThreadCache() {
         if (hasDebugOwnerThreadField != 0) return;
@@ -170,7 +181,7 @@ public class HttpServer {
         server.start();
         
         instance = this;
-        Logger.info("HTTP server started at http://127.0.0.1:" + port);
+        Logger.info("HTTP server started at http://" + host + ":" + port);
     }
 
     public int getPort() {
@@ -207,15 +218,6 @@ public class HttpServer {
         try (OutputStream os = exchange.getResponseBody()) {
             os.write(bytes);
         }
-    }
-
-    private static String escapeJson(String s) {
-        if (s == null) return "null";
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
     }
 
     private static void logRequest(HttpExchange exchange) {
@@ -259,6 +261,26 @@ public class HttpServer {
             }
         }
         return defaultValue;
+    }
+
+    private static String sanitizeErrorGlobalName(String name) {
+        if (name == null || !name.trim().matches("[a-zA-Z_][a-zA-Z0-9_]*")) return null;
+        return name.trim();
+    }
+
+    /** Parse X-ZombieBuddy-Error-Globals header: names of globals whose values to include in error response (values are set by Lua, e.g. ZBSpec.lua sets ZBSpec_currentTest). Comma-separated, multiple headers allowed. Returns unique sanitized names. */
+    private static List<String> parseErrorGlobalNames(HttpExchange exchange) {
+        List<String> values = exchange.getRequestHeaders().get(HEADER_ERROR_GLOBALS);
+        Set<String> names = new LinkedHashSet<>();
+        if (values != null) {
+            for (String v : values) {
+                for (String part : v.split(",")) {
+                    String s = sanitizeErrorGlobalName(part.trim());
+                    if (s != null) names.add(s);
+                }
+            }
+        }
+        return new ArrayList<>(names);
     }
 
     private static class RootHandler implements HttpHandler {
@@ -364,15 +386,19 @@ public class HttpServer {
             final java.util.List<String[]> chunks = parseMultipartLua(body, chunkName);
 
             AtomicReference<Object> resultRef = new AtomicReference<>();
-            AtomicReference<String> errorRef = new AtomicReference<>();
+            AtomicReference<Json> errorPayloadRef = new AtomicReference<>();
+            final Map<String, Object> errorGlobalValues = new HashMap<>();
             AtomicInteger errCode = new AtomicInteger(0);
             AtomicInteger errorListSizeBeforeRef = new AtomicInteger(-1);
+            final List<String> errorGlobalNames = parseErrorGlobalNames(exchange);
 
             try {
                 runOnLuaThread(() -> {
                     // Set the file info for better stack traces
                     String prevFile = FuncState.currentFile;
                     String prevFullFile = FuncState.currentfullFile;
+                    // Env used for execution (sandbox or global); declared here so finally can read error globals from it
+                    se.krka.kahlua.vm.KahluaTable sharedEnv = LuaManager.env;
                     try {
                         int errorListSizeBefore = KahluaThread.m_errors_list.size();
                         errorListSizeBeforeRef.set(errorListSizeBefore);
@@ -380,7 +406,6 @@ public class HttpServer {
                         // Use sandbox (request-scoped env) unless sandbox=false
                         // Sandbox: inherits from _G for reads; writes stay in request env.
                         // Override _G in the sandbox so that _G.foo = x writes to sandbox, not real _G.
-                        se.krka.kahlua.vm.KahluaTable sharedEnv = LuaManager.env;
                         if (sandbox) {
                             sharedEnv = LuaManager.platform.newTable();
                             se.krka.kahlua.vm.KahluaTable mt = LuaManager.platform.newTable();
@@ -403,7 +428,7 @@ public class HttpServer {
                                 LuaReturn ret = LuaManager.caller.protectedCall(LuaManager.thread, closure, new Object[0]);
                                 if (!ret.isSuccess()) {
                                     errCode.set(1);
-                                    errorRef.set(serializeLuaReturn(ret, errorListSizeBefore));
+                                    errorPayloadRef.set(serializeLuaReturn(ret, errorListSizeBefore));
                                     return;
                                 }
                             }
@@ -456,53 +481,56 @@ public class HttpServer {
                                 }
                             } else {
                                 errCode.set(1);
-                                errorRef.set(serializeLuaReturn(luaReturn, errorListSizeBefore));
+                                errorPayloadRef.set(serializeLuaReturn(luaReturn, errorListSizeBefore));
                             }
                         }
                     } catch (Exception e) {
-                        // Look for KahluaException in the exception chain for better error messages
+                        // Inside lambda: Lua/Java errors during execution (errCode 1 or 2). Must handle here so finally can capture error globals from sharedEnv.
                         Throwable cause = e;
                         while (cause != null) {
                             if (cause instanceof se.krka.kahlua.vm.KahluaException) {
                                 errCode.set(1);  // Use code 1 so it formats as luaReturn
-                                errorRef.set(serializeKahluaException((se.krka.kahlua.vm.KahluaException) cause, errorListSizeBeforeRef.get()));
+                                errorPayloadRef.set(serializeKahluaException((se.krka.kahlua.vm.KahluaException) cause, errorListSizeBeforeRef.get()));
                                 break;
                             }
                             cause = cause.getCause();
                         }
-                        if (errorRef.get() == null) {
+                        if (errorPayloadRef.get() == null) {
                             errCode.set(2);
-                            errorRef.set(serializeJavaException(e));
+                            errorPayloadRef.set(serializeJavaException(e));
                         }
                     } finally {
+                        if (errorPayloadRef.get() != null && !errorGlobalNames.isEmpty()) {
+                            for (String name : errorGlobalNames) {
+                                Object value = sharedEnv.rawget(name);
+                                if (value != null) errorGlobalValues.put(name, value);
+                            }
+                        }
                         FuncState.currentFile = prevFile;
                         FuncState.currentfullFile = prevFullFile;
                     }
                 });
             } catch (Exception e) {
+                // Outside lambda: runOnLuaThread failed (e.g. timeout when not on Lua thread). errCode 3.
                 errCode.set(3);
-                errorRef.set(serializeJavaException(e));
+                errorPayloadRef.set(serializeJavaException(e));
             }
 
-            if (errorRef.get() != null) {
-                String errorData = errorRef.get();
-                String response;
+            if (errorPayloadRef.get() != null) {
+                Json root = Json.object();
                 int code = errCode.get();
+                root.set("err_code", code);
                 if (code == 1) {
-                    // Lua execution failed - errorData is serializeLuaReturn JSON
-                    response = "{\"err_code\": " + code + ", \"luaReturn\": " + errorData + "}";
+                    root.set("luaReturn", errorPayloadRef.get());
                 } else {
-                    // Java exception (code 2 or 3) - errorData is serializeJavaException JSON
-                    StringBuilder responseBuilder = new StringBuilder();
-                    responseBuilder.append("{\"err_code\": ").append(code).append(", \"javaException\": ").append(errorData);
+                    root.set("javaException", errorPayloadRef.get());
                     String[] errors = extractErrorsFromList(errorListSizeBeforeRef.get());
-                    if (errors != null) {
-                        responseBuilder.append(", \"kahluaErrors\": ").append(serializeErrorsArray(errors));
-                    }
-                    responseBuilder.append("}");
-                    response = responseBuilder.toString();
+                    root.set("kahluaErrors", errors != null ? Json.make(Arrays.asList(errors)) : Json.nil());
                 }
-                sendJsonResponse(exchange, 500, response);
+                if (!errorGlobalValues.isEmpty()) {
+                    root.set("errorGlobals", LuaJson.toJsonTree(errorGlobalValues));
+                }
+                sendJsonResponse(exchange, 500, root.toString());
                 return;
             }
             
@@ -510,114 +538,53 @@ public class HttpServer {
         }
     }
 
-    private static String serializeJavaException(Throwable ex) {
-        StringBuilder json = new StringBuilder();
-        json.append("{");
-        json.append("\"className\": \"").append(escapeJson(ex.getClass().getName())).append("\"");
-        // Prefer getMessage(); if null/empty use toString(); then append cause chain
+    private static Json serializeJavaException(Throwable ex) {
+        Json o = Json.object();
+        o.set("className", ex.getClass().getName());
         String message = ex.getMessage();
-        if (message == null || message.isEmpty()) {
-            message = ex.toString();
-        }
+        if (message == null || message.isEmpty()) message = ex.toString();
         StringBuilder fullMessage = new StringBuilder(message);
-        Throwable cause = ex.getCause();
-        while (cause != null) {
+        for (Throwable cause = ex.getCause(); cause != null; cause = cause.getCause()) {
             fullMessage.append(" Caused by: ");
             String cm = cause.getMessage();
             fullMessage.append(cm != null && !cm.isEmpty() ? cm : cause.toString());
-            cause = cause.getCause();
         }
-        json.append(", \"message\": \"").append(escapeJson(fullMessage.toString())).append("\"");
-        // First frame (kept for backward compatibility)
+        o.set("message", fullMessage.toString());
         StackTraceElement[] stack = ex.getStackTrace();
         if (stack != null && stack.length > 0) {
             StackTraceElement frame = stack[0];
-            json.append(", \"file\": \"").append(escapeJson(frame.getFileName())).append("\"");
-            json.append(", \"line\": ").append(frame.getLineNumber());
-            json.append(", \"method\": \"").append(escapeJson(frame.getMethodName())).append("\"");
-        }
-        // Full stack trace
-        if (stack != null && stack.length > 0) {
-            json.append(", \"stackTrace\": [");
-            for (int i = 0; i < stack.length; i++) {
-                if (i > 0) json.append(", ");
-                StackTraceElement f = stack[i];
+            o.set("file", frame.getFileName());
+            o.set("line", frame.getLineNumber());
+            o.set("method", frame.getMethodName());
+            Json stackTrace = Json.array();
+            for (StackTraceElement f : stack) {
                 String fn = f.getFileName();
-                int ln = f.getLineNumber();
-                String mn = f.getMethodName();
-                String cn = f.getClassName();
-                json.append("\"").append(escapeJson(cn + "." + mn + "(" + (fn != null ? fn : "?") + ":" + ln + ")")).append("\"");
+                stackTrace.add(f.getClassName() + "." + f.getMethodName() + "(" + (fn != null ? fn : "?") + ":" + f.getLineNumber() + ")");
             }
-            json.append("]");
+            o.set("stackTrace", stackTrace);
         }
-        json.append("}");
-        return json.toString();
+        return o;
     }
 
-    // Serialize KahluaException with error message and any errors from m_errors_list
-    private static String serializeKahluaException(se.krka.kahlua.vm.KahluaException ex, int errorListSizeBefore) {
-        StringBuilder json = new StringBuilder();
-        json.append("{");
-        json.append("\"errorString\": \"" + escapeJson(ex.getMessage()) + "\"");
-        
-        // errors from m_errors_list (contains stack trace if flushErrorMessage was called)
+    private static Json serializeKahluaException(se.krka.kahlua.vm.KahluaException ex, int errorListSizeBefore) {
+        Json o = Json.object();
+        o.set("errorString", ex.getMessage());
         String[] errors = extractErrorsFromList(errorListSizeBefore);
-        json.append(", \"kahluaErrors\": ");
-        if (errors != null) {
-            json.append("[");
-            for (int i = 0; i < errors.length; i++) {
-                if (i > 0) json.append(", ");
-                json.append("\"" + escapeJson(errors[i]) + "\"");
-            }
-            json.append("]");
-        } else {
-            json.append("null");
-        }
-        
-        json.append("}");
-        return json.toString();
+        o.set("kahluaErrors", errors != null ? Json.make(Arrays.asList(errors)) : Json.nil());
+        return o;
     }
 
-    private static String serializeLuaReturn(LuaReturn luaReturn, int errorListSizeBefore) {
-        StringBuilder json = new StringBuilder();
-        json.append("{");
-
-        // errorString
-        String errorStr = luaReturn.getErrorString();
-        json.append("\"errorString\": ");
-        json.append(errorStr != null ? "\"" + escapeJson(errorStr) + "\"" : "null");
-        
-        // luaStackTrace
-        String stackTrace = luaReturn.getLuaStackTrace();
-        json.append(", \"luaStackTrace\": ");
-        json.append(stackTrace != null ? "\"" + escapeJson(stackTrace) + "\"" : "null");
-        
-        // errorObject (as string)
+    private static Json serializeLuaReturn(LuaReturn luaReturn, int errorListSizeBefore) {
+        Json o = Json.object();
+        o.set("errorString", luaReturn.getErrorString());
+        o.set("luaStackTrace", luaReturn.getLuaStackTrace());
         Object errorObj = luaReturn.getErrorObject();
-        json.append(", \"errorObject\": ");
-        json.append(errorObj != null ? "\"" + escapeJson(String.valueOf(errorObj)) + "\"" : "null");
-        
-        // javaException
+        o.set("errorObject", errorObj != null ? String.valueOf(errorObj) : Json.nil());
         RuntimeException javaEx = luaReturn.getJavaException();
-        json.append(", \"javaException\": ");
-        json.append(javaEx != null ? serializeJavaException(javaEx) : "null");
-        
-        // errors from m_errors_list
+        o.set("javaException", javaEx != null ? serializeJavaException(javaEx) : Json.nil());
         String[] errors = extractErrorsFromList(errorListSizeBefore);
-        json.append(", \"kahluaErrors\": ");
-        if (errors != null) {
-            json.append("[");
-            for (int i = 0; i < errors.length; i++) {
-                if (i > 0) json.append(", ");
-                json.append("\"" + escapeJson(errors[i]) + "\"");
-            }
-            json.append("]");
-        } else {
-            json.append("null");
-        }
-        
-        json.append("}");
-        return json.toString();
+        o.set("kahluaErrors", errors != null ? Json.make(Arrays.asList(errors)) : Json.nil());
+        return o;
     }
 
     private static String[] extractErrorsFromList(int errorListSizeBefore) {
@@ -630,20 +597,6 @@ public class HttpServer {
             errors[i - errorListSizeBefore] = KahluaThread.m_errors_list.get(i);
         }
         return errors;
-    }
-
-    private static String serializeErrorsArray(String[] errors) {
-        if (errors == null) {
-            return "null";
-        }
-        StringBuilder json = new StringBuilder();
-        json.append("[");
-        for (int i = 0; i < errors.length; i++) {
-            if (i > 0) json.append(", ");
-            json.append("\"").append(escapeJson(errors[i])).append("\"");
-        }
-        json.append("]");
-        return json.toString();
     }
 
     // Parse multipart-like Lua format: ---FILE:filename---\ncontent\n---FILE:...
