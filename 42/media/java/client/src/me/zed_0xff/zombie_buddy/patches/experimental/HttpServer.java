@@ -263,6 +263,15 @@ public class HttpServer {
         return defaultValue;
     }
 
+    /** Parses a boolean query param: "true"/"1" => true, "false"/"0" => false, else default. */
+    private static boolean parseBoolParam(String query, String name, boolean defaultValue) {
+        String s = parseStringParam(query, name, defaultValue ? "true" : "false");
+        if (s == null || s.isEmpty()) return defaultValue;
+        if ("true".equalsIgnoreCase(s) || "1".equals(s)) return true;
+        if ("false".equalsIgnoreCase(s) || "0".equals(s)) return false;
+        return defaultValue;
+    }
+
     private static String sanitizeErrorGlobalName(String name) {
         if (name == null || !name.trim().matches("[a-zA-Z_][a-zA-Z0-9_]*")) return null;
         return name.trim();
@@ -372,8 +381,8 @@ public class HttpServer {
             String query = exchange.getRequestURI().getQuery();
             int depth = parseIntParam(query, "depth", 1);
             String chunkName = parseStringParam(query, "chunkname", "http_exec");
-            boolean rawCall = parseIntParam(query, "raw", 0) == 1;
-            boolean sandbox = !"false".equalsIgnoreCase(parseStringParam(query, "sandbox", "true"));
+            boolean rawCall = parseBoolParam(query, "raw", false);
+            boolean sandbox = parseBoolParam(query, "sandbox", true);
 
             String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             if (body.isEmpty()) {
