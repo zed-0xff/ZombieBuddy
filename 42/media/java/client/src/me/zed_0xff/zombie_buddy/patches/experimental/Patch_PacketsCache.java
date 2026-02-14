@@ -1,9 +1,7 @@
 package me.zed_0xff.zombie_buddy.patches.experimental;
 
-import me.zed_0xff.zombie_buddy.Logger;
-import me.zed_0xff.zombie_buddy.Patch;
+import me.zed_0xff.zombie_buddy.*;
 
-import zombie.Lua.LuaManager;
 import zombie.network.packets.INetworkPacket;
 
 // doesn't work on _client_ without warmup
@@ -21,9 +19,9 @@ public class Patch_PacketsCache {
             return;
 
         String prefix = "default: ";
-        if (LuaManager.GlobalObject.isClient())
+        if (Utils.isClient())
             prefix = "client: ";
-        else if (LuaManager.GlobalObject.isServer())
+        else if (Utils.isServer())
             prefix = "server: ";
 
         INetworkPacket pkt = (INetworkPacket) obj;

@@ -2,11 +2,18 @@ package me.zed_0xff.zombie_buddy;
 
 import java.io.File;
 
-/**
- * Shared utility methods used by Loader and other classes.
- */
+import zombie.Lua.LuaManager;
+
 public final class Utils {
     private Utils() {}
+
+    public static boolean isClient() {
+        return LuaManager.GlobalObject.isClient();
+    }
+
+    public static boolean isServer() {
+        return LuaManager.GlobalObject.isServer();
+    }
 
     /**
      * Compares two version strings.

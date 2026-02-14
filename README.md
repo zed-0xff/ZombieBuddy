@@ -192,10 +192,18 @@ ZBVersionMax=1.5.0
 ```
 
 - `require=\ZombieBuddy`: Declares dependency on ZombieBuddy framework
-- `javaJarFile`: Path to your JAR file relative to the mod version directory. **Required** if you want to load Java code. **Note**: Only a single JAR file is supported per mod. Classes must be packaged in a JAR file - plain class directories are not supported.
+- `javaJarFile`: Path to your JAR file relative to the mod version directory. **Required** if you want to load Java code. **Note**: Only a single JAR file is supported per mod. Classes must be packaged in a JAR file - plain class directories are not supported. **Client/server filtering**: If the path contains `media/java/client/`, the mod is treated as client-only and is skipped when running a dedicated server. If the path contains `media/java/server/`, the mod is treated as server-only and is skipped when running the game client. Use paths like `media/java/YourMod.jar` for code that runs on both.
 - `javaPkgName`: The package name where your Main class is located (if present) and where patches will be discovered. **Mandatory** if `javaJarFile` is specified. The Main class (if present) must be named `Main` and located in this package (e.g., if `javaPkgName=com.yourname.yourmod`, the Main class must be `com.yourname.yourmod.Main`). The JAR file must contain this package. **Note**: The Main class is optional - if you only have patches and no initialization code, you can omit it. ZombieBuddy will still apply patches from the package.
 - `ZBVersionMin` (Optional): Minimum ZombieBuddy version required (inclusive).
 - `ZBVersionMax` (Optional): Maximum ZombieBuddy version required (inclusive).
+
+**Client/server JAR paths**
+
+ZombieBuddy skips loading a Java mod when the environment and JAR path don't match:
+- **On a dedicated server**: mods whose `javaJarFile` path contains `media/java/client/` are skipped (client-only).
+- **On the game client**: mods whose `javaJarFile` path contains `media/java/server/` are skipped (server-only).
+
+Use a path that does not contain `client/` or `server/` (e.g. `media/java/YourMod.jar`) for code that runs on both client and server.
 
 **Important**: 
 - `javaPkgName` is **mandatory** when `javaJarFile` is specified

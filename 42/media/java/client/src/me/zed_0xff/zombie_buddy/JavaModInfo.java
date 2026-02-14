@@ -12,7 +12,7 @@ public record JavaModInfo(
     /** The mod.info file itself */
     File modInfoFile,
     /** JAR file path relative to modDirectory (from javaJarFile entry) */
-    String jarFile,
+    String jarFilePath,
     /** Package name (from javaPkgName entry) */
     String javaPkgName,
     /** Minimum ZombieBuddy version required (from zbVersionMin entry) */
@@ -31,23 +31,23 @@ public record JavaModInfo(
      * Checks if this mod has a JAR file specified.
      */
     public boolean hasJarFile() {
-        return !isEmpty(jarFile);
+        return !isEmpty(jarFilePath);
     }
 
     /**
      * Gets the JAR file as a File object relative to the mod directory.
      */
     public File getJarFileAsFile() {
-        if (isEmpty(jarFile)) {
+        if (isEmpty(jarFilePath)) {
             return null;
         }
-        return new File(modDirectory, jarFile);
+        return new File(modDirectory, jarFilePath);
     }
     
     /**
      * Internal record to hold parsed values from a mod.info file.
      */
-    private record ParsedValues(String jarFile, String javaPkgName, String zbVersionMin, String zbVersionMax) {}
+    private record ParsedValues(String jarFilePath, String javaPkgName, String zbVersionMin, String zbVersionMax) {}
 
     private static boolean isEmpty(String s) {
         return s == null || s.isEmpty();
@@ -67,16 +67,27 @@ public record JavaModInfo(
      * @param logMissingJarFile if true, log when javaJarFile is missing (parse); if false, silent (parseMerged)
      */
     private static JavaModInfo validateAndCreate(ParsedValues parsed, File modInfoFile, File modDirectory, boolean logMissingJarFile) {
-        String jarFile = parsed.jarFile();
+        String jarFilePath = parsed.jarFilePath();
         String javaPkgName = parsed.javaPkgName();
         String zbVersionMin = parsed.zbVersionMin();
         String zbVersionMax = parsed.zbVersionMax();
 
-        if (isEmpty(jarFile)) {
+        if (isEmpty(jarFilePath)) {
             if (logMissingJarFile && Loader.g_verbosity > 0) {
                 Logger.info("No javaJarFile entry found in mod.info, skipping Java mod: " + modInfoFile);
             }
             return null;
+        }
+        if ( Utils.isServer() ) {
+            if (jarFilePath.contains("media/java/client/")) {
+                Logger.error("Skipping client-only mod: " + modInfoFile);
+                return null;
+            }
+        } else {
+            if (jarFilePath.contains("media/java/server/")) {
+                Logger.error("Skipping server-only mod: " + modInfoFile);
+                return null;
+            }
         }
         if (isEmpty(javaPkgName)) {
             Logger.error("Error! Mod has javaJarFile but missing required javaPkgName: " + modInfoFile);
@@ -86,7 +97,7 @@ public record JavaModInfo(
             Logger.error("Skipping mod due to version mismatch: " + modInfoFile + " " + versionMismatchMessage(zbVersionMin, zbVersionMax));
             return null;
         }
-        return new JavaModInfo(modDirectory, modInfoFile, jarFile, javaPkgName, zbVersionMin, zbVersionMax);
+        return new JavaModInfo(modDirectory, modInfoFile, jarFilePath, javaPkgName, zbVersionMin, zbVersionMax);
     }
 
     /**
@@ -101,7 +112,7 @@ public record JavaModInfo(
             return null;
         }
 
-        String jarFile = null;
+        String jarFilePath = null;
         String javaPkgName = null;
         String zbVersionMin = null;
         String zbVersionMax = null;
@@ -116,7 +127,7 @@ public record JavaModInfo(
                 String value = trimmedValue(line);
 
                 if (lowerLine.startsWith("javajarfile=")) {
-                    if (jarFile != null) {
+                    if (jarFilePath != null) {
                         Logger.error("Warning! Multiple javaJarFile entries found, only the first one will be used: " + modInfoFile);
                         continue;
                     }
@@ -125,7 +136,7 @@ public record JavaModInfo(
                             Logger.error("Error! javaJarFile entry must end with \".jar\": " + value);
                             continue;
                         }
-                        jarFile = value;
+                        jarFilePath = value;
                     }
                 } else if (lowerLine.startsWith("javapkgname=")) {
                     if (javaPkgName != null) {
@@ -146,7 +157,7 @@ public record JavaModInfo(
             return null;
         }
 
-        return new ParsedValues(jarFile, javaPkgName, zbVersionMin, zbVersionMax);
+        return new ParsedValues(jarFilePath, javaPkgName, zbVersionMin, zbVersionMax);
     }
     
     /**
@@ -212,8 +223,8 @@ public record JavaModInfo(
             return null;
         }
         // Check if JAR exists in versionDir (using the same relative path from mod.info)
-        String jarFile = commonParsed.jarFile();
-        File jarInVersion = new File(versionDir, jarFile);
+        String jarFilePath = commonParsed.jarFilePath();
+        File jarInVersion = new File(versionDir, jarFilePath);
         File modDirectory = jarInVersion.exists() ? versionDir : commonDir;
         return validateAndCreate(commonParsed, commonModInfoFile, modDirectory, false);
     }
