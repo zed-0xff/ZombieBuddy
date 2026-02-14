@@ -1,8 +1,11 @@
 package me.zed_0xff.zombie_buddy.patches.experimental;
 
+import java.util.Arrays;
 import java.util.Map;
 
 import mjson.Json;
+import se.krka.kahlua.integration.LuaReturn;
+import se.krka.kahlua.vm.KahluaException;
 import se.krka.kahlua.vm.KahluaTable;
 import se.krka.kahlua.vm.KahluaTableIterator;
 
@@ -94,5 +97,55 @@ public class LuaJson {
         }
         Object key = iter.getKey();
         return (key instanceof Double) && ((Double) key) == 1.0;
+    }
+
+    /** Serialize a Java exception to JSON for HTTP error response. */
+    public static Json serializeJavaException(Throwable ex) {
+        Json o = Json.object();
+        o.set("className", ex.getClass().getName());
+        String message = ex.getMessage();
+        if (message == null || message.isEmpty()) message = ex.toString();
+        StringBuilder fullMessage = new StringBuilder(message);
+        for (Throwable cause = ex.getCause(); cause != null; cause = cause.getCause()) {
+            fullMessage.append(" Caused by: ");
+            String cm = cause.getMessage();
+            fullMessage.append(cm != null && !cm.isEmpty() ? cm : cause.toString());
+        }
+        o.set("message", fullMessage.toString());
+        StackTraceElement[] stack = ex.getStackTrace();
+        if (stack != null && stack.length > 0) {
+            StackTraceElement frame = stack[0];
+            o.set("file", frame.getFileName());
+            o.set("line", frame.getLineNumber());
+            o.set("method", frame.getMethodName());
+            Json stackTrace = Json.array();
+            for (StackTraceElement f : stack) {
+                String fn = f.getFileName();
+                stackTrace.add(f.getClassName() + "." + f.getMethodName() + "(" + (fn != null ? fn : "?") + ":" + f.getLineNumber() + ")");
+            }
+            o.set("stackTrace", stackTrace);
+        }
+        return o;
+    }
+
+    /** Serialize a KahluaException to JSON for HTTP error response. */
+    public static Json serializeKahluaException(KahluaException ex, String[] kahluaErrors) {
+        Json o = Json.object();
+        o.set("errorString", ex.getMessage());
+        o.set("kahluaErrors", kahluaErrors != null ? Json.make(Arrays.asList(kahluaErrors)) : Json.nil());
+        return o;
+    }
+
+    /** Serialize a LuaReturn (failed protected call) to JSON for HTTP error response. */
+    public static Json serializeLuaReturn(LuaReturn luaReturn, String[] kahluaErrors) {
+        Json o = Json.object();
+        o.set("errorString", luaReturn.getErrorString());
+        o.set("luaStackTrace", luaReturn.getLuaStackTrace());
+        Object errorObj = luaReturn.getErrorObject();
+        o.set("errorObject", errorObj != null ? String.valueOf(errorObj) : Json.nil());
+        RuntimeException javaEx = luaReturn.getJavaException();
+        o.set("javaException", javaEx != null ? serializeJavaException(javaEx) : Json.nil());
+        o.set("kahluaErrors", kahluaErrors != null ? Json.make(Arrays.asList(kahluaErrors)) : Json.nil());
+        return o;
     }
 }
