@@ -47,6 +47,9 @@ public class Patch_searchForModInfo {
                     }
 
                     String newPath = path2.resolve("41").toAbsolutePath().toString();
+                    if (list.contains(newPath)) {
+                        continue;
+                    }
                     // if (!this.m_watchedModFolders.contains(string)) {
                     //     this.m_watchedModFolders.add(string);
                     //     DebugFileWatcher.instance.addDirectory(string);
