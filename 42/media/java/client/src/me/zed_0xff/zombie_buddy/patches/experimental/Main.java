@@ -10,11 +10,6 @@ import zombie.ZomboidFileSystem;
 
 public class Main {
     public static void main(String[] args) {
-        if (Agent.arguments.containsKey("expose_exposer")) {
-            Logger.error("Warning! Exposing Exposer class to Lua. This is not recommended and will expose all classes to Lua.");
-            Exposer.exposeClassToLua(Exposer.class);
-        }
-
         // Configure HTTP server host, port and timeout from Agent.arguments (if provided)
         String hostValue = Agent.arguments.get("lua_server_host");
         String portValue = Agent.arguments.get("lua_server_port");

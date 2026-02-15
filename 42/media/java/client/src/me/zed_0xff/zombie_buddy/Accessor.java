@@ -113,6 +113,26 @@ public final class Accessor {
         }
     }
 
+    public static Class<?> findClass(String... classNames) {
+        if (classNames == null || classNames.length == 0) {
+            return null;
+        }
+        for (String className : classNames) {
+            if (className != null && !className.isEmpty()) {
+                Class<?> cls = null;
+                try {
+                    cls = Class.forName(className);
+                } catch (ClassNotFoundException e) {
+                    continue;
+                }
+                if (cls != null) {
+                    return cls;
+                }
+            }
+        }
+        return null;
+    }
+
     /**
      * Finds a field by name in {@code cls} or any superclass. Accepts multiple candidate
      * names and returns the first found. Results are cached per (class name, field name).

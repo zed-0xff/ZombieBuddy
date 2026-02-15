@@ -91,6 +91,16 @@ public class Agent {
             Hooks.register("onGameInitComplete", Agent::onGameInitCompleteExitHook);
         }
 
+        if (arguments.containsKey("expose_classes")) {
+            String[] classes = arguments.get("expose_classes").split(",");
+            for (String className : classes) {
+                className = className.trim();
+                if (!className.isEmpty()) {
+                    Exposer.exposeClassToLua(className);
+                }
+            }
+        }
+
         Logger.info("Agent installed.");
     }
 
