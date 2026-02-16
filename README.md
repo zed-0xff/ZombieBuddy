@@ -376,6 +376,7 @@ Looking for examples to learn from? Check out these mods built with ZombieBuddy:
 - **[ZBetterWorkshopUpload](https://github.com/zed-0xff/ZBetterWorkshopUpload)**: A practical mod demonstrating workshop integration, Lua exposure, and complex patching. Filters unwanted files from Steam Workshop uploads and provides upload previews.
 - **[ZBMacOSHideMenuBar](https://github.com/zed-0xff/ZBMacOSHideMenuBar)**: Fixes the macOS menu bar issue in borderless windowed mode. Demonstrates display patching and macOS-specific functionality.
 - **[ZBBetterFPS](https://github.com/zed-0xff/ZBBetterFPS)**: Optimizes FPS by reducing render distance. Demonstrates runtime configuration and render engine patching.
+- **[ZItemTiers](https://github.com/zed-0xff/ZItemTiers)**: Probability-based item rarity (Common → Legendary) with stat bonuses; optional ZombieBuddy for weapon weight and other Java patches.
 
 #### Sharing Your Source Code
 
@@ -480,6 +481,7 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
   - [ZBetterWorkshopUpload](https://github.com/zed-0xff/ZBetterWorkshopUpload) - A practical mod demonstrating workshop integration, Lua exposure, and complex patching
   - [ZBMacOSHideMenuBar](https://github.com/zed-0xff/ZBMacOSHideMenuBar) - Fixes macOS menu bar issue in borderless windowed mode
   - [ZBBetterFPS](https://github.com/zed-0xff/ZBBetterFPS) - Optimizes FPS by reducing render distance
+  - [ZItemTiers](https://github.com/zed-0xff/ZItemTiers) - Probability-based item rarity with stat bonuses; optional ZombieBuddy for Java patches
 - **Author**: zed-0xff
 
 ## Disclaimer
