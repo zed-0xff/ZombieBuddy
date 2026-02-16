@@ -9,7 +9,7 @@ Dir["lib/tasks/*.rake.local"].each { |r| load r }
 task :default => [:build, :install]
 
 task :chdir do
-  Dir.chdir("42/media/java/client")
+  Dir.chdir("java")
 end
 
 desc 'clean the project'

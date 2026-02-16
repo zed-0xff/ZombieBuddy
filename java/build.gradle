@@ -198,7 +198,7 @@ task copyNativeDll(type: Copy) {
     description = 'Copies zbNative.dll to build/libs directory'
     group = 'build'
     
-    def sourceFile = file('../../c/client/windows/zbNative.dll')
+    def sourceFile = file('../c/windows/zbNative.dll')
     
     doFirst {
         if (!sourceFile.exists()) {

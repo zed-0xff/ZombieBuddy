@@ -6,5 +6,5 @@ poster=icon_256.png
 icon=icon_128.png
 description=Java bytecode manipulation framework for Project Zomboid. Enables runtime patching of game classes and Lua integration for advanced modding.
 
-javaJarFile=media/java/client/build/libs/ZombieBuddy.jar
+javaJarFile=../libs/ZombieBuddy.jar
 javaPkgName=me.zed_0xff.zombie_buddy
