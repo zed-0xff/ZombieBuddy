@@ -1,12 +1,18 @@
 package me.zed_0xff.zombie_buddy.patches.experimental;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 
 import me.zed_0xff.zombie_buddy.Accessor;
 import se.krka.kahlua.integration.annotations.LuaMethod;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
+import zombie.ZomboidFileSystem;
 
 public class zbUtils {
 
@@ -186,6 +192,35 @@ public class zbUtils {
             if (it.getKey().toString().contains(pattern) || it.getValue().toString().contains(pattern)) {
                 out.rawset(it.getKey(), it.getValue());
             }
+        }
+        return out;
+    }
+
+    /**
+     * Reads the game console log file (same as HTTP log endpoint) and returns a Lua table
+     * of lines that contain the given substring (1-based indices). Returns null if the
+     * file cannot be read or substring is null/empty.
+     */
+    @LuaMethod(name = "zbGrepLog", global = true)
+    public static KahluaTable zbGrepLog(String substring) {
+        if (substring == null || substring.isEmpty()) {
+            return null;
+        }
+        String logPath = ExpUtils.getConsoleLogPath();
+        List<String> matches = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new FileReader(logPath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.contains(substring)) {
+                    matches.add(line);
+                }
+            }
+        } catch (IOException e) {
+            return null;
+        }
+        KahluaTable out = LuaManager.platform.newTable();
+        for (int i = 0; i < matches.size(); i++) {
+            out.rawset(i + 1, matches.get(i));
         }
         return out;
     }

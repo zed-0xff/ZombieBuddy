@@ -6,8 +6,6 @@ import java.io.IOException;
 
 import me.zed_0xff.zombie_buddy.*;
 
-import zombie.ZomboidFileSystem;
-
 public class Main {
     public static void main(String[] args) {
         // Configure HTTP server host, port and timeout from Agent.arguments (if provided)
@@ -63,7 +61,7 @@ public class Main {
 
     private static void writePortFile(int port) {
         try {
-            String cacheDir = ZomboidFileSystem.instance.getCacheDir();
+            String cacheDir = ExpUtils.getCacheDir();
             File portFile = new File(cacheDir + File.separator + "zbLuaAPI.txt");
             try (FileWriter writer = new FileWriter(portFile)) {
                 writer.write(String.valueOf(port));

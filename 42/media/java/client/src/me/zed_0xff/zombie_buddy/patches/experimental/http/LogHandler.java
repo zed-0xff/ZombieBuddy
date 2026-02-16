@@ -9,15 +9,15 @@ import java.util.List;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
+import me.zed_0xff.zombie_buddy.patches.experimental.ExpUtils;
 import me.zed_0xff.zombie_buddy.patches.experimental.HttpServer;
-import zombie.ZomboidFileSystem;
 
 public class LogHandler implements HttpHandler {
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         HttpServer.logRequest(exchange);
         int lines = HttpServer.parseIntParam(exchange.getRequestURI().getQuery(), "lines", 100);
-        String logPath = ZomboidFileSystem.instance.getCacheDir() + "/console.txt";
+        String logPath = ExpUtils.getConsoleLogPath();
 
         try {
             String content = tailFile(logPath, lines);
