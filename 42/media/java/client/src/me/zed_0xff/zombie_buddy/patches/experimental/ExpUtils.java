@@ -15,7 +15,7 @@ public final class ExpUtils {
     public static String getConsoleLogPath() {
         String cacheDir = getCacheDir();
         if (Utils.isServer()) {
-            return cacheDir + "/Server/server-console.txt";
+            return cacheDir + "/server-console.txt";
         }
         return cacheDir + "/console.txt";
     }
