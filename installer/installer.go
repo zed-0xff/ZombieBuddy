@@ -17,6 +17,7 @@ import (
 const (
 	PZ_APP_ID = "108600"
 	ZB_MOD_ID = "3619862853"
+    INSTALLER_VERSION = "3.0"
 )
 
 func main() {
@@ -41,7 +42,7 @@ func isSteamRunning() bool {
 }
 
 func install() bool {
-	fmt.Println("ZombieBuddy Installer (Windows)")
+	fmt.Println("ZombieBuddy Windows Installer v" + INSTALLER_VERSION)
 	fmt.Println("-------------------------------")
 
 	if runtime.GOOS != "windows" {
@@ -207,10 +208,7 @@ func copyCoreFiles(pzPath string, zbPath string) error {
 	for _, filename := range files {
 		var sources []string
 		if zbPath != "" {
-			// New simplified path
 			sources = append(sources, filepath.Join(zbPath, "mods", "ZombieBuddy", "libs", filename))
-			// Old path (for backwards compatibility)
-			sources = append(sources, filepath.Join(zbPath, "mods", "ZombieBuddy", "42", "media", "java", "client", "build", "libs", filename))
 		}
 
 		var srcPath string
