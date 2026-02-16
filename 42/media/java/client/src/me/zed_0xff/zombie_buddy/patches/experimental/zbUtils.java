@@ -182,10 +182,9 @@ public class zbUtils {
         }
         KahluaTable out = LuaManager.platform.newTable();
         var it = tbl.iterator();
-        int i = 1;
         while (it.advance()) {
-            if (it.getValue().toString().matches(pattern)) {    
-                out.rawset(i++, it.getValue());
+            if (it.getKey().toString().contains(pattern) || it.getValue().toString().contains(pattern)) {
+                out.rawset(it.getKey(), it.getValue());
             }
         }
         return out;
