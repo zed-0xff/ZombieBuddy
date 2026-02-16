@@ -49,6 +49,12 @@ to your Project Zomboid folder:
 [b]⚠️ Security Warning:[/b]
 Java mods enabled through ZombieBuddy have unrestricted access to your system. Only install mods from sources you trust.
 
+[b]Save compatibility:[/b]
+Safe to add or remove on existing saves.
+
+[b]Tested on:[/b]
+B41, B42.12, B42.13, B42.14
+
 [b]Links:[/b]
 [url=https://github.com/zed-0xff/ZombieBuddy]GitHub Repository[/url] (for modders)
 
