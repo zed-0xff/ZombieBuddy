@@ -335,14 +335,17 @@ public final class Accessor {
         if (obj == null || methodName == null || methodName.isEmpty()) {
             throw new IllegalArgumentException("obj and methodName must be non-null and non-empty");
         }
+        Class<?> targetClass = obj instanceof Class ? (Class<?>) obj : obj.getClass();
         int nArgs = args == null ? 0 : args.length;
-        for (Method m : findMethodsByName(obj.getClass(), methodName)) {
+        Object[] invokeArgs = args == null ? new Object[0] : args;
+        for (Method m : findMethodsByName(targetClass, methodName)) {
             if (m.getParameterCount() != nArgs) {
                 continue;
             }
             try {
                 m.setAccessible(true);
-                return m.invoke(obj, args == null ? new Object[0] : args);
+                Object receiver = Modifier.isStatic(m.getModifiers()) ? null : obj;
+                return m.invoke(receiver, invokeArgs);
             } catch (IllegalArgumentException e) {
                 // argument types don't match this overload, try next
                 continue;
