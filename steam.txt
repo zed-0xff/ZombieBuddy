@@ -53,7 +53,12 @@ Java mods enabled through ZombieBuddy have unrestricted access to your system. O
 Safe to add or remove on existing saves.
 
 [b]Tested on:[/b]
-B41, B42.12, B42.13, B42.14
+[list]
+[*] B41
+[*] B42.12
+[*] B42.13
+[*] 42.14 (unstable)
+[/list]
 
 [b]Links:[/b]
 [url=https://github.com/zed-0xff/ZombieBuddy]GitHub Repository[/url] (for modders)
