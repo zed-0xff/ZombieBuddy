@@ -844,8 +844,8 @@ public class Loader {
         // due to JVM limitations. If this doesn't work, patches need to be loaded before the target class.
         if (!advLoadedClasses.isEmpty()) {
             Logger.info("Explicitly retransforming " + advLoadedClasses.size() + " already-loaded class(es)");
-            Logger.info("WARNING: Advice patches on already-loaded classes may not work due to JVM retransformation limitations.");
-            Logger.info("Consider loading patches before the target class is loaded, or use MethodDelegation instead.");
+            // Logger.info("WARNING: Advice patches on already-loaded classes may not work due to JVM retransformation limitations.");
+            // Logger.info("Consider loading patches before the target class is loaded, or use MethodDelegation instead.");
             for (String className : advLoadedClasses) {
                 try {
                     Class<?> cls = Class.forName(className);
