@@ -327,7 +327,7 @@ public class Loader {
             // TODO: show error on game UI (if debug mode is enabled?)
             if (ann.className().equals("zombie.Lua.LuaManager$Exposer") && ann.methodName().equals("exposeAll") && !ann.IKnowWhatIAmDoing()) {
                 Logger.error("XXX");
-                Logger.error("XXX don't patch Exposer.exposeAll, use ZombieBuddy.Exposer.exposeClassToLua() instead!");
+                Logger.error("XXX don't patch Exposer.exposeAll, use @Exposer.LuaClass annotation!");
                 Logger.error("XXX");
                 continue;
             }
@@ -942,6 +942,7 @@ public class Loader {
             // Same scan: expose to Lua any classes annotated with @Exposer.LuaClass (exact package only)
             for (ClassInfo classInfo : scanResult.getClassesWithAnnotation(Exposer.LuaClass.class.getName())) {
                 if (!classInfo.getPackageName().equals(packageName)) {
+                    Logger.error("Class " + classInfo.getName() + " is annotated with @LuaClass but is not in the exact package " + packageName + ", skipping exposure");
                     continue;
                 }
                 try {

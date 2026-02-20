@@ -1,5 +1,9 @@
 package me.zed_0xff.zombie_buddy;
 
+import se.krka.kahlua.vm.LuaClosure;
+import se.krka.kahlua.vm.KahluaTable;
+import zombie.Lua.LuaManager;
+
 public class ZombieBuddy {
     private static String version = "unknown";
     
@@ -28,5 +32,35 @@ public class ZombieBuddy {
     
     public static String getFullVersionString() {
         return "ZombieBuddy v" + version;
+    }
+
+    public static String getClosureFilename(Object obj) {
+        if (obj instanceof LuaClosure closure) {
+            if (closure == null || closure.prototype == null)
+                return null;
+
+            return closure.prototype.filename;
+        }
+
+        return null;
+    }
+
+    public static KahluaTable getClosureInfo(Object obj) {
+        if (obj instanceof LuaClosure closure) {
+            if (closure == null || closure.prototype == null)
+                return null;
+
+            var tbl = LuaManager.platform.newTable();
+            tbl.rawset("file",     closure.prototype.file);
+            tbl.rawset("filename", closure.prototype.filename);
+            tbl.rawset("name",     closure.prototype.name);
+
+            if (closure.prototype.lines != null && closure.prototype.lines.length > 0) {
+                tbl.rawset("line", Double.valueOf(closure.prototype.lines[0]));
+            }
+            return tbl;
+        }
+
+        return null;
     }
 }

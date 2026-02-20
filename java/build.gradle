@@ -30,10 +30,7 @@ dependencies {
     implementation 'io.github.classgraph:classgraph:4.8.184'
     implementation 'org.sharegov:mjson:1.4.2'
 
-    // Only add game classpath if provided (needed for compilation, not for running tests)
-    if (!GAME_CLASSPATH.isEmpty()) {
-        compileOnly files(GAME_CLASSPATH)
-    }
+    compileOnly files(GAME_CLASSPATH)
     
     // Test dependencies
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
@@ -315,8 +312,12 @@ dependencies {
     // Test dependencies for vanilla and patched tests
     testVanillaImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
     testVanillaRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.0'
+
     testPatchedImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
     testPatchedRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.0'
+
+    // required for running tests because many ZB classes reference PZ classes, even if not directly tested, e.g. Exposer
+    testPatchedRuntimeOnly files(GAME_CLASSPATH)
 }
 
 // Configure all test tasks to always run and output test results

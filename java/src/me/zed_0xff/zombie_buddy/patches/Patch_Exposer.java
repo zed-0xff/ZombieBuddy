@@ -1,10 +1,6 @@
 package me.zed_0xff.zombie_buddy.patches;
 
-import java.lang.reflect.Modifier;
-
-import me.zed_0xff.zombie_buddy.Exposer;
-import me.zed_0xff.zombie_buddy.Logger;
-import me.zed_0xff.zombie_buddy.Patch;
+import me.zed_0xff.zombie_buddy.*;
 
 public class Patch_Exposer {
     @Patch(className = "zombie.Lua.LuaManager$Exposer", methodName = "exposeAll", warmUp = true, IKnowWhatIAmDoing = true)
@@ -12,40 +8,13 @@ public class Patch_Exposer {
         @Patch.OnEnter
         public static void enter() {
             Logger.info("before Exposer.exposeAll");
-
-            if ( zombie.Lua.LuaManager.exposer == null ) {
-                Logger.info("Error! LuaManager.exposer is null!");
-                return;
-            }
-
-            // Full class exposure: only for classes in Exposer.getExposedClasses()
-            for (Class<?> cls : Exposer.getExposedClasses()) {
-                Logger.info("Exposing class to Lua: " + cls.getName());
-                zombie.Lua.LuaManager.exposer.setExposed(cls);
-            }
-            // Global functions: for every class that has @LuaMethod(global=true), even if not fully exposed
-            for (Class<?> cls : Exposer.getClassesWithGlobalLuaMethod()) {
-                Object instance = newInstance(cls);
-                if (instance != null) {
-                    try {
-                        Logger.info("Exposing global functions from class: " + cls.getName());
-                        zombie.Lua.LuaManager.exposer.exposeGlobalFunctions(instance);
-                    } catch (Exception e) {
-                        Logger.error("exposeGlobalFunctions(" + cls.getName() + "): " + e.getMessage());
-                    }
-                }
-            }
+            Exposer.runExposeAll(); // calls ZB Exposer
         }
 
-        public static Object newInstance(Class<?> cls) {
-            try {
-                if (Modifier.isAbstract(cls.getModifiers()) || cls.isInterface()) {
-                    return null;
-                }
-                return cls.getDeclaredConstructor().newInstance();
-            } catch (Throwable t) {
-                return null;
-            }
+        @Patch.OnExit
+        public static void exit() {
+            Logger.info("after Exposer.exposeAll");
+            EventsDB.init();
         }
     }
 }
