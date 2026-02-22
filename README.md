@@ -36,7 +36,7 @@ Previously, Java mods for Project Zomboid required bundling `.class` files and m
 - 🎯 **Annotation-based patching**: Use `@Patch` annotations to declare method patches
 - 🔄 **Runtime class transformation**: Patch classes that are already loaded using retransformation
 - 📦 **Automatic patch discovery**: Scans for patch classes automatically
-- 🔗 **Lua integration**: Expose Java classes and global functions to Lua via annotations (`@Exposer.LuaClass`, `@LuaMethod(global = true)`) or the Exposer API; built-in `ZombieBuddy.Events` for inspecting game event hooks from Lua
+- 🔗 **Lua integration**: Expose Java classes and global functions to Lua via annotations (`@Exposer.LuaClass`, `@LuaMethod(global = true)`) or the Exposer API; built-in `ZombieBuddy.Events` for inspecting game event hooks, and `ZombieBuddy.Watches` (experimental) for hooking any Java method and logging calls
 - ⚡ **Advice and Method Delegation**: Support for both advice-based and delegation-based patching
 - 🔍 **Verbose logging**: Configurable verbosity levels for debugging
 
@@ -381,6 +381,31 @@ local byFile = ZombieBuddy.Events.getByFile("/path/to/SomeMod.lua")
 local info = ZombieBuddy.getClosureInfo(callbacks[1])
 print(info.filename, info.line)  -- e.g. "media/lua/client/SomeMod.lua", 42
 ```
+
+#### ZombieBuddy.Watches (Experimental)
+
+Hook any Java method and log its calls and arguments. Access it as `ZombieBuddy.Watches`.
+
+| Method | Description |
+|--------|-------------|
+| `Add(className, methodName)` | Add a watch. Every call to the method is logged with its arguments. |
+| `Remove(className, methodName)` | Remove a watch. |
+| `Clear()` | Remove all watches. |
+
+**Example:**
+
+```lua
+-- Watch a game method
+ZombieBuddy.Watches.Add("zombie.iso.IsoPlayer", "addBlood")
+ZombieBuddy.Watches.Add("zombie.Lua.LuaManager", "RunLua")
+
+-- Logs appear in the game console: [ZB Watch] zombie.iso.IsoPlayer.addBlood(...)
+-- Remove when done
+ZombieBuddy.Watches.Remove("zombie.iso.IsoPlayer", "addBlood")
+ZombieBuddy.Watches.Clear()
+```
+
+> **Note**: The class must be loaded for the watch to apply. If the class is not yet loaded, the watch is registered and will apply on first load.
 
 #### 7. Build Your Mod
 

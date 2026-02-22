@@ -7,6 +7,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import me.zed_0xff.zombie_buddy.Accessor;
 import se.krka.kahlua.integration.annotations.LuaMethod;
@@ -155,45 +156,98 @@ public class zbUtils {
      */
     @LuaMethod(name = "zbKeys", global = true)
     public static KahluaTable zbKeys(Object obj) {
-        if (!(obj instanceof KahluaTable tbl)) {
-            return null;
+        if (obj instanceof KahluaTable tbl) {
+            KahluaTable out = LuaManager.platform.newTable();
+            var it = tbl.iterator();
+            int i = 1;
+            while (it.advance()) {
+                out.rawset(i++, it.getKey());
+            }
+            return out;
         }
-        KahluaTable out = LuaManager.platform.newTable();
-        var it = tbl.iterator();
-        int i = 1;
-        while (it.advance()) {
-            out.rawset(i++, it.getKey());
+        if (obj instanceof Map<?, ?> map) {
+            KahluaTable out = LuaManager.platform.newTable();
+            int i = 1;
+            for (Object k : map.keySet()) {
+                out.rawset(i++, k);
+            }
+            return out;
         }
-        return out;
+        return null;
     }
 
     @LuaMethod(name = "zbValues", global = true)
     public static KahluaTable zbValues(Object obj) {
-        if (!(obj instanceof KahluaTable tbl)) {
-            return null;
+        if (obj instanceof KahluaTable tbl) {
+            KahluaTable out = LuaManager.platform.newTable();
+            var it = tbl.iterator();
+            int i = 1;
+            while (it.advance()) {
+                out.rawset(i++, it.getValue());
+            }
+            return out;
         }
-        KahluaTable out = LuaManager.platform.newTable();
-        var it = tbl.iterator();
-        int i = 1;
-        while (it.advance()) {
-            out.rawset(i++, it.getValue());
+        if (obj instanceof Map<?, ?> map) {
+            KahluaTable out = LuaManager.platform.newTable();
+            int i = 1;
+            for (Object v : map.values()) {
+                out.rawset(i++, v);
+            }
+            return out;
         }
-        return out;
+        return null;
     }
 
     @LuaMethod(name = "zbGrep", global = true)
     public static KahluaTable zbGrep(Object obj, String pattern) {
-        if (!(obj instanceof KahluaTable tbl)) {
+        return zbGrep(obj, pattern, false);
+    }
+
+    @LuaMethod(name = "zbGrep", global = true)
+    public static KahluaTable zbGrep(Object obj, String pattern, boolean caseSensitive) {
+        if (obj == null || pattern == null) return null;
+        KahluaTable out = LuaManager.platform.newTable();
+
+        if (obj instanceof KahluaTable tbl) {
+            var it = tbl.iterator();
+            while (it.advance()) {
+                String keyStr = it.getKey().toString();
+                String valStr = it.getValue().toString();
+                if (matches(keyStr, valStr, pattern, caseSensitive)) {
+                    out.rawset(it.getKey(), it.getValue());
+                }
+            }
+        } else if (obj instanceof List<?> list) {
+            int i = 1;
+            for (Object item : list) {
+                String s = item != null ? item.toString() : "null";
+                if (matches(s, pattern, caseSensitive)) {
+                    out.rawset(i++, item);
+                }
+            }
+        } else if (obj instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> e : map.entrySet()) {
+                String keyStr = e.getKey() != null ? e.getKey().toString() : "null";
+                String valStr = e.getValue() != null ? e.getValue().toString() : "null";
+                if (matches(keyStr, valStr, pattern, caseSensitive)) {
+                    out.rawset(e.getKey(), e.getValue());
+                }
+            }
+        } else {
             return null;
         }
-        KahluaTable out = LuaManager.platform.newTable();
-        var it = tbl.iterator();
-        while (it.advance()) {
-            if (it.getKey().toString().contains(pattern) || it.getValue().toString().contains(pattern)) {
-                out.rawset(it.getKey(), it.getValue());
-            }
-        }
         return out;
+    }
+
+    private static boolean matches(String a, String pattern, boolean caseSensitive) {
+        if (caseSensitive) return a.contains(pattern);
+        return a.toLowerCase().contains(pattern.toLowerCase());
+    }
+
+    private static boolean matches(String a, String b, String pattern, boolean caseSensitive) {
+        if (caseSensitive) return a.contains(pattern) || b.contains(pattern);
+        String p = pattern.toLowerCase();
+        return a.toLowerCase().contains(p) || b.toLowerCase().contains(p);
     }
 
     /**

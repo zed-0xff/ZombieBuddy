@@ -52,7 +52,7 @@ public class Agent {
         Loader.ApplyPatchesFromPackage(ZombieBuddy.class.getPackage().getName() + ".patches", null, true);
 
         // Load experimental patches if enabled
-        if (arguments.containsKey("experimental")) {
+        if (isExperimental()) {
             Loader.ApplyPatchesFromPackage(ZombieBuddy.class.getPackage().getName() + ".patches.experimental", null, true);
         }
         
@@ -102,6 +102,10 @@ public class Agent {
         }
 
         Logger.info("Agent installed.");
+    }
+
+    public static boolean isExperimental() {
+        return arguments.containsKey("experimental");
     }
 
     /** Called from Hooks when exit_after_game_init was requested. */

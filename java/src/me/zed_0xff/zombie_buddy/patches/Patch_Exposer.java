@@ -14,7 +14,11 @@ public class Patch_Exposer {
         @Patch.OnExit
         public static void exit() {
             Logger.info("after Exposer.exposeAll");
-            EventsDB.init();
+            EventsAPI.init();
+
+            if (Agent.isExperimental()) {
+                WatchesAPI.init();
+            }
         }
     }
 }

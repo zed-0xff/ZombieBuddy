@@ -13,7 +13,7 @@ import se.krka.kahlua.vm.LuaCallFrame;
 import se.krka.kahlua.vm.LuaClosure;
 import se.krka.kahlua.j2se.KahluaTableImpl;
 
-public class EventsDB {
+public class EventsAPI {
 
     /** __index handler: when Lua does events.EventName and key is missing, call getByName(key). */
     private static final JavaFunction INDEX_GET_BY_NAME = (callFrame, nArgs) -> {
@@ -28,9 +28,9 @@ public class EventsDB {
         if (zb instanceof KahluaTable tbl) {
             var events = LuaManager.platform.newTable();
             try {
-                LuaManager.exposer.exposeGlobalClassFunction(events, EventsDB.class, EventsDB.class.getMethod("getAll"), "getAll");
-                LuaManager.exposer.exposeGlobalClassFunction(events, EventsDB.class, EventsDB.class.getMethod("getByName", String.class), "getByName");
-                LuaManager.exposer.exposeGlobalClassFunction(events, EventsDB.class, EventsDB.class.getMethod("getByFile", String.class), "getByFile");
+                LuaManager.exposer.exposeGlobalClassFunction(events, EventsAPI.class, EventsAPI.class.getMethod("getAll"), "getAll");
+                LuaManager.exposer.exposeGlobalClassFunction(events, EventsAPI.class, EventsAPI.class.getMethod("getByName", String.class), "getByName");
+                LuaManager.exposer.exposeGlobalClassFunction(events, EventsAPI.class, EventsAPI.class.getMethod("getByFile", String.class), "getByFile");
             } catch (ReflectiveOperationException e) {
                 Logger.error("Error exposing static methods: " + e.getMessage());
             }
