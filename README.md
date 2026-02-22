@@ -36,7 +36,7 @@ Previously, Java mods for Project Zomboid required bundling `.class` files and m
 - 🎯 **Annotation-based patching**: Use `@Patch` annotations to declare method patches
 - 🔄 **Runtime class transformation**: Patch classes that are already loaded using retransformation
 - 📦 **Automatic patch discovery**: Scans for patch classes automatically
-- 🔗 **Lua integration**: Expose Java classes and global functions to Lua via annotations (`@Exposer.LuaClass`, `@LuaMethod(global = true)`) or the Exposer API
+- 🔗 **Lua integration**: Expose Java classes and global functions to Lua via annotations (`@Exposer.LuaClass`, `@LuaMethod(global = true)`) or the Exposer API; built-in `ZombieBuddy.Events` for inspecting game event hooks from Lua
 - ⚡ **Advice and Method Delegation**: Support for both advice-based and delegation-based patching
 - 🔍 **Verbose logging**: Configurable verbosity levels for debugging
 
@@ -342,6 +342,44 @@ import me.zed_0xff.zombie_buddy.Exposer;
 
 // In your initialization code
 Exposer.exposeClassToLua(MyCustomClass.class);
+```
+
+#### ZombieBuddy.Events (Built-in Lua API)
+
+ZombieBuddy provides a built-in Lua API for inspecting game event hooks. Access it as `ZombieBuddy.Events`.
+
+| Method | Description |
+|--------|-------------|
+| `getAll()` | Returns a table mapping event names to their callback lists. |
+| `getByName(eventName)` | Returns the list of callbacks for the given event (e.g. `"OnCreatePlayer"`). |
+| `getByFile(filename)` | Returns a table of events that have callbacks from the given Lua file. Each event name maps to a 1-based array of those callbacks. |
+| `EventName` (index) | Access event callbacks by name: `ZombieBuddy.Events.OnCreatePlayer` returns the same as `getByName("OnCreatePlayer")`. |
+
+Related helpers on `ZombieBuddy`:
+
+| Method | Description |
+|--------|-------------|
+| `getClosureFilename(closure)` | Returns the source filename for a callback (LuaClosure). |
+| `getClosureInfo(closure)` | Returns a table with `file`, `filename`, `name`, and `line` for a callback. |
+
+**Example:**
+
+```lua
+-- Get all events
+local all = ZombieBuddy.Events.getAll()
+
+-- Get callbacks for a specific event
+local callbacks = ZombieBuddy.Events.getByName("OnCreatePlayer")
+-- Or equivalently (via __index):
+local callbacks = ZombieBuddy.Events.OnCreatePlayer
+
+-- Get events/callbacks from a specific file
+local byFile = ZombieBuddy.Events.getByFile("/path/to/SomeMod.lua")
+-- byFile.OnFillWorldObjectContextMenu[1] is the first callback from that file
+
+-- Inspect a callback's source
+local info = ZombieBuddy.getClosureInfo(callbacks[1])
+print(info.filename, info.line)  -- e.g. "media/lua/client/SomeMod.lua", 42
 ```
 
 #### 7. Build Your Mod
