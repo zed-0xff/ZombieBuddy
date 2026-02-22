@@ -119,9 +119,10 @@ public final class Accessor {
         }
         for (String className : classNames) {
             if (className != null && !className.isEmpty()) {
+                String normalized = className.replace('/', '.');
                 Class<?> cls = null;
                 try {
-                    cls = Class.forName(className);
+                    cls = Class.forName(normalized);
                 } catch (ClassNotFoundException e) {
                     continue;
                 }
@@ -335,11 +336,27 @@ public final class Accessor {
         if (obj == null || methodName == null || methodName.isEmpty()) {
             throw new IllegalArgumentException("obj and methodName must be non-null and non-empty");
         }
-        Class<?> targetClass = obj instanceof Class ? (Class<?>) obj : obj.getClass();
+        boolean staticCall = false;
+        Class<?> targetClass;
+        if (obj instanceof String className) {
+            targetClass = findClass(className);
+            if (targetClass == null) {
+                throw new ClassNotFoundException("class not found: " + className);
+            }
+            staticCall = true;
+        } else if (obj instanceof Class<?> c) {
+            targetClass = c;
+            staticCall = true;
+        } else {
+            targetClass = obj.getClass();
+        }
         int nArgs = args == null ? 0 : args.length;
         Object[] invokeArgs = args == null ? new Object[0] : args;
         for (Method m : findMethodsByName(targetClass, methodName)) {
             if (m.getParameterCount() != nArgs) {
+                continue;
+            }
+            if (staticCall && !Modifier.isStatic(m.getModifiers())) {
                 continue;
             }
             try {
