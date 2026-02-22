@@ -8,7 +8,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class DirHider {
-    private static boolean g_enabled = false;
+    private static boolean g_enabled = true;
 
     public static void setEnabled(boolean enabled) {
         g_enabled = enabled;
