@@ -26,9 +26,17 @@ import se.krka.kahlua.vm.KahluaTable;
 public class WatchesAPI {
     public static final int MAX_STRING_LENGTH = 150;
 
+    /** Hook type: log before method runs. */
+    public static final int BEFORE = 1;
+    /** Hook type: log after method returns (default). */
+    public static final int AFTER = 2;
+    /** Hook type: log both before and after. */
+    public static final int BOTH = 3;
+
     private static final String KEY_SEP = "#";
-    private static final ConcurrentHashMap<String, Boolean> REGISTRY = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Integer> REGISTRY = new ConcurrentHashMap<>();
     private static volatile boolean transformerInstalled;
+    private static volatile int stackDepth = 0;
 
     /** Advice class used by ByteBuddy; must be public for ByteBuddy to load it. */
     public static class WatchAdvice {
@@ -36,27 +44,97 @@ public class WatchesAPI {
         public static void enter(@Advice.Origin String origin, @Advice.AllArguments Object[] args) {
             onMethodEntered(origin, args);
         }
+
+        @Advice.OnMethodExit
+        public static void exit(
+            @Advice.Origin String origin,
+            @Advice.AllArguments Object[] args,
+            @Advice.Return Object returnValue
+        ) {
+            onMethodExited(origin, args, returnValue);
+        }
     }
 
     public static void onMethodEntered(String origin, Object[] args) {
         String className = parseClassName(origin);
         String methodName = parseMethodName(origin);
         if (className == null || methodName == null) return;
-        String key = key(className, methodName);
-        if (!REGISTRY.containsKey(key)) return;
+        Integer hookType = REGISTRY.get(key(className, methodName));
+        if (hookType == null || (hookType != BEFORE && hookType != BOTH)) return;
+        logCall(origin, className, methodName, args, BEFORE, null, true);
+    }
+
+    public static void onMethodExited(String origin, Object[] args, Object returnValue) {
+        String className = parseClassName(origin);
+        String methodName = parseMethodName(origin);
+        if (className == null || methodName == null) return;
+        Integer hookType = REGISTRY.get(key(className, methodName));
+        if (hookType == null || (hookType != AFTER && hookType != BOTH)) return;
+        boolean showArgs = (hookType != BOTH);
+        logCall(origin, className, methodName, args, AFTER, returnValue, showArgs);
+    }
+
+    private static void logCall(String origin, String className, String methodName, Object[] args, int hookType, Object returnValue, boolean showArgs) {
         StringBuilder sb = new StringBuilder();
-        sb.append("[Watch] ").append(className).append('.').append(methodName);
-        if (args != null && args.length > 0) {
-            sb.append("(");
-            for (int i = 0; i < args.length; i++) {
-                if (i > 0) sb.append(", ");
-                sb.append(toString(args[i]));
+        switch (hookType) {
+            case BEFORE:
+                sb.append("BEFORE ");
+                break;
+            case AFTER:
+                sb.append("AFTER  ");
+                break;
+        }
+        sb.append(className).append('.').append(methodName);
+        if (showArgs) {
+            if (args != null && args.length > 0) {
+                sb.append("(");
+                for (int i = 0; i < args.length; i++) {
+                    if (i > 0) sb.append(", ");
+                    sb.append(toString(args[i]));
+                }
+                sb.append(")");
+            } else {
+                sb.append("()");
             }
-            sb.append(")");
         } else {
-            sb.append("()");
+            sb.append("(...)");
+        }
+
+        if (hookType == AFTER && !isVoidReturn(origin)) {
+            sb.append(" => ");
+            sb.append(toString(returnValue));
+        }
+
+        if (stackDepth > 0 && hookType == AFTER) {
+            sb.append("\n").append(formatStack());
         }
         Logger.info(sb.toString());
+    }
+
+    private static String formatStack() {
+        StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+        StringBuilder sb = new StringBuilder();
+        int count = 0;
+        for (StackTraceElement e : stack) {
+            if (count >= stackDepth) break;
+
+            String cn = e.getClassName();
+            if (cn.startsWith("java.lang.Thread") || cn.startsWith("net.bytebuddy.")
+                || cn.contains("WatchesAPI") || cn.contains("WatchAdvice")
+                || cn.startsWith("sun.reflect.")) {
+                continue;
+            }
+            if (count > 0) sb.append("\n");
+            sb.append("    at ").append(e.getClassName()).append('.').append(e.getMethodName());
+            if (e.getFileName() != null) {
+                sb.append(" (").append(e.getFileName());
+                if (e.getLineNumber() >= 0) sb.append(':').append(e.getLineNumber());
+                sb.append(")");
+            }
+            count++;
+        }
+        sb.append("\n");
+        return sb.toString();
     }
 
     private static String toString(Object o) {
@@ -98,6 +176,13 @@ public class WatchesAPI {
         }
         int dollar = raw.indexOf('$');
         return dollar >= 0 ? raw.substring(0, dollar) : raw;
+    }
+
+    private static boolean isVoidReturn(String origin) {
+        int paren = origin.indexOf('(');
+        if (paren < 0) return false;
+        String beforeParen = origin.substring(0, paren).trim();
+        return beforeParen.startsWith("void ") || beforeParen.endsWith(" void");
     }
 
     private static String key(String className, String methodName) {
@@ -185,12 +270,11 @@ public class WatchesAPI {
         }
         var watches = LuaManager.platform.newTable();
         try {
-            LuaManager.exposer.exposeGlobalClassFunction(watches, WatchesAPI.class,
-                WatchesAPI.class.getMethod("add", String.class, String.class), "Add");
-            LuaManager.exposer.exposeGlobalClassFunction(watches, WatchesAPI.class,
-                WatchesAPI.class.getMethod("remove", String.class, String.class), "Remove");
-            LuaManager.exposer.exposeGlobalClassFunction(watches, WatchesAPI.class,
-                WatchesAPI.class.getMethod("clear"), "Clear");
+            LuaManager.exposer.exposeGlobalClassFunction(watches, WatchesAPI.class, WatchesAPI.class.getMethod("add", String.class, String.class, int.class), "Add");
+            LuaManager.exposer.exposeGlobalClassFunction(watches, WatchesAPI.class, WatchesAPI.class.getMethod("add", String.class, String.class), "Add");
+            LuaManager.exposer.exposeGlobalClassFunction(watches, WatchesAPI.class, WatchesAPI.class.getMethod("remove", String.class, String.class), "Remove");
+            LuaManager.exposer.exposeGlobalClassFunction(watches, WatchesAPI.class, WatchesAPI.class.getMethod("clear"), "Clear");
+            LuaManager.exposer.exposeGlobalClassFunction(watches, WatchesAPI.class, WatchesAPI.class.getMethod("setStackDepth", int.class), "SetStackDepth");
         } catch (ReflectiveOperationException e) {
             Logger.error("Watches expose failed: " + e.getMessage());
         }
@@ -198,9 +282,15 @@ public class WatchesAPI {
         tbl.rawset("Watches", watches);
     }
 
-    /** Updates the watches table with class_name -> [method1, method2, ...] from REGISTRY. */
+    private static final String DATA_KEY = "data";
+
+    /** Updates the watches subtable with class_name -> [method1, method2, ...] from REGISTRY. */
     private static void syncToWatchesTable(KahluaTable watches) {
         if (watches == null) return;
+        Object dataObj = watches.rawget(DATA_KEY);
+        KahluaTable data = (dataObj instanceof KahluaTable d) ? d : LuaManager.platform.newTable();
+        watches.rawset(DATA_KEY, data);
+
         Map<String, Set<String>> byClass = new HashMap<>();
         for (String k : REGISTRY.keySet()) {
             int sep = k.indexOf(KEY_SEP);
@@ -209,11 +299,11 @@ public class WatchesAPI {
             String methodName = k.substring(sep + KEY_SEP.length());
             byClass.computeIfAbsent(className, x -> new HashSet<>()).add(methodName);
         }
-        var it = watches.iterator();
+        var it = data.iterator();
         while (it.advance()) {
             Object key = it.getKey();
-            if (!"Add".equals(key) && !"Remove".equals(key) && !"Clear".equals(key)) {
-                watches.rawset(key, null);
+            if (!byClass.containsKey(String.valueOf(key))) {
+                data.rawset(key, null);
             }
         }
         for (Map.Entry<String, Set<String>> e : byClass.entrySet()) {
@@ -222,7 +312,7 @@ public class WatchesAPI {
             for (String m : e.getValue()) {
                 methods.rawset(idx++, m);
             }
-            watches.rawset(e.getKey(), methods);
+            data.rawset(e.getKey(), methods);
         }
     }
 
@@ -232,11 +322,25 @@ public class WatchesAPI {
 
     /**
      * Add a watch for the given class and method. Logs every call with arguments.
+     * Defaults to AFTER hook.
      * @return true on success, error string if class or method does not exist
      */
     public static Object add(String className, String methodName) {
+        return add(className, methodName, BOTH);
+    }
+
+    /**
+     * Add a watch with hook type: 1=BEFORE, 2=AFTER, 3=BOTH.
+     * @return true on success, error string if invalid
+     */
+    public static Object add(String className, String methodName, int hookType) {
         if (className == null || methodName == null) {
             String err = "class name and method name are required";
+            Logger.error("Watch Add: " + err);
+            return err;
+        }
+        if (hookType != BEFORE && hookType != AFTER && hookType != BOTH) {
+            String err = "hook type must be 1 (BEFORE), 2 (AFTER), or 3 (BOTH)";
             Logger.error("Watch Add: " + err);
             return err;
         }
@@ -248,11 +352,10 @@ public class WatchesAPI {
         }
         ensureTransformer();
         String k = key(className, methodName);
-        if (REGISTRY.putIfAbsent(k, Boolean.TRUE) == null) {
-            Logger.info("Watch added: " + className + "." + methodName);
-            retransform(className);
-            syncToWatchesTable(getWatchesTable());
-        }
+        REGISTRY.put(k, hookType);
+        Logger.info("Watch added: " + className + "." + methodName + " (hook=" + hookType + ")");
+        retransform(className);
+        syncToWatchesTable(getWatchesTable());
         return Boolean.TRUE;
     }
 
@@ -266,6 +369,11 @@ public class WatchesAPI {
             return "method does not exist: " + className + "." + methodName;
         }
         return null;
+    }
+
+    /** Set stack frames to show in AFTER hook. 0 = disabled, >0 = max frames. */
+    public static void setStackDepth(int depth) {
+        stackDepth = Math.max(0, depth);
     }
 
     /**
