@@ -8,7 +8,17 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class DirHider {
-    private static final Set<String> canonHideNames = new HashSet<>(Arrays.asList(
+    private static boolean g_enabled = false;
+
+    public static void setEnabled(boolean enabled) {
+        g_enabled = enabled;
+    }
+
+    public static boolean isEnabled() {
+        return g_enabled;
+    }
+
+    private static final Set<String> HIDE_NAMES = new HashSet<>(Arrays.asList(
         "tmp",
         ".git",
         ".hg",
@@ -18,8 +28,8 @@ public class DirHider {
         ".DS_Store"
     ));
 
-    public static boolean shouldHideName(String name) {
-        return name != null && canonHideNames.contains(name.toLowerCase());
+    private static boolean shouldHideName(String name) {
+        return name != null && HIDE_NAMES.contains(name.toLowerCase());
     }
 
     private static boolean shouldHidePath(Path path) {
@@ -35,16 +45,20 @@ public class DirHider {
     }
 
     public static boolean shouldHide(File file) {
-        return (file != null) && shouldHidePath(file.toPath());
+        return g_enabled && (file != null) && shouldHidePath(file.toPath());
     }
 
     public static boolean shouldHide(File base, String relPath) {
-        return ((base != null) && shouldHidePath(base.toPath()))
-         || ((relPath != null) && shouldHidePath(Path.of(relPath)));
+        if (!g_enabled) return false;
+        if (base != null && shouldHidePath(base.toPath())) return true;
+        if (relPath != null && shouldHidePath(Path.of(relPath))) return true;
+        return false;
     }
 
     public static boolean shouldHide(URI base, File relPath) {
-        return ((base != null) && shouldHidePath(Path.of(base)))
-         || ((relPath != null) && shouldHidePath(relPath.toPath()));
+        if (!g_enabled) return false;
+        if (base != null && shouldHidePath(Path.of(base))) return true;
+        if (relPath != null && shouldHidePath(relPath.toPath())) return true;
+        return false;
     }
 }
