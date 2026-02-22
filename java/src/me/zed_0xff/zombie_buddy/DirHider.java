@@ -18,47 +18,63 @@ public class DirHider {
         return g_enabled;
     }
 
-    private static final Set<String> HIDE_NAMES = new HashSet<>(Arrays.asList(
+    private static final Set<String> canonHideNames = new HashSet<>(Arrays.asList(
         "tmp",
         ".git",
         ".hg",
         ".svn",
         ".vscode",
-        ".idea",
-        ".DS_Store"
+        ".idea"
     ));
 
     private static boolean shouldHideName(String name) {
-        return name != null && HIDE_NAMES.contains(name.toLowerCase());
+        return name != null && canonHideNames.contains(name.toLowerCase());
     }
 
-    private static boolean shouldHidePath(Path path) {
+    enum CMP_MODE {
+        FIRST,
+        LAST,
+        ANY,
+    }
+
+    private static boolean shouldHidePath(Path path, CMP_MODE mode) {
         if (path == null) return false;
         if (path.getNameCount() == 0 ) return false;
 
-        for (Path element : path) {
-            if (shouldHideName(element.toString())) {
-                return true;
-            }
+        switch (path.getNameCount()) {
+            case 0:
+                return false;
+            case 1:
+                return shouldHideName(path.getFileName().toString());
+            default:
+                switch (mode) {
+                    case FIRST:
+                        return shouldHideName(path.getName(0).toString());
+                    case LAST:
+                        return shouldHideName(path.getFileName().toString());
+                    case ANY:
+                        return shouldHideName(path.getName(0).toString()) || shouldHideName(path.getFileName().toString());
+                }
         }
+
         return false;
     }
 
     public static boolean shouldHide(File file) {
-        return g_enabled && (file != null) && shouldHidePath(file.toPath());
+        return g_enabled && (file != null) && shouldHidePath(file.toPath(), CMP_MODE.ANY);
     }
 
     public static boolean shouldHide(File base, String relPath) {
         if (!g_enabled) return false;
-        if (base != null && shouldHidePath(base.toPath())) return true;
-        if (relPath != null && shouldHidePath(Path.of(relPath))) return true;
-        return false;
+        if (base != null && shouldHidePath(base.toPath(), CMP_MODE.LAST)) return true;
+        if (relPath != null && shouldHidePath(Path.of(relPath), CMP_MODE.FIRST)) return true;
+        return false;   
     }
 
     public static boolean shouldHide(URI base, File relPath) {
         if (!g_enabled) return false;
-        if (base != null && shouldHidePath(Path.of(base))) return true;
-        if (relPath != null && shouldHidePath(relPath.toPath())) return true;
+        if (base != null && shouldHidePath(Path.of(base), CMP_MODE.LAST)) return true;
+        if (relPath != null && shouldHidePath(relPath.toPath(), CMP_MODE.FIRST)) return true;
         return false;
     }
 }

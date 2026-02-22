@@ -43,10 +43,10 @@ class DirHiderTest {
             assertTrue(DirHider.shouldHide(new File("/foo/TmP/")));
             assertTrue(DirHider.shouldHide(new File("/tmp/foo/tmp")));
 
-            assertTrue(DirHider.shouldHide(new File("/foo/tmp/bar/")));
-            assertTrue(DirHider.shouldHide(new File("/foo/tmp/bar")));
-            assertTrue(DirHider.shouldHide(new File("foo/tmp/bar/")));
-            assertTrue(DirHider.shouldHide(new File("FOO/tmp/bar")));
+            assertFalse(DirHider.shouldHide(new File("/foo/tmp/bar/")));
+            assertFalse(DirHider.shouldHide(new File("/foo/tmp/bar")));
+            assertFalse(DirHider.shouldHide(new File("foo/tmp/bar/")));
+            assertFalse(DirHider.shouldHide(new File("FOO/tmp/bar")));
 
             assertFalse(DirHider.shouldHide(new File("/foo/tmpx/bar/")));
             assertFalse(DirHider.shouldHide(new File("/foo/xtmp/bar")));
@@ -70,7 +70,7 @@ class DirHiderTest {
             assertTrue(DirHider.shouldHide(new File("foo"), "tmp/bar"));
             assertTrue(DirHider.shouldHide(new File("bar/tmp"), "foo"));
 
-            assertTrue(DirHider.shouldHide(new File("tmp/foo"), "foo"));
+            assertFalse(DirHider.shouldHide(new File("tmp/foo"), "foo"));
 
             assertFalse(DirHider.shouldHide(new File("foo"), "foo"));
             assertFalse(DirHider.shouldHide(new File("tmpx"), "foo"));
@@ -86,7 +86,8 @@ class DirHiderTest {
             assertTrue(DirHider.shouldHide(new URI("file:///foo"), new File("tmp")));
             assertTrue(DirHider.shouldHide(new URI("file:///foo"), new File("tmp/bar")));
             assertTrue(DirHider.shouldHide(new URI("file:///bar/tmp"), new File("foo")));
-            assertTrue(DirHider.shouldHide(new URI("file:///tmp/foo"), new File("foo")));
+
+            assertFalse(DirHider.shouldHide(new URI("file:///tmp/foo"), new File("foo")));
 
             assertFalse(DirHider.shouldHide(new URI("file:///foo"), new File("foo")));
             assertFalse(DirHider.shouldHide(new URI("file:///tmpx"), new File("foo")));
