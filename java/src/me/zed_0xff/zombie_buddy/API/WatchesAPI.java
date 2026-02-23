@@ -3,7 +3,6 @@ package me.zed_0xff.zombie_buddy;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -24,7 +23,6 @@ import se.krka.kahlua.vm.KahluaTable;
  * Add/Remove/Clear watches; when a watched method is called, logs class, method, and arguments.
  */
 public class WatchesAPI {
-    public static final int MAX_STRING_LENGTH = 150;
 
     /** Hook type: log before method runs. */
     public static final int BEFORE = 1;
@@ -86,23 +84,14 @@ public class WatchesAPI {
         }
         sb.append(className).append('.').append(methodName);
         if (showArgs) {
-            if (args != null && args.length > 0) {
-                sb.append("(");
-                for (int i = 0; i < args.length; i++) {
-                    if (i > 0) sb.append(", ");
-                    sb.append(toString(args[i]));
-                }
-                sb.append(")");
-            } else {
-                sb.append("()");
-            }
+            sb.append("(").append(args != null && args.length > 0 ? Logger.formatArgs(args) : "").append(")");
         } else {
             sb.append("(...)");
         }
 
         if (hookType == AFTER && !isVoidReturn(origin)) {
             sb.append(" => ");
-            sb.append(toString(returnValue));
+            sb.append(Logger.formatArg(returnValue));
         }
 
         if (stackDepth > 0 && hookType == AFTER) {
@@ -135,15 +124,6 @@ public class WatchesAPI {
         }
         sb.append("\n");
         return sb.toString();
-    }
-
-    private static String toString(Object o) {
-        if (o == null) return "null";
-        if (o instanceof Object[] arr) return Arrays.toString(arr);
-        String s = o.toString();
-        if (s.length() > MAX_STRING_LENGTH) s = s.substring(0, MAX_STRING_LENGTH - 3) + "...";
-        if (o instanceof String) return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
-        return s;
     }
 
     /** Parses @Origin string like "void pkg.Class.method(args)" to "pkg.Class". */

@@ -9,9 +9,14 @@ public class Patch_LuaEventManager {
     @Patch(className = "zombie.Lua.LuaEventManager", methodName = "triggerEvent")
     public static class Patch_triggerEvent {
         @Patch.OnEnter
-        public static void enter(@Patch.Argument(0) String eventName) {
+        public static void enter(@Patch.AllArguments Object[] args) {
+            String eventName = (String) args[0];
             if (ZBEventLog.shouldLog(eventName)) {
-                Logger.info("triggerEvent: " + eventName);
+                if (args.length > 1) {
+                    Logger.info("EVENT: " + eventName + "( " + Logger.formatArgs(args, 1) + " )");
+                } else {
+                    Logger.info("EVENT: " + eventName);
+                }
             }
         }
     }
