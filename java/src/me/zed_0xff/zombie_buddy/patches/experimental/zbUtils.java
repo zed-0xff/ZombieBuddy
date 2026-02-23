@@ -234,7 +234,13 @@ public class zbUtils {
                 }
             }
         } else {
-            return null;
+            KahluaTable inspected = zbInspect(obj);
+            if (inspected == null) return null;
+
+            KahluaTable result = LuaManager.platform.newTable();
+            result.rawset("fields", zbGrep(inspected.rawget("fields"), pattern, caseSensitive));
+            result.rawset("methods", zbGrep(inspected.rawget("methods"), pattern, caseSensitive));
+            return result;
         }
         return out;
     }
