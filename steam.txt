@@ -61,6 +61,13 @@ Safe to add or remove on existing saves.
 [*] 42.14 (unstable)
 [/list]
 
+[b]FAQ[/b]
+[list]
+[*] [b]How to start game in debug mode?[/b] [code]-agentlib:zbNative -- -debug[/code]
+[*] [b]Do I need to repeat manual installation after I upgrade/downgrade/validate game?[/b] - No.
+[*] [b]Works on MP?[/b] - Yes.
+[/list]
+
 [b]Links:[/b]
 [url=https://github.com/zed-0xff/ZombieBuddy]GitHub Repository[/url] (for modders)
 
