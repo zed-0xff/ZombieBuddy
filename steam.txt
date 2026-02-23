@@ -28,7 +28,7 @@ ZombieBuddy is required by some mods to work. If a mod tells you to install Zomb
 to your Project Zomboid folder:
 [code]C:\Program Files (x86)\Steam\steamapps\common\ProjectZomboid\[/code]
 [*] Open Project Zomboid's launch options in Steam
-[*] Add this launch option: -agentlib:zbNative --
+[*] Add this launch option: [code]-agentlib:zbNative --[/code]
 [*] [b]⚠️ IMPORTANT:[/b] The -- at the end is mandatory - do not omit it!
 [/list]
 
