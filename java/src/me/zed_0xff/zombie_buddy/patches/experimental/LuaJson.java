@@ -1,7 +1,10 @@
 package me.zed_0xff.zombie_buddy.patches.experimental;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
 
 import mjson.Json;
 import se.krka.kahlua.integration.LuaReturn;
@@ -17,7 +20,8 @@ public class LuaJson {
     }
 
     public static String toJson(Object luaValue, int maxDepth) {
-        return toJsonValue(luaValue, 0, maxDepth).toString();
+        Set<Object> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        return toJsonValue(luaValue, 0, maxDepth, seen).toString();
     }
 
     /** Returns the Lua value as an mjson Json tree (no string round-trip). */
@@ -27,34 +31,43 @@ public class LuaJson {
 
     /** Returns the Lua value as an mjson Json tree (no string round-trip). */
     public static Json toJsonTree(Object luaValue, int maxDepth) {
-        return toJsonValue(luaValue, 0, maxDepth);
+        Set<Object> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        return toJsonValue(luaValue, 0, maxDepth, seen);
     }
 
-    private static Json toJsonValue(Object value, int depth, int maxDepth) {
+    private static Json toJsonValue(Object value, int depth, int maxDepth, Set<Object> seen) {
         if (value == null) {
             return Json.nil();
         }
         if (value instanceof Map) {
+            if (seen.contains(value)) {
+                return Json.make("[ref]");
+            }
             if (depth >= maxDepth) {
                 return Json.make("[object]");
             }
+            seen.add(value);
             Json obj = Json.object();
             for (Map.Entry<?, ?> e : ((Map<?, ?>) value).entrySet()) {
                 String key = e.getKey() != null ? e.getKey().toString() : "null";
-                obj.set(key, toJsonValue(e.getValue(), depth + 1, maxDepth));
+                obj.set(key, toJsonValue(e.getValue(), depth + 1, maxDepth, seen));
             }
             return obj;
         }
         if (value instanceof KahluaTable) {
+            if (seen.contains(value)) {
+                return Json.make("[ref]");
+            }
             if (depth >= maxDepth) {
                 return Json.make("[table]");
             }
+            seen.add(value);
             KahluaTable table = (KahluaTable) value;
             if (isArray(table)) {
                 Json arr = Json.array();
                 int len = table.len();
                 for (int i = 1; i <= len; i++) {
-                    arr.add(toJsonValue(table.rawget(i), depth + 1, maxDepth));
+                    arr.add(toJsonValue(table.rawget(i), depth + 1, maxDepth, seen));
                 }
                 return arr;
             }
@@ -65,7 +78,7 @@ public class LuaJson {
                 String keyStr = (key instanceof Double)
                     ? String.valueOf(((Double) key).longValue())
                     : key.toString();
-                Json val = toJsonValue(iter.getValue(), depth + 1, maxDepth);
+                Json val = toJsonValue(iter.getValue(), depth + 1, maxDepth, seen);
                 obj.set(keyStr, val);
             }
             return obj;
