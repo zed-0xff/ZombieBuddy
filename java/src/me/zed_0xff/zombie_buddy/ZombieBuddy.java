@@ -1,5 +1,7 @@
 package me.zed_0xff.zombie_buddy;
 
+import java.io.File;
+
 import se.krka.kahlua.vm.LuaClosure;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
@@ -57,6 +59,13 @@ public class ZombieBuddy {
 
             if (closure.prototype.lines != null && closure.prototype.lines.length > 0) {
                 tbl.rawset("line", Double.valueOf(closure.prototype.lines[0]));
+            }
+            String path = closure.prototype.filename;
+            if (path != null && !path.isEmpty()) {
+                long lastModified = new File(path).lastModified();
+                if (lastModified != 0L) {
+                    tbl.rawset("fileLastModified", Double.valueOf(lastModified));
+                }
             }
             return tbl;
         }
