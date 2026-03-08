@@ -3,6 +3,7 @@ package me.zed_0xff.zombie_buddy.patches.experimental;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -95,6 +96,20 @@ public class LuaJson {
         }
         if (value instanceof String) {
             return Json.make((String) value);
+        }
+        if (value instanceof List) {
+            if (seen.contains(value)) {
+                return Json.make("[ref]");
+            }
+            if (depth >= maxDepth) {
+                return Json.make("[list]");
+            }
+            seen.add(value);
+            Json arr = Json.array();
+            for (Object elt : (List<?>) value) {
+                arr.add(toJsonValue(elt, depth + 1, maxDepth, seen));
+            }
+            return arr;
         }
         return Json.make(value.toString());
     }
