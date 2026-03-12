@@ -2,6 +2,7 @@ package me.zed_0xff.zombie_buddy;
 
 import java.io.File;
 
+import se.krka.kahlua.vm.JavaFunction;
 import se.krka.kahlua.vm.LuaClosure;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
@@ -53,9 +54,11 @@ public class ZombieBuddy {
                 return null;
 
             var tbl = LuaManager.platform.newTable();
-            tbl.rawset("file",     closure.prototype.file);
-            tbl.rawset("filename", closure.prototype.filename);
-            tbl.rawset("name",     closure.prototype.name);
+            tbl.rawset("file",      closure.prototype.file);
+            tbl.rawset("filename",  closure.prototype.filename);
+            tbl.rawset("name",      closure.prototype.name);
+            tbl.rawset("numParams", Double.valueOf(closure.prototype.numParams));
+            tbl.rawset("isVararg",  closure.prototype.isVararg);
 
             if (closure.prototype.lines != null && closure.prototype.lines.length > 0) {
                 tbl.rawset("line", Double.valueOf(closure.prototype.lines[0]));
@@ -70,6 +73,27 @@ public class ZombieBuddy {
             return tbl;
         }
 
+        return null;
+    }
+
+    /** Returns metadata for any callable: Lua closure or Java function. */
+    public static KahluaTable getCallableInfo(Object obj) {
+        if (obj instanceof LuaClosure closure) {
+            if (closure == null || closure.prototype == null)
+                return null;
+            var tbl = getClosureInfo(obj);
+            if (tbl != null) tbl.rawset("kind", "lua");
+            return tbl;
+        }
+        if (obj instanceof JavaFunction) {
+            var tbl = LuaManager.platform.newTable();
+            tbl.rawset("kind", "java");
+            Class<?> c = obj.getClass();
+            tbl.rawset("className", c.getName());
+            tbl.rawset("simpleName", c.getSimpleName());
+            Utils.addInvokersInfo(tbl, obj);
+            return tbl;
+        }
         return null;
     }
 }

@@ -6,12 +6,18 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import me.zed_0xff.zombie_buddy.Accessor;
+import me.zed_0xff.zombie_buddy.Utils;
+import me.zed_0xff.zombie_buddy.ZombieBuddy;
 import se.krka.kahlua.integration.annotations.LuaMethod;
 import se.krka.kahlua.integration.LuaReturn;
+import se.krka.kahlua.vm.JavaFunction;
 import se.krka.kahlua.vm.KahluaTable;
 import se.krka.kahlua.vm.LuaClosure;
 import zombie.Lua.LuaManager;
@@ -35,6 +41,11 @@ public class zbUtils {
         return result;
     }
 
+    @LuaMethod(name = "zbmethod", global = true)
+    public static KahluaTable zbMethod(Object obj) {
+        return ZombieBuddy.getCallableInfo(obj);
+    }
+
     @LuaMethod(name = "zbmethods", global = true)
     public static KahluaTable zbMethods(Object obj) {
         return zbMethods(obj, false);
@@ -45,9 +56,44 @@ public class zbUtils {
         if (obj == null) {
             return null;
         }
+
         boolean includePrivate = bPrivate != null && bPrivate.booleanValue();
-        KahluaTable result = LuaManager.platform.newTable();
+        KahluaTable outArr = LuaManager.platform.newTable();
+
+        // If this is a kahlua-exposed Java callable (LuaJavaInvoker / MultiLuaJavaInvoker),
+        // return an array of its overload signatures sorted by methodName.
+        if (obj instanceof JavaFunction) {
+            KahluaTable tmp = LuaManager.platform.newTable();
+            Utils.addInvokersInfo(tmp, obj);
+            Object invokers = tmp.rawget("invokers");
+            if (invokers instanceof KahluaTable invTbl) {
+                ArrayList<KahluaTable> invList = new ArrayList<>();
+                var it = invTbl.iterator();
+                while (it.advance()) {
+                    Object v = it.getValue();
+                    if (v instanceof KahluaTable) invList.add((KahluaTable) v);
+                }
+                invList.sort(
+                    Comparator.<KahluaTable, String>comparing(
+                            t -> (String) t.rawget("methodName"),
+                            Comparator.nullsLast(Comparator.naturalOrder())
+                    ).thenComparing(
+                            t -> (String) t.rawget("methodDebugData"),
+                            Comparator.nullsLast(Comparator.naturalOrder())
+                    )
+                );
+
+                int idx = 1;
+                for (KahluaTable t : invList) {
+                    Object s = t.rawget("methodDebugData");
+                    if (s != null) outArr.rawset(Double.valueOf(idx++), s.toString());
+                }
+                return outArr;
+            }
+        }
+
         Class<?> cls = obj.getClass();
+        HashMap<String, ArrayList<String>> byName = new HashMap<>();
 
         if (includePrivate) {
             for (Class<?> c = cls; c != null; c = c.getSuperclass()) {
@@ -56,16 +102,7 @@ public class zbUtils {
                     if (m.isSynthetic() || m.isBridge() || m.getDeclaringClass() == Object.class) {
                         continue;
                     }
-                    String name = m.getName();
-                    int paramCount = m.getParameterTypes().length;
-                    Object existing = result.rawget(name);
-                    if (existing instanceof Double) {
-                        int prev = ((Double) existing).intValue();
-                        if (paramCount <= prev) {
-                            continue;
-                        }
-                    }
-                    result.rawset(name, (double) paramCount);
+                    addMethodSignature(byName, m);
                 }
             }
         } else {
@@ -74,20 +111,51 @@ public class zbUtils {
                 if (m.isSynthetic() || m.isBridge() || m.getDeclaringClass() == Object.class) {
                     continue;
                 }
-                String name = m.getName();
-                int paramCount = m.getParameterTypes().length;
-                Object existing = result.rawget(name);
-                if (existing instanceof Double) {
-                    int prev = ((Double) existing).intValue();
-                    if (paramCount <= prev) {
-                        continue;
-                    }
-                }
-                result.rawset(name, (double) paramCount);
+                addMethodSignature(byName, m);
             }
         }
 
-        return result;
+        ArrayList<String> names = new ArrayList<>(byName.keySet());
+        Collections.sort(names);
+        int idx = 1;
+        for (String name : names) {
+            ArrayList<String> sigs = byName.get(name);
+            if (sigs == null || sigs.isEmpty()) continue;
+            Collections.sort(sigs);
+            for (String sig : sigs) {
+                outArr.rawset(Double.valueOf(idx++), sig);
+            }
+        }
+
+        return outArr;
+    }
+
+    private static void addMethodSignature(Map<String, ArrayList<String>> byName, Method m) {
+        String name = m.getName();
+        String sig = buildMethodSignature(m);
+        ArrayList<String> list = byName.get(name);
+        if (list == null) {
+            list = new ArrayList<>();
+            byName.put(name, list);
+        }
+        if (!list.contains(sig)) list.add(sig);
+    }
+
+    private static String buildMethodSignature(Method m) {
+        StringBuilder sb = new StringBuilder();
+        Class<?> rt = m.getReturnType();
+        sb.append(rt != null ? rt.getSimpleName() : "void");
+        sb.append(' ');
+        sb.append(m.getName());
+        sb.append('(');
+        Class<?>[] pts = m.getParameterTypes();
+        for (int i = 0; i < pts.length; i++) {
+            if (i > 0) sb.append(", ");
+            Class<?> pt = pts[i];
+            sb.append(pt != null ? pt.getSimpleName() : "Object");
+        }
+        sb.append(')');
+        return sb.toString();
     }
 
     @LuaMethod(name = "zbfields", global = true)
@@ -201,6 +269,12 @@ public class zbUtils {
     }
 
     @LuaMethod(name = "zbmap", global = true)
+    public static KahluaTable zbMap(Object obj, String methodName) {
+        if (obj == null || methodName == null || methodName.isEmpty()) return null;
+        return zbMapByMethod(obj, methodName);
+    }
+
+    @LuaMethod(name = "zbmap", global = true)
     public static KahluaTable zbMap(Object obj, LuaClosure closure) {
         if (obj == null || closure == null) return null;
 
@@ -305,6 +379,50 @@ public class zbUtils {
         return null;
     }
 
+    private static Object invokeNoArgMethod(Object target, String methodName) {
+        if (target == null) return null;
+        try {
+            Method m = target.getClass().getMethod(methodName);
+            return m.invoke(target);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static KahluaTable zbMapByMethod(Object obj, String methodName) {
+        if (obj instanceof KahluaTable tbl) {
+            KahluaTable out = LuaManager.platform.newTable();
+            var it = tbl.iterator();
+            while (it.advance()) {
+                Object key = it.getKey();
+                Object value = it.getValue();
+                Object result = invokeNoArgMethod(value, methodName);
+                out.rawset(key, result != null ? result : value);
+            }
+            return out;
+        }
+        if (obj instanceof Map<?, ?> map) {
+            KahluaTable out = LuaManager.platform.newTable();
+            for (Map.Entry<?, ?> e : map.entrySet()) {
+                Object key = e.getKey();
+                Object value = e.getValue();
+                Object result = invokeNoArgMethod(value, methodName);
+                out.rawset(key, result != null ? result : value);
+            }
+            return out;
+        }
+        if (obj instanceof List<?> list) {
+            KahluaTable out = LuaManager.platform.newTable();
+            for (int i = 0; i < list.size(); i++) {
+                Object value = list.get(i);
+                Object result = invokeNoArgMethod(value, methodName);
+                out.rawset(Double.valueOf(i + 1), result != null ? result : value);
+            }
+            return out;
+        }
+        return null;
+    }
+
     @LuaMethod(name = "zbgrep", global = true)
     public static KahluaTable zbGrep(Object obj, String pattern) {
         return zbGrep(obj, pattern, false);
@@ -369,7 +487,7 @@ public class zbUtils {
      * file cannot be read or substring is null/empty.
      */
     @LuaMethod(name = "zbgreplog", global = true)
-    public static KahluaTable zbGrepLog(String substring) {
+    public static KahluaTable zbgreplog(String substring) {
         if (substring == null || substring.isEmpty()) {
             return null;
         }

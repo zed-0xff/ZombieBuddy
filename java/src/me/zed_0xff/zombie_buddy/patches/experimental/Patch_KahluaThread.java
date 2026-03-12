@@ -10,7 +10,8 @@ import zombie.Lua.LuaManager;
 public class Patch_KahluaThread {
     // see zbUtils class
     public static final HashSet<String> METHODS = new HashSet<>(Arrays.asList(
-        "zbinspect", 
+        "zbinspect",
+        "zbmethod",
         "zbmethods",
         "zbfields",
 
