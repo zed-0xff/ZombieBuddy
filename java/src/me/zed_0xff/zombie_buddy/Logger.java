@@ -1,17 +1,32 @@
 package me.zed_0xff.zombie_buddy;
 
+import java.io.PrintStream;
 import java.util.Arrays;
 
 public class Logger {
     private static final String PREFIX = "[ZB] ";
     public static final int MAX_ARG_STRING_LENGTH = 150;
 
+    // save before PZ overrides them, so we can still log to console even if PZ's logger is messed up
+    private static PrintStream out = System.out;
+    private static PrintStream err = System.err;
+
     public static void info(String message) {
-        System.out.println(PREFIX + message);
+        message = PREFIX + message;
+        try {
+            System.out.println(message);
+        } catch (Exception e) { // might fail on game boot
+            out.println(message);
+        }
     }
 
     public static void error(String message) {
-        System.err.println(PREFIX + message);
+        message = PREFIX + message;
+        try {
+            System.err.println(message);
+        } catch (Exception e) { // see above
+            err.println(message);
+        }
     }
 
     /** Format an object for logging: strings quoted, arrays expanded, length capped. */
