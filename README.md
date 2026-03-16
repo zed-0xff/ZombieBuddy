@@ -89,7 +89,7 @@ If you prefer to install manually on Windows, or are on macOS/Linux, follow thes
    **macOS and Linux**:
    - Copy `ZombieBuddy.jar` from the mod's `build/libs/` directory to:
      - **macOS**: `~/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app/Contents/Java/`
-     - **Linux**: The equivalent Java directory in your Steam installation (typically `~/.steam/steam/steamapps/common/ProjectZomboid/projectzomboid/java/`)
+     - **Linux**: The equivalent Java directory in your Steam installation (typically `~/.steam/steam/steamapps/common/ProjectZomboid/projectzomboid/`)
    
    **Windows**:
    - Copy **both** `ZombieBuddy.jar` and `zbNative.dll` from the mod's `build/libs/` directory to the game directory:

@@ -37,7 +37,7 @@ to your Project Zomboid folder:
 [*] Copy ZombieBuddy.jar from the mod's libs/ directory to:
 [list]
 [*] [b]macOS:[/b] ~/Library/Application Support/Steam/steamapps/common/ProjectZomboid/Project Zomboid.app/Contents/Java/
-[*] [b]Linux:[/b] ~/.steam/steam/steamapps/common/ProjectZomboid/projectzomboid/java/
+[*] [b]Linux:[/b] ~/.steam/steam/steamapps/common/ProjectZomboid/projectzomboid/
 [/list]
 [*] Open Project Zomboid's launch options in Steam
 [*] Add this JVM argument: -javaagent:ZombieBuddy.jar --

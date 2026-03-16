@@ -39,7 +39,7 @@ local function checkZombieBuddyInstallation()
             screenshotImage = "media/ui/zb_steam_options_win.png"
         else
             -- Linux path
-            dstDir = "~/.steam/steam/steamapps/common/ProjectZomboid/projectzomboid/java/"
+            dstDir = "~/.steam/steam/steamapps/common/ProjectZomboid/projectzomboid/"
             screenshotImage = "media/ui/zb_steam_options_osx.png"
         end
         
