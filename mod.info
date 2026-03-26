@@ -1,0 +1,10 @@
+name=ZombieBuddy
+id=ZombieBuddy
+author=Zed
+url=https://github.com/zed-0xff/ZombieBuddy
+poster=common/zb_icon_256.png
+icon=common/zb_icon_128.png
+description=Java bytecode manipulation framework for Project Zomboid. Enables runtime patching of game classes and Lua integration for advanced modding.
+
+javaJarFile=libs/ZombieBuddy.jar
+javaPkgName=me.zed_0xff.zombie_buddy
