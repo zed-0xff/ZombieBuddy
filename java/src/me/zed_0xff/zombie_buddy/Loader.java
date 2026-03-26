@@ -1,27 +1,30 @@
 package me.zed_0xff.zombie_buddy;
 
 import java.io.File;
-import java.io.InputStream;
+import java.io.IOException;
 import java.lang.ClassLoader;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.jar.JarFile;
-import java.util.jar.Manifest;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import io.github.classgraph.*;
 
+import mjson.Json;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.implementation.MethodCall;
 import net.bytebuddy.implementation.MethodDelegation;
 import net.bytebuddy.matcher.ElementMatchers;
 
+import zombie.ZomboidFileSystem;
 import zombie.gameStates.ChooseGameInfo;
 
 public class Loader {
@@ -30,6 +33,8 @@ public class Loader {
 
     static Set<String> g_known_classes = new HashSet<>();
     static Set<File> g_known_jars = new HashSet<>();
+    public static Set<String> g_activated_mods = new HashSet<>();
+    private static Map<String, Boolean> g_known_mods;
 
     // Key for grouping patches by class+method
     private static record PatchTarget(String className, String methodName) {}
@@ -171,12 +176,78 @@ public class Loader {
         return null;
     }
 
+    public static Path getKnownModsFilePath() {
+        return Path.of(ZomboidFileSystem.instance.getCacheDir(), ZombieBuddy.MOD_CACHE_DIR, "known_mods.json");
+    }
+
+    private static Map<String, Boolean> loadKnownModsFromFile(Path path) throws IOException {
+        Map<String, Boolean> result = new HashMap<>();
+        Json.read(Files.readString(path)).asJsonMap().forEach((k, v) -> {
+            if (v.isBoolean()) {
+                result.put(k, v.asBoolean());
+            }
+        });
+        return result;
+    }
+
+    private static Map<String, Boolean> loadKnownMods() {
+        var path = getKnownModsFilePath();
+        if (Files.exists(path)) {
+            try {
+                return loadKnownModsFromFile(path);
+            } catch (Exception e) {
+                Logger.error("Could not read known mods file: " + e);
+            }
+        }
+        return new HashMap<>();
+    }
+
+    public static Map<String, Boolean> getKnownMods() {
+        if (g_known_mods == null) {
+            g_known_mods = loadKnownMods();
+        }
+        return g_known_mods;
+    }
+
+    private static void saveKnownModsToFile(Path path, Map<String, Boolean> map) throws IOException {
+        Files.createDirectories(path.getParent());
+        Files.writeString(path, Json.make(map).toString());
+    }
+
+    public static boolean isModAllowedToLoad(ChooseGameInfo.Mod mod) {
+        if (isModRequired(mod, ZombieBuddy.MOD_ID)) {
+            var knownMods = getKnownMods();
+            // Don't allow the mod to load if it was previously known as a non-ZombieBuddy mod and wasn't re-activated by the user
+            return !Boolean.FALSE.equals(knownMods.get(mod.getId())) || g_activated_mods.contains(mod.getId());
+        }
+        return true;
+    }
+
+    public static boolean isModRequired(ChooseGameInfo.Mod mod, String modId) {
+        var deps = mod.getRequire();
+        return deps != null && (deps.contains(modId) || deps.contains("\\" + modId));
+    }
+
     public static void loadMods(ArrayList<String> mods) {
+        if (mods.isEmpty()) return;
+
         ArrayList<JavaModInfo> jModInfos = new ArrayList<>();
+        ArrayList<Boolean> zbMods = new ArrayList<>();
+
+        var knownMods = getKnownMods();
+        var knownModsChanged = false;
 
         for (String mod_id : mods) {
             var mod = ChooseGameInfo.getAvailableModDetails(mod_id);
             if (mod == null) continue;
+
+            // Keep track whether the mod depends on ZombieBuddy
+            boolean zbRequired = isModRequired(mod, ZombieBuddy.MOD_ID);
+            Boolean knownMod = knownMods.get(mod_id);
+            if (knownMod == null || knownMod != zbRequired) {
+                knownMods.put(mod_id, zbRequired);
+                knownModsChanged = true;
+            }
 
             if (Accessor.hasPublicMethod(mod, "getVersionDir") && Accessor.hasPublicMethod(mod, "getCommonDir")) {
                 // B42+
@@ -187,18 +258,34 @@ public class Loader {
 
                 if (jModInfoCommon != null) {
                     jModInfos.add(jModInfoCommon);
+                    zbMods.add(zbRequired);
                     if (jModInfoVersion == null) {
                         // when mod.info is in common dir, but JAR is in version dir
                         jModInfoVersion = JavaModInfo.parseMerged(mod.getCommonDir(), mod.getVersionDir());
                     }
                 }
-                if (jModInfoVersion != null) jModInfos.add(jModInfoVersion);
+                if (jModInfoVersion != null) {
+                    jModInfos.add(jModInfoVersion);
+                    zbMods.add(zbRequired);
+                }
             } else {
                 // B41
                 JavaModInfo jModInfo = JavaModInfo.parse(mod.getDir());
-                if (jModInfo != null) jModInfos.add(jModInfo);
+                if (jModInfo != null) {
+                    jModInfos.add(jModInfo);
+                    zbMods.add(zbRequired);
+                }
             }
         }
+
+        if (knownModsChanged) {
+            try {
+                saveKnownModsToFile(getKnownModsFilePath(), knownMods);
+            } catch (IOException e) {
+                Logger.error("Could not save known mods: " + e);
+            }
+        }
+        g_activated_mods.clear();
 
         Logger.info("java mod list to load:");
         printModList(jModInfos);
@@ -221,10 +308,15 @@ public class Loader {
             if (jModInfo.javaPkgName().equals(myPackageName)) {
                 shouldSkip = true;
             }
-            
+
             // Check if this mod's package name appears in a later mod
             Integer lastIndex = lastPkgNameIndex.get(jModInfo.javaPkgName());
             if (lastIndex != null && lastIndex > i) {
+                shouldSkip = true;
+            }
+
+            // Skip mods that didn't specify ZombieBuddy as a required dependency
+            if (!zbMods.get(i)) {
                 shouldSkip = true;
             }
             
@@ -242,6 +334,8 @@ public class Loader {
                     if (jModInfo.javaPkgName().equals(myPackageName)) {
                         reason = " (loaded as Java agent, skipping normal mod loading)"
                             + SelfUpdater.getExclusionReasonSuffix(jModInfo.getJarFileAsFile());
+                    } else if (!zbMods.get(i)) {
+                        reason = " (mod does not declare " + ZombieBuddy.MOD_ID + " as a required dependency)";
                     } else {
                         Integer lastIndex = lastPkgNameIndex.get(jModInfo.javaPkgName());
                         if (lastIndex != null && lastIndex > i) {
