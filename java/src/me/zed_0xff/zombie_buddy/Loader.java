@@ -173,10 +173,14 @@ public class Loader {
 
     public static void loadMods(ArrayList<String> mods) {
         ArrayList<JavaModInfo> jModInfos = new ArrayList<>();
+        ArrayList<Boolean> zbMods = new ArrayList<>();
 
         for (String mod_id : mods) {
             var mod = ChooseGameInfo.getAvailableModDetails(mod_id);
             if (mod == null) continue;
+
+            var deps = mod.getRequire();
+            boolean zbRequired = deps != null && (deps.contains(ZombieBuddy.MOD_ID) || deps.contains("\\" + ZombieBuddy.MOD_ID));
 
             if (Accessor.hasPublicMethod(mod, "getVersionDir") && Accessor.hasPublicMethod(mod, "getCommonDir")) {
                 // B42+
@@ -187,16 +191,23 @@ public class Loader {
 
                 if (jModInfoCommon != null) {
                     jModInfos.add(jModInfoCommon);
+                    zbMods.add(zbRequired);
                     if (jModInfoVersion == null) {
                         // when mod.info is in common dir, but JAR is in version dir
                         jModInfoVersion = JavaModInfo.parseMerged(mod.getCommonDir(), mod.getVersionDir());
                     }
                 }
-                if (jModInfoVersion != null) jModInfos.add(jModInfoVersion);
+                if (jModInfoVersion != null) {
+                    jModInfos.add(jModInfoVersion);
+                    zbMods.add(zbRequired);
+                }
             } else {
                 // B41
                 JavaModInfo jModInfo = JavaModInfo.parse(mod.getDir());
-                if (jModInfo != null) jModInfos.add(jModInfo);
+                if (jModInfo != null) {
+                    jModInfos.add(jModInfo);
+                    zbMods.add(zbRequired);
+                }
             }
         }
 
@@ -221,10 +232,15 @@ public class Loader {
             if (jModInfo.javaPkgName().equals(myPackageName)) {
                 shouldSkip = true;
             }
-            
+
             // Check if this mod's package name appears in a later mod
             Integer lastIndex = lastPkgNameIndex.get(jModInfo.javaPkgName());
             if (lastIndex != null && lastIndex > i) {
+                shouldSkip = true;
+            }
+
+            // Skip mods that didn't specify ZombieBuddy as a required dependency
+            if (!zbMods.get(i)) {
                 shouldSkip = true;
             }
             
@@ -242,6 +258,8 @@ public class Loader {
                     if (jModInfo.javaPkgName().equals(myPackageName)) {
                         reason = " (loaded as Java agent, skipping normal mod loading)"
                             + SelfUpdater.getExclusionReasonSuffix(jModInfo.getJarFileAsFile());
+                    } else if (!zbMods.get(i)) {
+                        reason = " (mod does not declare " + ZombieBuddy.MOD_ID + " as a required dependency)";
                     } else {
                         Integer lastIndex = lastPkgNameIndex.get(jModInfo.javaPkgName());
                         if (lastIndex != null && lastIndex > i) {
