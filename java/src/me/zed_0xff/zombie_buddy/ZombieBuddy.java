@@ -1,15 +1,21 @@
 package me.zed_0xff.zombie_buddy;
 
 import java.io.File;
+import java.util.Set;
 
+import me.zed_0xff.zombie_buddy.patches.Patch_Mod_isAvailable;
 import se.krka.kahlua.vm.JavaFunction;
 import se.krka.kahlua.vm.LuaClosure;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
+import zombie.gameStates.ChooseGameInfo;
 
 public class ZombieBuddy {
     private static String version = "unknown";
-    
+
+    public static final String MOD_ID = "ZombieBuddy";
+    public static final String MOD_CACHE_DIR = "ZombieBuddy";
+
     static {
         loadVersionInfo();
         Exposer.exposeClassToLua(ZombieBuddy.class);
@@ -96,5 +102,14 @@ public class ZombieBuddy {
             return tbl;
         }
         return null;
+    }
+
+    /** Returns the real availability of a mod, bypassing patch on ChooseGameInfo.Mod::isAvailable(). */
+    public static boolean isModAvailable(ChooseGameInfo.Mod mod) {
+        if (mod == null) {
+            return false;
+        }
+        Patch_Mod_isAvailable.bypass.set(true);
+        return mod.isAvailable();
     }
 }

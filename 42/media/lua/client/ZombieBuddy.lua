@@ -1,15 +1,10 @@
-local hasShownNotification = false
+local initialized = false
 
 local function checkZombieBuddyInstallation()
-    -- Only check once
-    if hasShownNotification then
-        return
-    end
-    
     if ZombieBuddy and ZombieBuddy.getVersion then
         print("[ZombieBuddy] ZombieBuddy.getVersion() = " .. ZombieBuddy.getVersion())
         -- ZombieBuddy is properly installed
-        return
+        return true
     end
     if not ZombieBuddy then
         print("[ZombieBuddy] ZombieBuddy global is nil.")
@@ -19,8 +14,6 @@ local function checkZombieBuddyInstallation()
     print("[ZombieBuddy] showing installation notification.")
     
     -- ZombieBuddy is not installed - show notification
-    hasShownNotification = true
-    
     local function showInstallationDialog()
         local core = getCore()
         if not core then
@@ -105,6 +98,48 @@ local function checkZombieBuddyInstallation()
     showInstallationDialog()
 end
 
--- Run the check when on main menu
-Events.OnMainMenuEnter.Add(checkZombieBuddyInstallation)
+local function hookModManager()
+    local Mod = zombie.gameStates.ChooseGameInfo.Mod
+    local Mod_index = __classmetatables[Mod.class].__index
 
+    -- Allow the mods that are actually available to be re-activated from the mod manager
+    local forceActivateMods = ModSelector.Model.forceActivateMods
+    ModSelector.Model.forceActivateMods = function(self, modInfo, activate)
+        local isAvailable = Mod_index.isAvailable
+        Mod_index.isAvailable = ZombieBuddy.isModAvailable
+        forceActivateMods(self, modInfo, activate)
+        Mod_index.isAvailable = isAvailable
+    end
+
+    -- Display a "ZB" badge on mods that depend on ZombieBuddy as a Java mod hint
+    local doDrawItem = ModSelector.ModListBox.doDrawItem
+    ModSelector.ModListBox.doDrawItem = function(listbox, itemY, item, ...)
+        local drawTextureScaled = ISUIElement.drawTextureScaled
+        ISUIElement.drawTextureScaled = function(self, texture, x, y, w, h, a, r, g, b)
+            if (texture == self.starSetTexture or texture == self.starUnsetTexture)
+            and (item.item.requireMods["ZombieBuddy"] or item.item.requireMods["\\ZombieBuddy"])
+            then
+                local smallFontH = getTextManager():getFontHeight(UIFont.Small)
+                self:drawTextRight("ZB", x - (y - itemY), y + (h - smallFontH) / 2, 0.5, 0.7, 0.45, 1.0, UIFont.Small)
+            end
+            return drawTextureScaled(self, texture, x, y, w, h, a, r, g, b)
+        end
+        local ret = {doDrawItem(listbox, itemY, item, ...)}
+        ISUIElement.drawTextureScaled = drawTextureScaled
+        return unpack(ret)
+    end
+end
+
+local function onMainMenuEnter()
+    if initialized then
+        return
+    end
+    initialized = true
+
+    if checkZombieBuddyInstallation() then
+        hookModManager()
+    end
+end
+
+-- Run the check when on main menu
+Events.OnMainMenuEnter.Add(onMainMenuEnter)
