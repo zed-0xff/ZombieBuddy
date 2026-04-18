@@ -53,8 +53,43 @@ Previously, Java mods for Project Zomboid required bundling `.class` files and m
 > - Access your file system outside the game directory
 > - Perform network operations
 > - Execute any Java code without restrictions
-> 
+>
 > **Only install and enable Java mods from sources you trust completely.** Review the source code if available, and be aware that malicious Java mods could potentially harm your system or compromise your data. You install and use Java mods at your own risk.
+>
+> To mitigate this, ZombieBuddy will **prompt you before loading any new or changed Java mod JAR** (see [Java Mod Approval & Policy](#-java-mod-approval--policy) below). No JAR is loaded until you explicitly approve it.
+
+#### 🔒 Java Mod Approval & Policy
+
+**No JAR will sneak in.** When ZombieBuddy sees a Java mod JAR it hasn't seen before (or a previously-approved JAR whose contents changed), it shows a native dialog with:
+
+- The mod id
+- The full path to the JAR
+- The file's last-modified date
+- The JAR's SHA-256 fingerprint
+
+Nothing is loaded until you click **Yes**. A second dialog asks whether the decision should be **persisted** across game runs or kept **session-only**. Negative answers (deny) can be persisted too, so a mod you explicitly rejected never re-prompts you.
+
+**Where decisions are stored:**
+
+- **Windows:** `%USERPROFILE%\.zombie_buddy\java_mod_approvals.txt`
+- **macOS / Linux:** `~/.zombie_buddy/java_mod_approvals.txt`
+
+Format is `modId|sha256=yes|no`, one entry per line. To revoke a previous decision, just delete the corresponding line and restart the game.
+
+**Policy modes** (pass as a `policy=...` agent argument):
+
+| Value        | Behavior                                                                                 |
+|--------------|------------------------------------------------------------------------------------------|
+| `prompt`     | (default) Ask via a native dialog for each unknown/changed JAR.                          |
+| `deny-new`   | Silently skip any JAR that isn't already approved. No dialogs are shown.                 |
+| `allow-all`  | Load every JAR without prompting. **Not recommended** - use only in controlled setups.   |
+
+Example launch options:
+
+- Windows: `-agentlib:zbNative=policy=deny-new --`
+- macOS / Linux: `-javaagent:ZombieBuddy.jar=policy=deny-new --`
+
+The policy is locked during `premain`, before any Java mod is on the classpath, so a later-loading Java mod cannot call `Loader.setPolicy("allow-all")` to relax it at runtime.
 
 #### 🪟 Windows (Automated Installer)
 
@@ -384,6 +419,38 @@ local byFile = ZombieBuddy.Events.getByFile("/path/to/SomeMod.lua")
 -- Inspect a callback's source
 local info = ZombieBuddy.getClosureInfo(callbacks[1])
 print(info.filename, info.line)  -- e.g. "media/lua/client/SomeMod.lua", 42
+```
+
+#### Java Mod Status (Lua API)
+
+ZombieBuddy exposes the current loader policy and per-mod load status to Lua, so other mods (e.g. [ZBetterModList](https://github.com/zed-0xff/ZBetterModList)) can display what was allowed, blocked, or remembered.
+
+| Method | Description |
+|--------|-------------|
+| `ZombieBuddy.getPolicy()` | Returns the active policy as a string: `"prompt"`, `"deny-new"`, or `"allow-all"`. |
+| `ZombieBuddy.getJavaModStatus(modId)` | Returns a table for the given mod id, or `nil` if ZombieBuddy didn't consider a JAR for it. |
+
+The status table has these fields:
+
+| Field       | Type    | Meaning |
+|-------------|---------|---------|
+| `loaded`    | boolean | `true` if the JAR was actually loaded this run. |
+| `reason`    | string  | `"loaded"` or a short skip reason (e.g. `"blocked by policy=deny-new"`). |
+| `sha256`    | string  | Hex SHA-256 of the JAR, or `nil` if there was no JAR. |
+| `decision`  | string  | `"yes"`, `"no"`, or `nil` if no decision was recorded. |
+| `persisted` | boolean | `true` if the decision came from the on-disk approvals file (vs session-only). |
+
+**Example:**
+
+```lua
+local status = ZombieBuddy.getJavaModStatus("SomeJavaMod")
+if status then
+    if status.loaded then
+        print("loaded, decision=" .. tostring(status.decision) .. ", persisted=" .. tostring(status.persisted))
+    else
+        print("blocked: " .. status.reason)
+    end
+end
 ```
 
 #### ZombieBuddy.Watches (Experimental)
