@@ -54,6 +54,26 @@ to your Project Zomboid folder:
 [h1]⚠️ Security Warning ⚠️[/h1]
 Java mods enabled through ZombieBuddy have unrestricted access to your system. Only install mods from sources you trust.
 
+[b]No jar will sneak in.[/b] Whenever a Java mod ships a new or updated JAR, ZombieBuddy shows a native dialog with the mod id, file path, last-modified date, and SHA-256 fingerprint. Nothing is loaded until you click [b]Yes[/b]. You can choose to remember the decision (per-mod, per-hash) or keep it session-only. Decisions are stored in:
+[list]
+[*] [b]Windows:[/b] %USERPROFILE%\.zombie_buddy\java_mod_approvals.txt
+[*] [b]macOS / Linux:[/b] ~/.zombie_buddy/java_mod_approvals.txt
+[/list]
+If a previously-approved JAR changes on disk (hash mismatch), you will be prompted again.
+
+[h1]Java Mod Policy[/h1]
+Controls what happens when an unknown/changed JAR is seen. Pass as a [b]policy=...[/b] argument:
+[list]
+[*] [b]prompt[/b] (default) - ask me each time via a native dialog.
+[*] [b]deny-new[/b] - silently skip any JAR that isn't already approved.
+[*] [b]allow-all[/b] - load every JAR without prompting. [b]Not recommended.[/b]
+[/list]
+Examples (block form, these go into Steam launch options):
+[code]
+-agentlib:zbNative=policy=deny-new --            (Windows)
+-javaagent:ZombieBuddy.jar=policy=deny-new --    (macOS / Linux)
+[/code]
+
 [h1]FAQ[/h1]
 [list]
     [*][b]Is it a virus?[/b]
@@ -70,6 +90,12 @@ Java mods enabled through ZombieBuddy have unrestricted access to your system. O
 
     [*][b]Save compatibility?[/b]
     Safe to add or remove on existing saves.
+
+    [*][b]I clicked the wrong button in the approval dialog. How do I reset it?[/b]
+    Open [code]java_mod_approvals.txt[/code] (path above), delete the offending [code]modId|sha256=yes|no[/code] line, and restart the game.
+
+    [*][b]Can I see which Java mods were loaded or blocked?[/b]
+    Yes - install [b]ZBetterModList[/b] and the status is shown next to each JAR path in the mod list.
 
     [*][b]Supported game versions?[/b]
     B41, B42.12, B42.13, B42.14, B42.15, B42.16
