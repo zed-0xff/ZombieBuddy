@@ -7,29 +7,17 @@ import java.io.File;
  * Contains JAR file path and package name for a Java mod.
  */
 public record JavaModInfo(
-    /** The directory containing the mod.info file */
-    File modDirectory,
-    /** The mod.info file itself */
-    File modInfoFile,
-    /** JAR file path relative to modDirectory (from javaJarFile entry) */
-    String jarFilePath,
-    /** Package name (from javaPkgName entry) */
-    String javaPkgName,
-    /** Minimum ZombieBuddy version required (from zbVersionMin entry) */
-    String zbVersionMin,
-    /** Maximum ZombieBuddy version required (from zbVersionMax entry) */
-    String zbVersionMax
+    File modDirectory,   // directory containing the mod.info
+    File modInfoFile,    // mod.info file itself
+    String jarFilePath,  // JAR file path relative to modDirectory
+    String javaPkgName,  // Package name
+    String zbVersionMin, // Minimum ZombieBuddy version required
+    String zbVersionMax  // Maximum ZombieBuddy version required
 ) {
-    /**
-     * Creates a JavaModInfo with null values.
-     */
     public JavaModInfo(File modDirectory, File modInfoFile) {
         this(modDirectory, modInfoFile, null, null, null, null);
     }
     
-    /**
-     * Checks if this mod has a JAR file specified.
-     */
     public boolean hasJarFile() {
         return !isEmpty(jarFilePath);
     }
