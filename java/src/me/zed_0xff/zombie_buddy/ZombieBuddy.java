@@ -37,6 +37,37 @@ public class ZombieBuddy {
         return "ZombieBuddy v" + version;
     }
 
+    /** Current Java-mod JAR policy: "prompt", "deny-new", or "allow-all". */
+    public static String getPolicy() {
+        return Loader.getPolicy();
+    }
+
+    /**
+     * Per-mod status snapshot captured during Loader.loadMods(). Returns null
+     * if the given modId has no recorded Java JAR (not a Java mod, or
+     * metadata-only mod.info with no javaJarFile).
+     *
+     * Fields in the returned table:
+     *   loaded    (boolean) — true if the JAR was loaded this run
+     *   reason    (string)  — "loaded" or short skip reason
+     *   sha256    (string)  — JAR sha256 (may be absent if hashing failed)
+     *   decision  (string)  — "yes" | "no" (absent if never decided)
+     *   persisted (boolean) — true = from ~/.zombie_buddy file, false = session only
+     */
+    public static KahluaTable getJavaModStatus(String modId) {
+        Loader.JavaModLoadState s = Loader.getJarLoadState(modId);
+        if (s == null) return null;
+        var tbl = LuaManager.platform.newTable();
+        tbl.rawset("loaded", s.loaded);
+        tbl.rawset("reason", s.reason);
+        if (s.sha256 != null) tbl.rawset("sha256", s.sha256);
+        if (s.decision != null) {
+            tbl.rawset("decision", s.decision);
+            tbl.rawset("persisted", s.persisted);
+        }
+        return tbl;
+    }
+
     public static String getClosureFilename(Object obj) {
         if (obj instanceof LuaClosure closure) {
             if (closure == null || closure.prototype == null)

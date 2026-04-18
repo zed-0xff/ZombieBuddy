@@ -79,14 +79,43 @@ public class Loader {
     // hash produces a new key → the user is re-prompted, while old records
     // for previous hashes are preserved (rollback = no re-prompt).
     private static final String KEY_SEP = "|";
-    private static final String DECISION_YES = "yes";
-    private static final String DECISION_NO  = "no";
+    static final String DECISION_YES = "yes";
+    static final String DECISION_NO  = "no";
     private static final Map<String, String> g_sessionDecisions = new HashMap<>();
 
     private enum Approval { ALLOW_PERSIST, ALLOW_SESSION, DENY_PERSIST, DENY_SESSION }
 
     private static String recordKey(String modId, String hash) {
         return modId + KEY_SEP + hash;
+    }
+
+    /**
+     * Per-modId load/decision snapshot captured at loadMods() time so Lua
+     * (and other callers) can display "loaded / blocked / session / persisted"
+     * next to each mod in the UI. Keyed by modId; for multi-dir B42 mods the
+     * version-dir entry (which typically carries the JAR) overwrites the
+     * common-dir one.
+     */
+    static final class JavaModLoadState {
+        final boolean loaded;     // true if the JAR was loaded this run
+        final String reason;      // "loaded" or a short skip reason
+        final String sha256;      // JAR sha256, null if no JAR
+        final String decision;    // DECISION_YES / DECISION_NO / null
+        final boolean persisted;  // true if decision came from the file (vs session map)
+
+        JavaModLoadState(boolean loaded, String reason, String sha256, String decision, boolean persisted) {
+            this.loaded = loaded;
+            this.reason = reason;
+            this.sha256 = sha256;
+            this.decision = decision;
+            this.persisted = persisted;
+        }
+    }
+
+    private static final Map<String, JavaModLoadState> g_jarLoadStatus = new HashMap<>();
+
+    static JavaModLoadState getJarLoadState(String modId) {
+        return modId == null ? null : g_jarLoadStatus.get(modId);
     }
 
     // Key for grouping patches by class+method
@@ -358,9 +387,8 @@ public class Loader {
         else        return persist ? Approval.DENY_PERSIST  : Approval.DENY_SESSION;
     }
 
-    private static boolean isJarAllowedByPolicy(String modId, JavaModInfo jModInfo, Properties approvals) {
+    private static boolean isJarAllowedByPolicy(String modId, JavaModInfo jModInfo, Properties approvals, String hash) {
         File jarFile = jModInfo != null ? jModInfo.getJarFileAsFile() : null;
-        String hash = sha256Hex(jarFile);
         if (hash == null) return false;
 
         String policy = g_jarPolicy;
@@ -457,6 +485,8 @@ public class Loader {
         for (int i = 0; i < jModInfos.size(); i++) {
             JavaModInfo jModInfo = jModInfos.get(i);
             String modId = i < jModIds.size() ? jModIds.get(i) : jModInfo.javaPkgName();
+            File jarFile = jModInfo.getJarFileAsFile();
+            String hash = sha256Hex(jarFile);
             boolean shouldSkip = false;
             String skipReason = "";
             
@@ -464,7 +494,7 @@ public class Loader {
             if (jModInfo.javaPkgName().equals(myPackageName)) {
                 shouldSkip = true;
                 skipReason = " (loaded as Java agent, skipping normal mod loading)"
-                    + SelfUpdater.getExclusionReasonSuffix(jModInfo.getJarFileAsFile());
+                    + SelfUpdater.getExclusionReasonSuffix(jarFile);
             }
             
             // Check if this mod's package name appears in a later mod
@@ -475,13 +505,36 @@ public class Loader {
             }
 
             // Enforce Java JAR policy for new/changed binaries.
-            if (!shouldSkip && !isJarAllowedByPolicy(modId, jModInfo, approvals)) {
+            if (!shouldSkip && !isJarAllowedByPolicy(modId, jModInfo, approvals, hash)) {
                 shouldSkip = true;
                 skipReason = " (blocked by policy=" + g_jarPolicy + ", modId=" + modId + ")";
             }
             
             shouldSkipList.add(shouldSkip);
             skipReasons.add(skipReason);
+
+            // Snapshot for ZombieBuddy.getJavaModStatus(). Skipped when no JAR
+            // (e.g. metadata-only mod.info entries in B42 common dirs).
+            if (jarFile != null) {
+                String decision = null;
+                boolean persisted = false;
+                if (hash != null) {
+                    String recKey = recordKey(modId, hash);
+                    String v = approvals.getProperty(recKey);
+                    if (v != null) { decision = v; persisted = true; }
+                    else {
+                        v = g_sessionDecisions.get(recKey);
+                        if (v != null) { decision = v; persisted = false; }
+                    }
+                }
+                g_jarLoadStatus.put(modId, new JavaModLoadState(
+                    !shouldSkip,
+                    shouldSkip ? skipReason.trim() : "loaded",
+                    hash,
+                    decision,
+                    persisted
+                ));
+            }
         }
 
         if (!approvalsBefore.equals(approvals)) {
