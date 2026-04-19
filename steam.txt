@@ -80,7 +80,11 @@ Examples (block form, these go into Steam launch options):
     No.
 
     [*][b]How to start game in debug mode?[/b]
-    [code]-agentlib:zbNative -- -debug[/code]
+    [code]
+    -agentlib:zbNative -- -debug
+    OR
+    -javaagent:ZombieBuddy.jar -- -debug
+    [/code]
 
     [*][b]Do I need to repeat manual installation after I upgrade/downgrade/validate game?[/b]
     No.
@@ -95,7 +99,7 @@ Examples (block form, these go into Steam launch options):
     Open [code]java_mod_approvals.txt[/code] (path above), delete the offending [code]modId|sha256=yes|no[/code] line, and restart the game.
 
     [*][b]Can I see which Java mods were loaded or blocked?[/b]
-    Yes - install [b]ZBetterModList[/b] and the status is shown next to each JAR path in the mod list.
+    Yes - install [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3709229404]Zed's Better ModList[/url] and the status is shown next to each JAR path in the mod list.
 
     [*][b]Supported game versions?[/b]
     B41, B42.12, B42.13, B42.14, B42.15, B42.16
