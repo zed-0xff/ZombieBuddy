@@ -2,5 +2,5 @@
 # so this file is a kind of authoritative source of resolving steam ids to names
 # open a PR at https://github.com/zed-0xff/ZombieBuddy/ if you want to add your name or update it
 # it's YAML because it can has comments)
-# pls keep it alphabetically sorted
-Zed: 76561198043849998
+# pls keep it sorted alphabetically
+76561198043849998: Zed

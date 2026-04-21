@@ -4,9 +4,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import mjson.Json;
@@ -14,18 +18,18 @@ import mjson.Json;
 /**
  * Persistent Java-mod JAR allow/deny decisions under {@code ~/.zombie_buddy/}.
  * <p>
- * JSON shape (extensible root; only {@code jarDecisions} is written by this class):
+ * JSON shape (extensible root):
  * <pre>
  * {
  *   "formatVersion": 1,
  *   "jarDecisions": {
- *     "ModId": {
- *       "sha256hex": true | false
- *     }
+ *     "ModId": { "sha256hex": true | false }
+ *   },
+ *   "authors": {
+ *     "7656119…": { "trust": true, "keys": [ "…64 hex Ed25519 pubkey(s)…" ] }
  *   }
  * }
  * </pre>
- * Values are JSON booleans: {@code true} = allow, {@code false} = deny. String {@code yes}/{@code no} is not read.
  */
 public final class JavaModApprovalsStore {
 
@@ -41,9 +45,47 @@ public final class JavaModApprovalsStore {
     private static final int FORMAT_VERSION = 1;
     private static final String KEY_FORMAT_VERSION = "formatVersion";
     private static final String KEY_JAR_DECISIONS = "jarDecisions";
-    private static final String KEY_TRUSTED_AUTHORS = "trustedAuthors";
+    private static final String KEY_AUTHORS = "authors";
+
+    private static final String KEY_TRUST = "trust";
+    private static final String KEY_KEYS = "keys";
 
     private JavaModApprovalsStore() {}
+
+    /** Per SteamID64: trust flag and optional JavaModZBS pubkey hex strings. */
+    public static final class AuthorEntry {
+        public boolean trust;
+        /** Ed25519 public keys from profile ({@code JavaModZBS}), lowercased hex. */
+        public final Set<String> keys;
+
+        public AuthorEntry(boolean trust, Set<String> keys) {
+            this.trust = trust;
+            this.keys = new LinkedHashSet<>();
+            if (keys != null) {
+                for (String k : keys) {
+                    if (k != null && !k.isEmpty()) {
+                        this.keys.add(k.trim().toLowerCase(Locale.ROOT));
+                    }
+                }
+            }
+        }
+
+        public AuthorEntry copy() {
+            return new AuthorEntry(trust, new LinkedHashSet<>(keys));
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof AuthorEntry other)) return false;
+            return trust == other.trust && keys.equals(other.keys);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(trust, keys);
+        }
+    }
 
     static Path directory() {
         return Path.of(System.getProperty("user.home"), ".zombie_buddy");
@@ -59,19 +101,19 @@ public final class JavaModApprovalsStore {
 
     static final class Snapshot {
         private final JarDecisionTable jarDecisions;
-        private final Set<String> trustedAuthors;
+        private final Map<String, AuthorEntry> authors;
 
-        Snapshot(JarDecisionTable jarDecisions, Set<String> trustedAuthors) {
+        Snapshot(JarDecisionTable jarDecisions, Map<String, AuthorEntry> authors) {
             this.jarDecisions = jarDecisions;
-            this.trustedAuthors = trustedAuthors;
+            this.authors = authors;
         }
 
         JarDecisionTable jarDecisions() {
             return jarDecisions;
         }
 
-        Set<String> trustedAuthors() {
-            return trustedAuthors;
+        Map<String, AuthorEntry> authors() {
+            return authors;
         }
     }
 
@@ -79,42 +121,42 @@ public final class JavaModApprovalsStore {
         Path jp = jsonPath();
         Path leg = legacyTxtPath();
         JarDecisionTable table = new JarDecisionTable();
-        Set<String> trustedAuthors = new HashSet<>();
+        Map<String, AuthorEntry> authors = new HashMap<>();
         try {
             if (Files.exists(jp)) {
-                readJsonInto(jp, table, trustedAuthors);
+                readJsonInto(jp, table, authors);
                 Logger.info("Java mod approvals JSON read from " + jp + ": " + table.decisionCount()
-                    + " decision(s), " + trustedAuthors.size() + " trusted author(s)");
+                    + " decision(s), " + authors.size() + " author(s)");
             }
             if (Files.exists(leg)) {
                 Files.delete(leg);
                 Logger.info("Deleted legacy Java mod approvals file " + leg.getFileName()
                     + " without importing (use " + jp.getFileName() + " only)");
             }
-            return new Snapshot(table, trustedAuthors);
+            return new Snapshot(table, authors);
         } catch (Exception e) {
             Logger.error("Could not load Java mod approvals: " + e);
         }
-        return new Snapshot(table, trustedAuthors);
+        return new Snapshot(table, authors);
     }
 
     static JarDecisionTable load() {
         return loadSnapshot().jarDecisions();
     }
 
-    static Set<String> loadTrustedAuthors() {
-        return new HashSet<>(loadSnapshot().trustedAuthors());
+    static Map<String, AuthorEntry> loadAuthors() {
+        return new HashMap<>(loadSnapshot().authors());
     }
 
     /**
      * Writes {@code jarDecisions}. If a file already exists, reads it first and merges,
-     * replacing only {@code jarDecisions}; other top-level keys are kept when possible.
+     * replacing {@code jarDecisions} and {@code authors}; other top-level keys are kept when possible.
      */
     static void save(JarDecisionTable table) {
-        save(table, loadTrustedAuthors());
+        save(table, loadAuthors());
     }
 
-    static void save(JarDecisionTable table, Set<String> trustedAuthors) {
+    static void save(JarDecisionTable table, Map<String, AuthorEntry> authors) {
         try {
             Path jp = jsonPath();
             if (jp.getParent() != null) {
@@ -139,12 +181,12 @@ public final class JavaModApprovalsStore {
                 root.set(KEY_FORMAT_VERSION, FORMAT_VERSION);
             }
             root.set(KEY_JAR_DECISIONS, jarDecisionsToJson(table));
-            root.set(KEY_TRUSTED_AUTHORS, trustedAuthorsToJson(trustedAuthors));
+            root.set(KEY_AUTHORS, authorsToJson(authors));
             Files.writeString(jp, MjsonPretty.format(root), StandardCharsets.UTF_8);
             int written = table == null ? 0 : table.decisionCount();
-            int trustedCount = trustedAuthors == null ? 0 : trustedAuthors.size();
+            int authorCount = authors == null ? 0 : authors.size();
             Logger.info("Java mod approvals JSON written to " + jp + ": " + written
-                + " decision(s), " + trustedCount + " trusted author(s)");
+                + " decision(s), " + authorCount + " author(s)");
         } catch (Exception e) {
             Logger.error("Could not save Java mod approvals: " + e);
         }
@@ -166,19 +208,31 @@ public final class JavaModApprovalsStore {
         return jarDecisions;
     }
 
-    static Json trustedAuthorsToJson(Set<String> trustedAuthors) {
-        List<Json> values = new ArrayList<>();
-        if (trustedAuthors != null) {
-            for (String steamId : trustedAuthors) {
-                if (steamId != null && !steamId.isEmpty()) {
-                    values.add(Json.make(steamId));
-                }
-            }
+    static Json authorsToJson(Map<String, AuthorEntry> authors) {
+        Json o = Json.object();
+        if (authors == null || authors.isEmpty()) {
+            return o;
         }
-        return Json.array(values.toArray(new Object[0]));
+        List<String> ids = new ArrayList<>(authors.keySet());
+        Collections.sort(ids);
+        for (String steamId : ids) {
+            AuthorEntry ae = authors.get(steamId);
+            if (ae == null || steamId == null || steamId.isEmpty()) continue;
+            Json a = Json.object();
+            a.set(KEY_TRUST, ae.trust);
+            List<Json> keyElems = new ArrayList<>();
+            List<String> sortedKeys = new ArrayList<>(ae.keys);
+            Collections.sort(sortedKeys);
+            for (String k : sortedKeys) {
+                keyElems.add(Json.make(k));
+            }
+            a.set(KEY_KEYS, Json.array(keyElems.toArray(new Object[0])));
+            o.set(steamId, a);
+        }
+        return o;
     }
 
-    private static void readJsonInto(Path jp, JarDecisionTable into, Set<String> trustedAuthors) throws Exception {
+    private static void readJsonInto(Path jp, JarDecisionTable into, Map<String, AuthorEntry> authors) throws Exception {
         String raw = Files.readString(jp, StandardCharsets.UTF_8);
         String text = raw == null ? "" : raw.trim();
         if (text.isEmpty()) {
@@ -190,38 +244,46 @@ public final class JavaModApprovalsStore {
             return;
         }
         Json jarDecisions = root.at(KEY_JAR_DECISIONS);
-        if (jarDecisions == null || !jarDecisions.isObject()) {
-            readTrustedAuthors(root, trustedAuthors);
-            return;
-        }
-        for (Map.Entry<String, Json> modEntry : jarDecisions.asJsonMap().entrySet()) {
-            String modId = modEntry.getKey();
-            Json inner = modEntry.getValue();
-            if (inner == null || !inner.isObject()) continue;
-            for (Map.Entry<String, Json> he : inner.asJsonMap().entrySet()) {
-                Json jv = he.getValue();
-                if (jv == null || !jv.isBoolean()) continue;
-                into.put(modId, he.getKey(), jv.asBoolean() ? Loader.DECISION_YES : Loader.DECISION_NO);
+        if (jarDecisions != null && jarDecisions.isObject()) {
+            for (Map.Entry<String, Json> modEntry : jarDecisions.asJsonMap().entrySet()) {
+                String modId = modEntry.getKey();
+                Json inner = modEntry.getValue();
+                if (inner == null || !inner.isObject()) continue;
+                for (Map.Entry<String, Json> he : inner.asJsonMap().entrySet()) {
+                    Json jv = he.getValue();
+                    if (jv == null || !jv.isBoolean()) continue;
+                    into.put(modId, he.getKey(), jv.asBoolean() ? Loader.DECISION_YES : Loader.DECISION_NO);
+                }
             }
         }
-        readTrustedAuthors(root, trustedAuthors);
+        readAuthorsBlock(root, authors);
     }
 
-    private static void readTrustedAuthors(Json root, Set<String> trustedAuthors) {
-        if (trustedAuthors == null) {
-            return;
-        }
-        Json arr = root.at(KEY_TRUSTED_AUTHORS);
-        if (arr == null || !arr.isArray()) {
-            return;
-        }
-        for (Json item : arr.asJsonList()) {
-            if (item == null || !item.isString()) {
-                continue;
-            }
-            String steamId = item.asString();
-            if (steamId != null && !steamId.isEmpty()) {
-                trustedAuthors.add(steamId);
+    private static void readAuthorsBlock(Json root, Map<String, AuthorEntry> authors) {
+        Json authorsObj = root.at(KEY_AUTHORS);
+        if (authorsObj != null && authorsObj.isObject()) {
+            for (Map.Entry<String, Json> e : authorsObj.asJsonMap().entrySet()) {
+                String steamId = e.getKey();
+                Json node = e.getValue();
+                if (steamId == null || steamId.isEmpty() || node == null || !node.isObject()) continue;
+                boolean trust = false;
+                Json tj = node.at(KEY_TRUST);
+                if (tj != null && tj.isBoolean()) {
+                    trust = tj.asBoolean();
+                }
+                Set<String> keys = new LinkedHashSet<>();
+                Json kj = node.at(KEY_KEYS);
+                if (kj != null && kj.isArray()) {
+                    for (Json item : kj.asJsonList()) {
+                        if (item != null && item.isString()) {
+                            String k = item.asString().trim();
+                            if (!k.isEmpty()) {
+                                keys.add(k.toLowerCase(Locale.ROOT));
+                            }
+                        }
+                    }
+                }
+                authors.put(steamId.trim(), new AuthorEntry(trust, keys));
             }
         }
     }

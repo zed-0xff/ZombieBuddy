@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -115,7 +116,7 @@ public class Loader {
     static final String DECISION_YES = "yes";
     static final String DECISION_NO  = "no";
     private static final JarDecisionTable g_sessionJarDecisions = new JarDecisionTable();
-    private static final Set<String> g_trustedAuthors = new HashSet<>();
+    private static final Map<String, JavaModApprovalsStore.AuthorEntry> g_authors = new HashMap<>();
 
     private static final Object g_approvalFrontendLock = new Object();
     private static volatile JavaModApprovalFrontend g_approvalFrontend;
@@ -591,13 +592,13 @@ public class Loader {
     }
 
     public static void applyBatchApprovalLines(List<JarBatchApprovalProtocol.OutLine> lines, JarDecisionTable disk) {
-        applyBatchApprovalLines(lines, disk, g_trustedAuthors);
+        applyBatchApprovalLines(lines, disk, g_authors);
     }
 
     public static void applyBatchApprovalLines(
         List<JarBatchApprovalProtocol.OutLine> lines,
         JarDecisionTable disk,
-        Set<String> trustedAuthors
+        Map<String, JavaModApprovalsStore.AuthorEntry> authors
     ) {
         if (lines == null) return;
         for (JarBatchApprovalProtocol.OutLine ol : lines) {
@@ -620,13 +621,26 @@ public class Loader {
                     g_sessionJarDecisions.put(modId, hash, DECISION_NO);
                     break;
             }
-            if (trustedAuthors != null) {
-                String trustedSteamId = ol.trustedAuthorSteamId == null ? "" : ol.trustedAuthorSteamId;
+            if (authors != null) {
+                String trustedSteamId = ol.trustedAuthorSteamId == null ? "" : ol.trustedAuthorSteamId.trim();
                 if (!trustedSteamId.isEmpty()) {
-                    trustedAuthors.add(trustedSteamId);
+                    authors.compute(trustedSteamId, (k, v) -> {
+                        if (v == null) {
+                            return new JavaModApprovalsStore.AuthorEntry(true, new LinkedHashSet<>());
+                        }
+                        return new JavaModApprovalsStore.AuthorEntry(true, new LinkedHashSet<>(v.keys));
+                    });
                 }
             }
         }
+    }
+
+    private static boolean isAuthorTrusted(String steamId64) {
+        if (steamId64 == null || steamId64.isEmpty()) {
+            return false;
+        }
+        JavaModApprovalsStore.AuthorEntry ae = g_authors.get(steamId64);
+        return ae != null && ae.trust;
     }
 
     public static void loadMods(ArrayList<String> mods) {
@@ -683,9 +697,12 @@ public class Loader {
         JavaModApprovalsStore.Snapshot approvalsSnapshot = JavaModApprovalsStore.loadSnapshot();
         JarDecisionTable approvals = approvalsSnapshot.jarDecisions();
         JarDecisionTable approvalsBefore = approvals.copy();
-        Set<String> trustedAuthorsBefore = new HashSet<>(approvalsSnapshot.trustedAuthors());
-        g_trustedAuthors.clear();
-        g_trustedAuthors.addAll(trustedAuthorsBefore);
+        Map<String, JavaModApprovalsStore.AuthorEntry> authorsBefore = new HashMap<>();
+        g_authors.clear();
+        for (Map.Entry<String, JavaModApprovalsStore.AuthorEntry> e : approvalsSnapshot.authors().entrySet()) {
+            authorsBefore.put(e.getKey(), e.getValue().copy());
+            g_authors.put(e.getKey(), e.getValue().copy());
+        }
 
         // Structural-only skip flags (must match the policy loop below) — used to batch all PROMPT dialogs.
         ArrayList<Boolean> structuralOnlySkip = new ArrayList<>();
@@ -777,7 +794,7 @@ public class Loader {
                     zbsNotice = "";
                 }
                 boolean steamBanned = STEAM_BAN_STATUS_YES.equals(steamBanStatus);
-                if (!steamBanned && "yes".equals(zbsValid) && g_trustedAuthors.contains(zbsSteamId)) {
+                if (!steamBanned && "yes".equals(zbsValid) && isAuthorTrusted(zbsSteamId)) {
                     approvals.put(modKey, hash, DECISION_YES);
                     continue;
                 }
@@ -900,8 +917,8 @@ public class Loader {
             }
         }
 
-        if (!approvalsBefore.equals(approvals) || !trustedAuthorsBefore.equals(g_trustedAuthors)) {
-            JavaModApprovalsStore.save(approvals, g_trustedAuthors);
+        if (!approvalsBefore.equals(approvals) || !authorsBefore.equals(g_authors)) {
+            JavaModApprovalsStore.save(approvals, g_authors);
         }
         
         if (!shouldSkipList.isEmpty()) {

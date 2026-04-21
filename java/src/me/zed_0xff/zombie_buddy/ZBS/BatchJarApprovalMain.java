@@ -74,7 +74,9 @@ public final class BatchJarApprovalMain {
                 return;
             }
 
-            SwingUtilities.invokeLater(() -> showDialog(entries, resp));
+            // Author column: SteamID64 → label via SteamAuthorNames (GitHub + ~/.zombie_buddy cache).
+            final Map<String, String> steamIdToDisplayName = SteamAuthorNames.loadSteamIdToDisplayName();
+            SwingUtilities.invokeLater(() -> showDialog(entries, resp, steamIdToDisplayName));
         } catch (Exception e) {
             e.printStackTrace(System.err);
             System.exit(2);
@@ -89,7 +91,11 @@ public final class BatchJarApprovalMain {
         return e.modId != null && !e.modId.isEmpty() ? e.modId : e.modKey;
     }
 
-    private static void showDialog(List<JarBatchApprovalProtocol.Entry> entries, Path resp) {
+    private static void showDialog(
+        List<JarBatchApprovalProtocol.Entry> entries,
+        Path resp,
+        Map<String, String> steamIdToDisplayName
+    ) {
         JFrame frame = new JFrame("ZombieBuddy — Java mod approval " + JarBatchApprovalProtocol.osTag());
         frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         frame.addWindowListener(new WindowAdapter() {
@@ -196,10 +202,16 @@ public final class BatchJarApprovalMain {
             }
             if (zbsYes && e.zbsSteamId != null && !e.zbsSteamId.isEmpty()) {
                 String profileUrl = ZBSVerifier.steamCommunityProfileUrl(e.zbsSteamId);
-                String linkText = e.zbsSteamId;
+                String resolved = steamIdToDisplayName != null
+                    ? steamIdToDisplayName.get(e.zbsSteamId)
+                    : null;
+                String linkText = resolved != null && !resolved.isEmpty() ? resolved : e.zbsSteamId;
                 JLabel linkLab = new JLabel(
                     "<html><a href=\"" + profileUrl + "\">" + escapeHtml(linkText) + "</a></html>");
                 linkLab.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                if (!e.zbsSteamId.equals(linkText)) {
+                    linkLab.setToolTipText(e.zbsSteamId);
+                }
                 linkLab.addMouseListener(new MouseAdapter() {
                     @Override
                     public void mouseClicked(MouseEvent ev) {

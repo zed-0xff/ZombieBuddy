@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-# ZombieBuddy mod root: lib/tasks -> .. -> ..
-ZB_MOD_ROOT = File.expand_path("../..", __dir__)
-ZB_JAR = File.join(ZB_MOD_ROOT, "java/build/libs/ZombieBuddy.jar")
 ZB_MAIN = "me.zed_0xff.zombie_buddy.BatchJarApprovalMain"
 
 def zb_find_java
@@ -14,17 +11,6 @@ def zb_find_java
   raise "java not found; set JAVA_HOME or install a JDK"
 end
 
-def zb_ensure_jar!
-  return ZB_JAR if File.exist?(ZB_JAR)
-
-  puts "Building #{ZB_JAR} ..."
-  Dir.chdir(File.join(ZB_MOD_ROOT, "java")) { sh "gradle jar -q" }
-  raise "jar missing after build: #{ZB_JAR}" unless File.exist?(ZB_JAR)
-
-  ZB_JAR
-end
-
-# ZB_BATCH_V5 request body (see JarBatchApprovalProtocol.writeRequest).
 def zb_sample_batch_request_v5(entries)
   lines = [ "ZB_BATCH_V5", entries.size.to_s ]
   entries.each do |e|
@@ -46,27 +32,33 @@ def zb_sample_batch_request_v5(entries)
 end
 
 namespace :zb do
-  desc "Run the Swing batch Java-mod approvals dialog without launching Project Zomboid. " \
-       "Uses a sample request (two demo mods). Response is printed after OK."
+  desc "Run BatchJarApprovalMain with a sample request"
   task :approvals_dialog do
     require "tmpdir"
+    require "yaml"
 
-    jar = zb_ensure_jar!
+    authors = YAML.load_file("authors.yml")
+    abort "authors.yml: expected a mapping with at least one entry" unless authors.is_a?(Hash) && authors.any?
+
+    # Keys are SteamID64 (YAML may parse them as Integer — normalize to string).
+    sid = authors.keys.first.to_s
+    jar = "java/build/libs/ZombieBuddy.jar"
+
     java = zb_find_java
-
     hex64 = "a" * 64
 
     sample = 3.times.map do |i|
+      label = "Signed OK"
       {
         mod_key: "DemoModOk#{i}",
         mod_id: "DemoModOk#{i}",
         jar_path: "/tmp/DemoModOk#{i}/media/java/client/DemoModOk.jar",
         sha256: hex64,
-        modified: "2025-01-01",
+        modified: "2026-01-01",
         prior_hint: "",
-        mod_display_name: "Signed OK",
+        mod_display_name: label,
         zbs_valid: "yes",
-        zbs_steam_id: "76561198000000001",
+        zbs_steam_id: sid,
         zbs_notice: "",
         steam_ban_status: "no",
         steam_ban_reason: ""
@@ -77,7 +69,7 @@ namespace :zb do
         mod_id: "DemoModBad",
         jar_path: "/tmp/DemoModBad/media/java/client/DemoModBad.jar",
         sha256: "b" * 64,
-        modified: "2025-01-02",
+        modified: "2026-01-02",
         prior_hint: "",
         mod_display_name: "Tampered",
         zbs_valid: "no",
@@ -91,7 +83,7 @@ namespace :zb do
         mod_id: "DemoModBanned",
         jar_path: "/tmp/DemoModBanned/media/java/client/DemoModBanned.jar",
         sha256: "d" * 64,
-        modified: "2025-01-03",
+        modified: "2026-01-03",
         prior_hint: "",
         mod_display_name: "Banned on Workshop",
         zbs_valid: "yes",
@@ -105,7 +97,7 @@ namespace :zb do
         mod_id: "DemoModUnknownBan",
         jar_path: "/tmp/DemoModUnknownBan/media/java/client/DemoModUnknownBan.jar",
         sha256: "e" * 64,
-        modified: "2025-01-04",
+        modified: "2026-01-04",
         prior_hint: "",
         mod_display_name: "Ban status unknown",
         zbs_valid: "yes",
@@ -135,12 +127,7 @@ namespace :zb do
       resp = File.join(dir, "response.txt")
       File.write(req, zb_sample_batch_request_v5(sample))
 
-      cmd = [
-        java, "-Djava.awt.headless=false",
-        "-cp", jar,
-        ZB_MAIN,
-        req, resp
-      ]
+      cmd = [ java, "-Djava.awt.headless=false", "-cp", jar, ZB_MAIN, req, resp ]
       puts cmd.join(" ")
       system(*cmd)
       st = $?.exitstatus
