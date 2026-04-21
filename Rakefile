@@ -26,3 +26,8 @@ task :run, :verbosity, :exit_after_game_init do |t, args|
 
   sh File.join(GAME_ROOT, "MacOS/JavaAppLauncher"), "-javaagent:ZombieBuddy.jar#{cmd_args_str}", "--"
 end
+
+desc "show steam url"
+task :url do
+  puts "https://steamcommunity.com/sharedfiles/filedetails/?id=3619862853"
+end
