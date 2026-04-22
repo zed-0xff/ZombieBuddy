@@ -1,29 +1,34 @@
 package me.zed_0xff.zombie_buddy;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import tools.jackson.databind.ObjectMapper;
 
 /**
- * Text file protocol between {@link Loader} (game process) and
+ * JSON file protocol between {@link Loader} (game process) and
  * {@link BatchJarApprovalMain} (non-headless child JVM with Swing UI).
  */
 public final class JarBatchApprovalProtocol {
 
     static final String HDR_REQ  = "ZB_BATCH_V6";
     static final String HDR_RESP = "ZB_BATCH_V3_OUT";
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     static final String TOK_ALLOW_PERSIST = "ALLOW_PERSIST";
     static final String TOK_ALLOW_SESSION = "ALLOW_SESSION";
     static final String TOK_DENY_PERSIST  = "DENY_PERSIST";
     static final String TOK_DENY_SESSION  = "DENY_SESSION";
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static final class Entry {
         public final String modKey;
         public final String modId;
@@ -47,20 +52,21 @@ public final class JarBatchApprovalProtocol {
         /** Optional explanation (e.g. API error or Steam ban reason). */
         public final String steamBanReason;
 
+        @JsonCreator
         public Entry(
-            String modKey,
-            String modId,
-            JavaModInfo.WorkshopItemID workshopItemId,
-            String jarAbsolutePath,
-            String sha256,
-            String modifiedHuman,
-            String priorHint,
-            String modDisplayName,
-            String zbsValid,
-            SteamID64 zbsSteamId,
-            String zbsNotice,
-            String steamBanStatus,
-            String steamBanReason
+            @JsonProperty("modKey") String modKey,
+            @JsonProperty("modId") String modId,
+            @JsonProperty("workshopItemId") JavaModInfo.WorkshopItemID workshopItemId,
+            @JsonProperty("jarAbsolutePath") String jarAbsolutePath,
+            @JsonProperty("sha256") String sha256,
+            @JsonProperty("modifiedHuman") String modifiedHuman,
+            @JsonProperty("priorHint") String priorHint,
+            @JsonProperty("modDisplayName") String modDisplayName,
+            @JsonProperty("zbsValid") String zbsValid,
+            @JsonProperty("zbsSteamId") SteamID64 zbsSteamId,
+            @JsonProperty("zbsNotice") String zbsNotice,
+            @JsonProperty("steamBanStatus") String steamBanStatus,
+            @JsonProperty("steamBanReason") String steamBanReason
         ) {
             this.modKey = modKey;
             this.modId = modId;
@@ -79,6 +85,8 @@ public final class JarBatchApprovalProtocol {
     }
 
     /** One row in the batch response file: decision key, optional workshop id, JAR hash, token, optional trusted author SteamID64. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static final class OutLine {
         public final String modId;
         public final JavaModInfo.WorkshopItemID workshopItemId;
@@ -90,12 +98,13 @@ public final class JarBatchApprovalProtocol {
             this(modId, workshopItemId, sha256, token, "");
         }
 
+        @JsonCreator
         public OutLine(
-            String modId,
-            JavaModInfo.WorkshopItemID workshopItemId,
-            String sha256,
-            String token,
-            String trustedAuthorSteamId
+            @JsonProperty("modId") String modId,
+            @JsonProperty("workshopItemId") JavaModInfo.WorkshopItemID workshopItemId,
+            @JsonProperty("sha256") String sha256,
+            @JsonProperty("token") String token,
+            @JsonProperty("trustedAuthorSteamId") String trustedAuthorSteamId
         ) {
             this.modId = modId != null ? modId : "";
             this.workshopItemId = workshopItemId;
@@ -106,153 +115,35 @@ public final class JarBatchApprovalProtocol {
     }
 
     public static void writeRequest(Path path, List<Entry> entries) throws IOException {
-        try (BufferedWriter w = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
-            w.write(HDR_REQ);
-            w.newLine();
-            w.write(Integer.toString(entries.size()));
-            w.newLine();
-            for (Entry e : entries) {
-                w.write("---");
-                w.newLine();
-                w.write(escape(e.modKey));
-                w.newLine();
-                w.write(escape(e.modId));
-                w.newLine();
-                w.write(escape(e.workshopItemId != null ? Long.toString(e.workshopItemId.value()) : ""));
-                w.newLine();
-                w.write(escape(e.jarAbsolutePath));
-                w.newLine();
-                w.write(escape(e.sha256));
-                w.newLine();
-                w.write(escape(e.modifiedHuman));
-                w.newLine();
-                w.write(escape(e.priorHint));
-                w.newLine();
-                w.write(escape(e.modDisplayName));
-                w.newLine();
-                w.write(escape(e.zbsValid));
-                w.newLine();
-                w.write(escape(e.zbsSteamId != null ? e.zbsSteamId.value() : ""));
-                w.newLine();
-                w.write(escape(e.zbsNotice));
-                w.newLine();
-                w.write(escape(e.steamBanStatus));
-                w.newLine();
-                w.write(escape(e.steamBanReason));
-                w.newLine();
-            }
-        }
+        List<Entry> safe = entries == null ? Collections.emptyList() : entries;
+        JSON.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), new RequestEnvelope(HDR_REQ, safe));
     }
 
     public static List<Entry> readRequest(Path path) throws IOException {
-        try (BufferedReader r = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            String hdr = r.readLine();
-            if (!HDR_REQ.equals(hdr)) {
-                throw new IOException("Bad request header: " + hdr);
-            }
-            String nLine = r.readLine();
-            if (nLine == null) throw new IOException("Missing count line");
-            int n = Integer.parseInt(nLine.trim());
-            List<Entry> out = new ArrayList<>(Math.max(0, n));
-            for (int i = 0; i < n; i++) {
-                String sep = r.readLine();
-                if (!"---".equals(sep)) {
-                    throw new IOException("Expected '---', got: " + sep);
-                }
-                String modKey = unescape(readMandatory(r, "modKey"));
-                String modId = unescape(readMandatory(r, "modId"));
-                String workshopItemIdRaw = unescape(readMandatory(r, "workshopItemId"));
-                JavaModInfo.WorkshopItemID workshopItemId = workshopItemIdRaw.isEmpty()
-                    ? null
-                    : new JavaModInfo.WorkshopItemID(Long.parseLong(workshopItemIdRaw));
-                String jarPath = unescape(readMandatory(r, "jarPath"));
-                String sha = unescape(readMandatory(r, "sha256"));
-                String modHuman = unescape(readMandatory(r, "modifiedHuman"));
-                String priorHint = unescape(readMandatory(r, "priorHint"));
-                String modDisplayName;
-                String zbsValid = "";
-                SteamID64 zbsSteamId = null;
-                String zbsNotice = "";
-                String steamBanStatus = "";
-                String steamBanReason = "";
-                modDisplayName = unescape(readMandatory(r, "modDisplayName"));
-                zbsValid = unescape(readMandatory(r, "zbsValid"));
-                String zbsSteamIdRaw = unescape(readMandatory(r, "zbsSteamId"));
-                zbsSteamId = zbsSteamIdRaw.isEmpty() ? null : new SteamID64(zbsSteamIdRaw);
-                zbsNotice = unescape(readMandatory(r, "zbsNotice"));
-                steamBanStatus = unescape(readMandatory(r, "steamBanStatus"));
-                steamBanReason = unescape(readMandatory(r, "steamBanReason"));
-                out.add(new Entry(modKey, modId, workshopItemId, jarPath, sha, modHuman, priorHint, modDisplayName,
-                    zbsValid, zbsSteamId, zbsNotice, steamBanStatus, steamBanReason));
-            }
-            return out;
+        RequestEnvelope env = JSON.readValue(path.toFile(), RequestEnvelope.class);
+        if (env == null || !HDR_REQ.equals(env.header)) {
+            throw new IOException("Bad request header: " + (env != null ? env.header : null));
         }
+        return env.entries != null ? env.entries : Collections.emptyList();
     }
 
-    private static String readMandatory(BufferedReader r, String what) throws IOException {
-        String line = r.readLine();
-        if (line == null) throw new IOException("Missing line: " + what);
-        return line;
-    }
-
-    /**
-     * Writes one line per decision:
-     * {@code modId + '\t' + workshopItemId + '\t' + sha256 + '\t' + token + ['\t' + trustedAuthorSteamId]} (fields escaped).
-     */
     public static void writeResponse(Path path, List<OutLine> lines) throws IOException {
-        try (BufferedWriter w = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
-            w.write(HDR_RESP);
-            w.newLine();
-            for (OutLine ol : lines) {
-                w.write(escape(ol.modId));
-                w.write('\t');
-                w.write(escape(ol.workshopItemId != null ? Long.toString(ol.workshopItemId.value()) : ""));
-                w.write('\t');
-                w.write(escape(ol.sha256));
-                w.write('\t');
-                w.write(escape(ol.token));
-                if (ol.trustedAuthorSteamId != null && !ol.trustedAuthorSteamId.isEmpty()) {
-                    w.write('\t');
-                    w.write(escape(ol.trustedAuthorSteamId));
-                }
-                w.newLine();
-            }
-        }
+        List<OutLine> safe = lines == null ? Collections.emptyList() : lines;
+        JSON.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), new ResponseEnvelope(HDR_RESP, safe));
     }
 
-    /**
-     * @return one row per pending mod, or null if malformed
-     */
     public static List<OutLine> readResponse(Path path) throws IOException {
-        try (BufferedReader r = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            String hdr = r.readLine();
-            if (!HDR_RESP.equals(hdr)) {
+        ResponseEnvelope env = JSON.readValue(path.toFile(), ResponseEnvelope.class);
+        if (env == null || !HDR_RESP.equals(env.header)) {
+            return null;
+        }
+        List<OutLine> out = env.lines != null ? env.lines : Collections.emptyList();
+        for (OutLine line : out) {
+            if (!isValidToken(line.token)) {
                 return null;
             }
-            List<OutLine> out = new ArrayList<>();
-            String line;
-            while ((line = r.readLine()) != null) {
-                if (line.isEmpty()) continue;
-                int t1 = line.indexOf('\t');
-                if (t1 <= 0) return null;
-                int t2 = line.indexOf('\t', t1 + 1);
-                if (t2 <= t1 || t2 >= line.length() - 1) return null;
-                int t3 = line.indexOf('\t', t2 + 1);
-                if (t3 <= t2 || t3 >= line.length() - 1) return null;
-                int t4 = line.indexOf('\t', t3 + 1);
-                String modId = unescape(line.substring(0, t1));
-                String workshopItemIdRaw = unescape(line.substring(t1 + 1, t2));
-                JavaModInfo.WorkshopItemID workshopItemId = workshopItemIdRaw.isEmpty()
-                    ? null
-                    : new JavaModInfo.WorkshopItemID(Long.parseLong(workshopItemIdRaw));
-                String sha = unescape(line.substring(t2 + 1, t3));
-                String tok = unescape(t4 < 0 ? line.substring(t3 + 1) : line.substring(t3 + 1, t4));
-                if (!isValidToken(tok)) return null;
-                String trustedAuthorSteamId = t4 < 0 ? "" : unescape(line.substring(t4 + 1));
-                out.add(new OutLine(modId, workshopItemId, sha, tok, trustedAuthorSteamId));
-            }
-            return out;
         }
+        return out;
     }
 
     static boolean isValidToken(String tok) {
@@ -260,31 +151,6 @@ public final class JarBatchApprovalProtocol {
             || TOK_ALLOW_SESSION.equals(tok)
             || TOK_DENY_PERSIST.equals(tok)
             || TOK_DENY_SESSION.equals(tok);
-    }
-
-    /** Minimal escaping so mod ids / paths with newlines do not break blocks. */
-    static String escape(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
-    }
-
-    static String unescape(String s) {
-        if (s == null) return "";
-        StringBuilder b = new StringBuilder(s.length());
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c == '\\' && i + 1 < s.length()) {
-                char n = s.charAt(++i);
-                if (n == 'n') b.append('\n');
-                else if (n == 'r') b.append('\r');
-                else if (n == 't') b.append('\t');
-                else if (n == '\\') b.append('\\');
-                else { b.append(c); b.append(n); }
-            } else {
-                b.append(c);
-            }
-        }
-        return b.toString();
     }
 
     static String displayToken(String tok) {
@@ -298,9 +164,29 @@ public final class JarBatchApprovalProtocol {
         }
     }
 
-    /** Friendly suffix for subprocess window title. */
-    static String osTag() {
-        String os = System.getProperty("os.name", "unknown");
-        return "(" + os.toLowerCase(Locale.US) + ")";
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static final class RequestEnvelope {
+        public final String header;
+        public final List<Entry> entries;
+
+        @JsonCreator
+        RequestEnvelope(@JsonProperty("header") String header, @JsonProperty("entries") List<Entry> entries) {
+            this.header = header;
+            this.entries = entries != null ? entries : new ArrayList<>();
+        }
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static final class ResponseEnvelope {
+        public final String header;
+        public final List<OutLine> lines;
+
+        @JsonCreator
+        ResponseEnvelope(@JsonProperty("header") String header, @JsonProperty("lines") List<OutLine> lines) {
+            this.header = header;
+            this.lines = lines != null ? lines : new ArrayList<>();
+        }
     }
 }

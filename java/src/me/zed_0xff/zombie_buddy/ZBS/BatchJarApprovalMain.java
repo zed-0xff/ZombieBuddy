@@ -114,7 +114,7 @@ public final class BatchJarApprovalMain {
         Map<SteamID64, String> steamIdToDisplayName
     ) {
         final boolean showTrustColumn = entries.stream().anyMatch(e -> "yes".equals(e.zbsValid));
-        JFrame frame = new JFrame("ZombieBuddy — Java mod approval " + JarBatchApprovalProtocol.osTag());
+        JFrame frame = new JFrame("ZombieBuddy — Java mod approval");
         frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         frame.addWindowListener(new WindowAdapter() {
             @Override
