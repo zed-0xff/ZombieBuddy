@@ -4,9 +4,9 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 /** Shared Gson configuration for on-disk and IPC JSON. */
-final class ZbGson {
+final class ZBGson {
 
-    private ZbGson() {}
+    private ZBGson() {}
 
     /** Pretty-printed output ({@link JarBatchApprovalProtocol}, {@link JavaModApprovalsStore}). */
     static final Gson PRETTY = new GsonBuilder()

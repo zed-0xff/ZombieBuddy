@@ -521,7 +521,7 @@ public class Loader {
     /**
      * @return {@code null} = skip Workshop uploader check (no workshop folder in path or creator unavailable).
      */
-    private static SteamID64 workshopUploaderForZbsVerify(
+    private static SteamID64 workshopUploaderForZBSVerify(
         JavaModInfo.WorkshopItemID workshopItemId,
         Map<JavaModInfo.WorkshopItemID, WorkshopItemDetails> byId
     ) {
@@ -884,7 +884,7 @@ public class Loader {
                             zbsNotice = "Missing .zbs sidecar (allow_unsigned_mods=false)";
                         }
                     } else {
-                        SteamID64 uploader_id = workshopUploaderForZbsVerify(workshopItemId, workshopDetailsById);
+                        SteamID64 uploader_id = workshopUploaderForZBSVerify(workshopItemId, workshopDetailsById);
                         ZBSVerifier.Verification zbs = ZBSVerifier.verify(jarFile, zbsFile, hash, uploader_id);
                         zbsValid = zbs instanceof ZBSVerifier.ValidSignature ? "yes" : "no";
                         zbsSID = zbs.sid;
@@ -976,7 +976,7 @@ public class Loader {
                     }
                 } else {
                     SteamID64 uploader = steamModeEnabled
-                        ? workshopUploaderForZbsVerify(workshopItemId, workshopDetailsById)
+                        ? workshopUploaderForZBSVerify(workshopItemId, workshopDetailsById)
                         : null;
                     ZBSVerifier.Verification zbs = ZBSVerifier.verify(jarFile, zbsFile, hash, uploader);
                     String modKey = runtimeDecisionKey(jModInfo, modId);

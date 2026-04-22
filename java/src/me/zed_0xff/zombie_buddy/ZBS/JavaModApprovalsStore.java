@@ -256,7 +256,7 @@ public final class JavaModApprovalsStore {
             Map<SteamID64, String> knownNames = SteamAuthorNames.loadSteamIdToDisplayName();
             root.add(KEY_JAR_DECISIONS, jarDecisionsToJson(table, decisionModIds, decisionAuthors, knownNames));
             root.add(KEY_AUTHORS, authorsToJson(authors, knownNames));
-            Files.writeString(jp, ZbGson.PRETTY.toJson(root), StandardCharsets.UTF_8);
+            Files.writeString(jp, ZBGson.PRETTY.toJson(root), StandardCharsets.UTF_8);
             int written = table == null ? 0 : table.decisionCount();
             int authorCount = authors == null ? 0 : authors.size();
             Logger.info("Java mod approvals JSON written to " + jp + ": " + written
