@@ -14,6 +14,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -78,12 +80,13 @@ public final class ZBSVerifier {
         try {
             pubHexes = fetchJavaModZBSHexesFromSteam(sid);
         } catch (Exception e) {
-            return new VerificationError(sid, e.getMessage());
+            return new VerificationError(sid, e.getMessage(), Collections.emptyList());
         }
         if (pubHexes.isEmpty()) {
             return new VerificationError(
                 sid,
-                "Could not find JavaModZBS:<64 hex> on Steam profile — add it to your profile summary."
+                "Could not find JavaModZBS:<64 hex> on Steam profile — add it to your profile summary.",
+                pubHexes
             );
         }
         try {
@@ -94,10 +97,10 @@ public final class ZBSVerifier {
                 try {
                     pubRaw = hexToBytes(pubHex);
                 } catch (Exception e) {
-                    return new VerificationError(sid, "Invalid JavaModZBS hex on Steam profile.");
+                    return new VerificationError(sid, "Invalid JavaModZBS hex on Steam profile.", pubHexes);
                 }
                 if (pubRaw.length != 32) {
-                    return new VerificationError(sid, "JavaModZBS on Steam profile must be 64 hex chars (32-byte Ed25519 public key).");
+                    return new VerificationError(sid, "JavaModZBS on Steam profile must be 64 hex chars (32-byte Ed25519 public key).", pubHexes);
                 }
                 Ed25519PublicKeyParameters pub = new Ed25519PublicKeyParameters(pubRaw, 0);
                 Ed25519Signer signer = new Ed25519Signer();
@@ -105,12 +108,12 @@ public final class ZBSVerifier {
                 signer.update(msg, 0, msg.length);
                 boolean ok = signer.verifySignature(sig);
                 if (ok) {
-                    return new ValidSignature(sid);
+                    return new ValidSignature(sid, pubHexes);
                 }
             }
-            return new InvalidSignature(sid, "Invalid signature — JAR may have been tampered with.");
+            return new InvalidSignature(sid, "Invalid signature — JAR may have been tampered with.", pubHexes);
         } catch (Exception e) {
-            return new VerificationError(sid, e.getMessage());
+            return new VerificationError(sid, e.getMessage(), pubHexes);
         }
     }
 
@@ -143,12 +146,12 @@ public final class ZBSVerifier {
             throw new IOException("Could not load Steam profile (HTTP " + code + ").");
         }
         String body = resp.body();
-        List<String> keys = new ArrayList<>();
+        LinkedHashSet<String> keys = new LinkedHashSet<>();
         Matcher m = JAVA_MOD_ZBS_IN_HTML.matcher(body);
         while (m.find()) {
-            keys.add(m.group(1));
+            keys.add(m.group(1).toLowerCase(Locale.ROOT));
         }
-        return keys;
+        return new ArrayList<>(keys);
     }
 
     private static final class ParsedZBS {
@@ -219,11 +222,18 @@ public final class ZBSVerifier {
         public final String shortMessage;
         /** Extended human-readable message for tooltips/logging. */
         public final String detailedMessage;
+        /** JavaModZBS keys parsed from profile HTML (lowercase hex). */
+        public final List<String> profileKeys;
 
         protected Verification(SteamID64 sid, String shortMessage, String detailedMessage) {
+            this(sid, shortMessage, detailedMessage, Collections.emptyList());
+        }
+
+        protected Verification(SteamID64 sid, String shortMessage, String detailedMessage, List<String> profileKeys) {
             this.sid = sid;
             this.shortMessage = shortMessage != null ? shortMessage : "";
             this.detailedMessage = detailedMessage != null ? detailedMessage : "";
+            this.profileKeys = profileKeys == null ? Collections.emptyList() : List.copyOf(profileKeys);
         }
     }
 
@@ -231,6 +241,10 @@ public final class ZBSVerifier {
     public static final class ValidSignature extends Verification {
         public ValidSignature(SteamID64 sid) {
             super(sid, "", "");
+        }
+
+        public ValidSignature(SteamID64 sid, List<String> profileKeys) {
+            super(sid, "", "", profileKeys);
         }
     }
 
@@ -246,12 +260,20 @@ public final class ZBSVerifier {
         public InvalidSignature(SteamID64 sid, String message) {
             super(sid, "Invalid signature.", message);
         }
+
+        public InvalidSignature(SteamID64 sid, String message, List<String> profileKeys) {
+            super(sid, "Invalid signature.", message, profileKeys);
+        }
     }
 
     /** Verification failed due to external/operational problems (Steam API/profile/key fetch, etc.). */
     public static final class VerificationError extends Verification {
         public VerificationError(SteamID64 sid, String message) {
             super(sid, "Could not verify signature.", message);
+        }
+
+        public VerificationError(SteamID64 sid, String message, List<String> profileKeys) {
+            super(sid, "Could not verify signature.", message, profileKeys);
         }
     }
 }

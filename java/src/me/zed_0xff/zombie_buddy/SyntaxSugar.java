@@ -18,6 +18,9 @@ public class SyntaxSugar {
             // Use a regex that matches everything to get a Junction<MethodDescription>
             return ElementMatchers.nameMatches(".*");
         }
+        if (name.equals("<init>")) {
+            return ElementMatchers.isConstructor();
+        }
         return methodMatcherImpl(name);
     }
     

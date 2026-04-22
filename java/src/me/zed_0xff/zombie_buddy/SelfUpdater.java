@@ -1,10 +1,9 @@
-package me.zed_0xff.zombie_buddy;
+ package me.zed_0xff.zombie_buddy;
 
 import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.jar.JarEntry;
@@ -247,11 +246,9 @@ public final class SelfUpdater {
         }
 
         try {
-            MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
-            byte[] sha256Bytes = sha256.digest(cert.getEncoded());
-            if (verbosity > 0) {
-                String sha256Fingerprint = Utils.bytesToHex(sha256Bytes);
-                Logger.info("    SHA-256 Fingerprint: " + sha256Fingerprint);
+            byte[] sha256Bytes = LoaderUtils.sha256(cert.getEncoded());
+            if (sha256Bytes != null && verbosity > 0) {
+                Logger.info("    SHA-256 Fingerprint: " + Utils.bytesToHex(sha256Bytes));
             }
             return sha256Bytes;
         } catch (Exception e) {
