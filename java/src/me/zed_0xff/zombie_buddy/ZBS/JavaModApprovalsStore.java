@@ -13,7 +13,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import mjson.Json;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 
 /**
  * Persistent Java-mod JAR allow/deny decisions under {@code ~/.zombie_buddy/}.
@@ -236,28 +240,30 @@ public final class JavaModApprovalsStore {
             if (jp.getParent() != null) {
                 Files.createDirectories(jp.getParent());
             }
-            Json root;
+            JsonObject root;
             if (Files.exists(jp)) {
                 try {
                     String existing = Files.readString(jp, StandardCharsets.UTF_8).trim();
-                    root = existing.isEmpty() ? Json.object() : Json.read(existing);
-                    if (!root.isObject()) {
-                        root = Json.object();
+                    if (existing.isEmpty()) {
+                        root = new JsonObject();
+                    } else {
+                        JsonElement parsed = JsonParser.parseString(existing);
+                        root = parsed.isJsonObject() ? parsed.getAsJsonObject() : new JsonObject();
                     }
                 } catch (Exception e) {
                     Logger.warn("Approvals JSON unreadable; rewriting: " + e);
-                    root = Json.object();
+                    root = new JsonObject();
                 }
             } else {
-                root = Json.object();
+                root = new JsonObject();
             }
             if (!root.has(KEY_FORMAT_VERSION)) {
-                root.set(KEY_FORMAT_VERSION, FORMAT_VERSION);
+                root.addProperty(KEY_FORMAT_VERSION, FORMAT_VERSION);
             }
             Map<SteamID64, String> knownNames = SteamAuthorNames.loadSteamIdToDisplayName();
-            root.set(KEY_JAR_DECISIONS, jarDecisionsToJson(table, decisionModIds, decisionAuthors, knownNames));
-            root.set(KEY_AUTHORS, authorsToJson(authors, knownNames));
-            Files.writeString(jp, MjsonPretty.format(root), StandardCharsets.UTF_8);
+            root.add(KEY_JAR_DECISIONS, jarDecisionsToJson(table, decisionModIds, decisionAuthors, knownNames));
+            root.add(KEY_AUTHORS, authorsToJson(authors, knownNames));
+            Files.writeString(jp, GsonPretty.format(root), StandardCharsets.UTF_8);
             int written = table == null ? 0 : table.decisionCount();
             int authorCount = authors == null ? 0 : authors.size();
             Logger.info("Java mod approvals JSON written to " + jp + ": " + written
@@ -267,59 +273,59 @@ public final class JavaModApprovalsStore {
         }
     }
 
-    static Json jarDecisionsToJson(
+    static JsonObject jarDecisionsToJson(
         JarDecisionTable table,
         Map<String, Set<String>> decisionModIds,
         Map<String, DecisionAuthor> decisionAuthors,
         Map<SteamID64, String> knownNames
     ) {
-        Json jarDecisions = Json.object();
+        JsonObject jarDecisions = new JsonObject();
         if (table == null) return jarDecisions;
         for (String workshopItemId : table.modIds()) {
             if (!isWorkshopItemIdKey(workshopItemId)) {
                 continue;
             }
-            Json hashes = Json.object();
+            JsonObject hashes = new JsonObject();
             for (Map.Entry<String, String> e : table.hashesOf(workshopItemId).entrySet()) {
                 String v = e.getValue();
                 if (Loader.DECISION_YES.equals(v) || Loader.DECISION_NO.equals(v)) {
-                    hashes.set(e.getKey(), Loader.DECISION_YES.equals(v));
+                    hashes.addProperty(e.getKey(), Loader.DECISION_YES.equals(v));
                 }
             }
-            Json row = Json.object();
-            List<Json> modIds = new ArrayList<>();
+            JsonObject row = new JsonObject();
+            JsonArray modIds = new JsonArray();
             Set<String> mids = decisionModIds != null ? decisionModIds.get(workshopItemId) : null;
             if (mids != null) {
                 List<String> sorted = new ArrayList<>(mids);
                 Collections.sort(sorted);
                 for (String mid : sorted) {
                     if (mid != null && !mid.isEmpty()) {
-                        modIds.add(Json.make(mid));
+                        modIds.add(new JsonPrimitive(mid));
                     }
                 }
             }
-            row.set(KEY_MOD_IDS, Json.array(modIds.toArray(new Object[0])));
-            row.set(KEY_DECISIONS, hashes);
+            row.add(KEY_MOD_IDS, modIds);
+            row.add(KEY_DECISIONS, hashes);
             DecisionAuthor da = decisionAuthors != null ? decisionAuthors.get(workshopItemId) : null;
             if (da != null && da.id != null && da.id.value() != null && !da.id.value().isEmpty()) {
-                Json author = Json.object();
-                author.set(KEY_ID, da.id.value());
+                JsonObject author = new JsonObject();
+                author.addProperty(KEY_ID, da.id.value());
                 String resolvedName = da.name;
                 if ((resolvedName == null || resolvedName.isEmpty()) && knownNames != null) {
                     resolvedName = knownNames.get(da.id);
                 }
                 if (resolvedName != null && !resolvedName.isEmpty()) {
-                    author.set(KEY_NAME, resolvedName);
+                    author.addProperty(KEY_NAME, resolvedName);
                 }
-                row.set(KEY_AUTHOR, author);
+                row.add(KEY_AUTHOR, author);
             }
-            jarDecisions.set(workshopItemId, row);
+            jarDecisions.add(workshopItemId, row);
         }
         return jarDecisions;
     }
 
-    static Json authorsToJson(Map<SteamID64, AuthorEntry> authors, Map<SteamID64, String> knownNames) {
-        Json o = Json.object();
+    static JsonObject authorsToJson(Map<SteamID64, AuthorEntry> authors, Map<SteamID64, String> knownNames) {
+        JsonObject o = new JsonObject();
         if (authors == null || authors.isEmpty()) {
             return o;
         }
@@ -328,24 +334,24 @@ public final class JavaModApprovalsStore {
         for (SteamID64 sid : ids) {
             AuthorEntry ae = authors.get(sid);
             if (ae == null || sid == null || sid.value() == null || sid.value().isEmpty()) continue;
-            Json a = Json.object();
-            a.set(KEY_TRUST, ae.trust);
-            List<Json> keyElems = new ArrayList<>();
+            JsonObject a = new JsonObject();
+            a.addProperty(KEY_TRUST, ae.trust);
+            JsonArray keyElems = new JsonArray();
             List<String> sortedKeys = new ArrayList<>(ae.keys);
             Collections.sort(sortedKeys);
             for (String k : sortedKeys) {
-                keyElems.add(Json.make(k));
+                keyElems.add(new JsonPrimitive(k));
             }
-            a.set(KEY_KEYS, Json.array(keyElems.toArray(new Object[0])));
+            a.add(KEY_KEYS, keyElems);
             String resolvedName = ae.name;
             if ((resolvedName == null || resolvedName.isEmpty()) && knownNames != null) {
                 resolvedName = knownNames.get(sid);
             }
             if (resolvedName != null && !resolvedName.isEmpty()) {
-                a.set(KEY_NAME, resolvedName);
+                a.addProperty(KEY_NAME, resolvedName);
                 ae.name = resolvedName;
             }
-            o.set(sid.value(), a);
+            o.add(sid.value(), a);
         }
         return o;
     }
@@ -362,42 +368,45 @@ public final class JavaModApprovalsStore {
         if (text.isEmpty()) {
             return;
         }
-        Json root = Json.read(text);
-        if (!root.isObject()) {
+        JsonElement rootEl = JsonParser.parseString(text);
+        if (!rootEl.isJsonObject()) {
             Logger.warn("Java mod approvals file is not a JSON object; ignoring nested decisions");
             return;
         }
-        Json jarDecisions = root.at(KEY_JAR_DECISIONS);
-        if (jarDecisions != null && jarDecisions.isObject()) {
-            for (Map.Entry<String, Json> modEntry : jarDecisions.asJsonMap().entrySet()) {
+        JsonObject root = rootEl.getAsJsonObject();
+        JsonElement jarDecisionsEl = root.get(KEY_JAR_DECISIONS);
+        if (jarDecisionsEl != null && jarDecisionsEl.isJsonObject()) {
+            for (Map.Entry<String, JsonElement> modEntry : jarDecisionsEl.getAsJsonObject().entrySet()) {
                 String workshopItemId = modEntry.getKey();
                 if (!isWorkshopItemIdKey(workshopItemId)) {
                     continue;
                 }
-                Json row = modEntry.getValue();
-                if (row == null || !row.isObject()) continue;
+                JsonElement rowEl = modEntry.getValue();
+                if (rowEl == null || !rowEl.isJsonObject()) continue;
+                JsonObject row = rowEl.getAsJsonObject();
 
-                Json mids = row.at(KEY_MOD_IDS);
-                if (mids != null && mids.isArray()) {
+                JsonElement midsEl = row.get(KEY_MOD_IDS);
+                if (midsEl != null && midsEl.isJsonArray()) {
                     Set<String> out = decisionModIds.computeIfAbsent(workshopItemId, k -> new LinkedHashSet<>());
-                    for (Json item : mids.asJsonList()) {
-                        if (item != null && item.isString()) {
-                            String mid = item.asString().trim();
+                    for (JsonElement item : midsEl.getAsJsonArray()) {
+                        if (item != null && item.isJsonPrimitive() && item.getAsJsonPrimitive().isString()) {
+                            String mid = item.getAsString().trim();
                             if (!mid.isEmpty()) out.add(mid);
                         }
                     }
                 }
 
-                Json author = row.at(KEY_AUTHOR);
-                if (author != null && author.isObject()) {
-                    Json idj = author.at(KEY_ID);
-                    if (idj != null && idj.isString()) {
-                        String id = idj.asString().trim();
+                JsonElement authorEl = row.get(KEY_AUTHOR);
+                if (authorEl != null && authorEl.isJsonObject()) {
+                    JsonObject author = authorEl.getAsJsonObject();
+                    JsonElement idj = author.get(KEY_ID);
+                    if (idj != null && idj.isJsonPrimitive() && idj.getAsJsonPrimitive().isString()) {
+                        String id = idj.getAsString().trim();
                         if (!id.isEmpty()) {
                             String name = null;
-                            Json namej = author.at(KEY_NAME);
-                            if (namej != null && namej.isString()) {
-                                String v = namej.asString().trim();
+                            JsonElement namej = author.get(KEY_NAME);
+                            if (namej != null && namej.isJsonPrimitive() && namej.getAsJsonPrimitive().isString()) {
+                                String v = namej.getAsString().trim();
                                 if (!v.isEmpty()) name = v;
                             }
                             decisionAuthors.put(workshopItemId, new DecisionAuthor(new SteamID64(id), name));
@@ -405,42 +414,45 @@ public final class JavaModApprovalsStore {
                     }
                 }
 
-                Json inner = row.at(KEY_DECISIONS);
-                if (inner == null || !inner.isObject()) continue;
-                for (Map.Entry<String, Json> he : inner.asJsonMap().entrySet()) {
-                    Json jv = he.getValue();
-                    if (jv == null || !jv.isBoolean()) continue;
-                    into.put(workshopItemId, he.getKey(), jv.asBoolean() ? Loader.DECISION_YES : Loader.DECISION_NO);
+                JsonElement innerEl = row.get(KEY_DECISIONS);
+                if (innerEl == null || !innerEl.isJsonObject()) continue;
+                JsonObject inner = innerEl.getAsJsonObject();
+                for (Map.Entry<String, JsonElement> he : inner.entrySet()) {
+                    JsonElement jv = he.getValue();
+                    if (jv == null || !jv.isJsonPrimitive() || !jv.getAsJsonPrimitive().isBoolean()) continue;
+                    into.put(workshopItemId, he.getKey(), jv.getAsBoolean() ? Loader.DECISION_YES : Loader.DECISION_NO);
                 }
             }
         }
         readAuthorsBlock(root, authors);
     }
 
-    private static void readAuthorsBlock(Json root, Map<SteamID64, AuthorEntry> authors) {
-        Json authorsObj = root.at(KEY_AUTHORS);
-        if (authorsObj != null && authorsObj.isObject()) {
-            for (Map.Entry<String, Json> e : authorsObj.asJsonMap().entrySet()) {
+    private static void readAuthorsBlock(JsonObject root, Map<SteamID64, AuthorEntry> authors) {
+        JsonElement authorsObjEl = root.get(KEY_AUTHORS);
+        if (authorsObjEl != null && authorsObjEl.isJsonObject()) {
+            JsonObject authorsObj = authorsObjEl.getAsJsonObject();
+            for (Map.Entry<String, JsonElement> e : authorsObj.entrySet()) {
                 String steamId = e.getKey();
-                Json node = e.getValue();
-                if (steamId == null || steamId.isEmpty() || node == null || !node.isObject()) continue;
+                JsonElement nodeEl = e.getValue();
+                if (steamId == null || steamId.isEmpty() || nodeEl == null || !nodeEl.isJsonObject()) continue;
+                JsonObject node = nodeEl.getAsJsonObject();
                 boolean trust = false;
-                Json tj = node.at(KEY_TRUST);
-                if (tj != null && tj.isBoolean()) {
-                    trust = tj.asBoolean();
+                JsonElement tj = node.get(KEY_TRUST);
+                if (tj != null && tj.isJsonPrimitive() && tj.getAsJsonPrimitive().isBoolean()) {
+                    trust = tj.getAsBoolean();
                 }
                 String name = null;
-                Json nj = node.at(KEY_NAME);
-                if (nj != null && nj.isString()) {
-                    String v = nj.asString().trim();
+                JsonElement nj = node.get(KEY_NAME);
+                if (nj != null && nj.isJsonPrimitive() && nj.getAsJsonPrimitive().isString()) {
+                    String v = nj.getAsString().trim();
                     if (!v.isEmpty()) name = v;
                 }
                 Set<String> keys = new LinkedHashSet<>();
-                Json kj = node.at(KEY_KEYS);
-                if (kj != null && kj.isArray()) {
-                    for (Json item : kj.asJsonList()) {
-                        if (item != null && item.isString()) {
-                            String k = item.asString().trim();
+                JsonElement kj = node.get(KEY_KEYS);
+                if (kj != null && kj.isJsonArray()) {
+                    for (JsonElement item : kj.getAsJsonArray()) {
+                        if (item != null && item.isJsonPrimitive() && item.getAsJsonPrimitive().isString()) {
+                            String k = item.getAsString().trim();
                             if (!k.isEmpty()) {
                                 keys.add(k.toLowerCase(Locale.ROOT));
                             }

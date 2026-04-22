@@ -29,7 +29,12 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import io.github.classgraph.*;
-import mjson.Json;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.asm.Advice;
@@ -388,18 +393,20 @@ public class Loader {
         }
     }
 
-    private static JavaModInfo.WorkshopItemID parsePublishedFileId(Json idJson) {
-        if (idJson == null) return null;
-        if (idJson.isString()) {
+    private static JavaModInfo.WorkshopItemID parsePublishedFileId(JsonElement idJson) {
+        if (idJson == null || idJson.isJsonNull()) return null;
+        if (!idJson.isJsonPrimitive()) return null;
+        JsonPrimitive p = idJson.getAsJsonPrimitive();
+        if (p.isString()) {
             try {
-                return new JavaModInfo.WorkshopItemID(Long.parseLong(idJson.asString().trim()));
+                return new JavaModInfo.WorkshopItemID(Long.parseLong(p.getAsString().trim()));
             } catch (Exception e) {
                 return null;
             }
         }
-        if (idJson.isNumber()) {
+        if (p.isNumber()) {
             try {
-                return new JavaModInfo.WorkshopItemID(idJson.asLong());
+                return new JavaModInfo.WorkshopItemID(p.getAsLong());
             } catch (Exception e) {
                 return null;
             }
@@ -407,17 +414,19 @@ public class Loader {
         return null;
     }
 
-    private static SteamID64 parseCreatorSteamId64(Json item) {
-        if (item == null || !item.isObject()) return null;
-        Json cj = item.at("creator");
-        if (cj == null) return null;
-        if (cj.isString()) {
-            String s = cj.asString().trim();
+    private static SteamID64 parseCreatorSteamId64(JsonElement item) {
+        if (item == null || !item.isJsonObject()) return null;
+        JsonElement cj = item.getAsJsonObject().get("creator");
+        if (cj == null || cj.isJsonNull()) return null;
+        if (!cj.isJsonPrimitive()) return null;
+        JsonPrimitive p = cj.getAsJsonPrimitive();
+        if (p.isString()) {
+            String s = p.getAsString().trim();
             return s.isEmpty() ? null : new SteamID64(s);
         }
-        if (cj.isNumber()) {
+        if (p.isNumber()) {
             try {
-                return new SteamID64(Long.toString(cj.asLong()));
+                return new SteamID64(Long.toString(p.getAsLong()));
             } catch (Exception e) {
                 return null;
             }
@@ -459,28 +468,31 @@ public class Loader {
                         "Steam API request failed (HTTP " + resp.statusCode() + ")");
                     continue;
                 }
-                Json root = Json.read(resp.body());
-                Json response = root != null ? root.at("response") : null;
-                Json details = (response != null && response.isObject()) ? response.at("publishedfiledetails") : null;
-                if (details == null || !details.isArray()) {
+                JsonElement root = JsonParser.parseString(resp.body());
+                JsonElement response = root != null && root.isJsonObject() ? root.getAsJsonObject().get("response") : null;
+                JsonElement details = (response != null && response.isJsonObject())
+                    ? response.getAsJsonObject().get("publishedfiledetails")
+                    : null;
+                if (details == null || !details.isJsonArray()) {
                     setUnknownWorkshopDetails(out, new HashSet<>(chunk), "Steam API response missing publishedfiledetails");
                     continue;
                 }
                 Set<JavaModInfo.WorkshopItemID> seen = new HashSet<>();
-                for (Json it : details.asJsonList()) {
-                    if (it == null || !it.isObject()) continue;
-                    JavaModInfo.WorkshopItemID id = parsePublishedFileId(it.at("publishedfileid"));
+                for (JsonElement it : details.getAsJsonArray()) {
+                    if (it == null || !it.isJsonObject()) continue;
+                    JsonObject itObj = it.getAsJsonObject();
+                    JavaModInfo.WorkshopItemID id = parsePublishedFileId(itObj.get("publishedfileid"));
                     if (id == null) continue;
                     seen.add(id);
                     int banned = 0;
-                    Json bannedJson = it.at("banned");
-                    if (bannedJson != null && bannedJson.isNumber()) {
-                        banned = bannedJson.asInteger();
+                    JsonElement bannedJson = itObj.get("banned");
+                    if (bannedJson != null && bannedJson.isJsonPrimitive() && bannedJson.getAsJsonPrimitive().isNumber()) {
+                        banned = bannedJson.getAsInt();
                     }
                     String reason = "";
-                    Json banReasonJson = it.at("ban_reason");
-                    if (banReasonJson != null && banReasonJson.isString()) {
-                        reason = banReasonJson.asString();
+                    JsonElement banReasonJson = itObj.get("ban_reason");
+                    if (banReasonJson != null && banReasonJson.isJsonPrimitive() && banReasonJson.getAsJsonPrimitive().isString()) {
+                        reason = banReasonJson.getAsString();
                     }
                     SteamID64 creator = parseCreatorSteamId64(it);
                     out.put(id, new WorkshopItemDetails(

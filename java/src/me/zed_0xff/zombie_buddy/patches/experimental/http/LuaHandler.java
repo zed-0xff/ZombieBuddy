@@ -11,7 +11,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
-import mjson.Json;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
+
 import org.luaj.kahluafork.compiler.FuncState;
 import se.krka.kahlua.integration.LuaReturn;
 import se.krka.kahlua.luaj.compiler.LuaCompiler;
@@ -47,7 +51,7 @@ public class LuaHandler implements HttpHandler {
         final List<String[]> chunks = HttpServer.parseMultipartLua(body, chunkName);
 
         AtomicReference<Object> resultRef = new AtomicReference<>();
-        AtomicReference<Json> errorPayloadRef = new AtomicReference<>();
+        AtomicReference<JsonObject> errorPayloadRef = new AtomicReference<>();
         final Map<String, Object> errorGlobalValues = new HashMap<>();
         AtomicInteger errCode = new AtomicInteger(0);
         AtomicInteger errorListSizeBeforeRef = new AtomicInteger(-1);
@@ -135,18 +139,26 @@ public class LuaHandler implements HttpHandler {
         }
 
         if (errorPayloadRef.get() != null) {
-            Json root = Json.object();
+            JsonObject root = new JsonObject();
             int code = errCode.get();
-            root.set("err_code", code);
+            root.addProperty("err_code", code);
             if (code == 1) {
-                root.set("luaReturn", errorPayloadRef.get());
+                root.add("luaReturn", errorPayloadRef.get());
             } else {
-                root.set("javaException", errorPayloadRef.get());
+                root.add("javaException", errorPayloadRef.get());
                 String[] errors = HttpServer.extractErrorsFromList(errorListSizeBeforeRef.get());
-                root.set("kahluaErrors", errors != null ? Json.make(java.util.Arrays.asList(errors)) : Json.nil());
+                if (errors != null) {
+                    JsonArray arr = new JsonArray();
+                    for (String s : errors) {
+                        arr.add(s != null ? new JsonPrimitive(s) : JsonNull.INSTANCE);
+                    }
+                    root.add("kahluaErrors", arr);
+                } else {
+                    root.add("kahluaErrors", JsonNull.INSTANCE);
+                }
             }
             if (!errorGlobalValues.isEmpty()) {
-                root.set("errorGlobals", LuaJson.toJsonTree(errorGlobalValues));
+                root.add("errorGlobals", LuaJson.toJsonTree(errorGlobalValues));
             }
             HttpServer.sendJsonResponse(exchange, 500, root.toString());
             return;

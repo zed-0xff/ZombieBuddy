@@ -1,21 +1,23 @@
 package me.zed_0xff.zombie_buddy;
 
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 
-import mjson.Json;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 
 /**
- * Indented JSON text for {@link mjson.Json} (mjson's {@link Json#toString(int)} is max length, not pretty-print).
+ * Indented JSON text for Gson {@link JsonElement} with compact {@code mod_ids} and {@code author} objects.
  */
-final class MjsonPretty {
+final class GsonPretty {
 
     private static final int SPACES_PER_LEVEL = 2;
 
-    private MjsonPretty() {}
+    private GsonPretty() {}
 
-    static String format(Json root) {
+    static String format(JsonElement root) {
         StringBuilder sb = new StringBuilder();
         write(root, sb, 0, null);
         sb.append('\n');
@@ -28,39 +30,43 @@ final class MjsonPretty {
         }
     }
 
-    private static void write(Json j, StringBuilder sb, int depth, String fieldName) {
-        if (j == null || j.isNull()) {
+    private static void write(JsonElement j, StringBuilder sb, int depth, String fieldName) {
+        if (j == null || j.isJsonNull()) {
             sb.append("null");
             return;
         }
-        if (j.isBoolean()) {
-            sb.append(j.asBoolean());
+        if (j.isJsonPrimitive()) {
+            JsonPrimitive p = j.getAsJsonPrimitive();
+            if (p.isBoolean()) {
+                sb.append(p.getAsBoolean());
+                return;
+            }
+            if (p.isNumber()) {
+                sb.append(p.getAsNumber().toString());
+                return;
+            }
+            if (p.isString()) {
+                appendQuoted(sb, p.getAsString());
+                return;
+            }
+            sb.append("null");
             return;
         }
-        if (j.isNumber()) {
-            Object v = j.getValue();
-            sb.append(v != null ? v.toString() : "0");
-            return;
-        }
-        if (j.isString()) {
-            appendQuoted(sb, j.asString());
-            return;
-        }
-        if (j.isArray()) {
-            List<Json> list = j.asJsonList();
-            if (list.isEmpty()) {
+        if (j.isJsonArray()) {
+            JsonArray arr = j.getAsJsonArray();
+            if (arr.size() == 0) {
                 sb.append("[]");
                 return;
             }
             if ("mod_ids".equals(fieldName)) {
-                writeCompactArray(j, sb);
+                writeCompactArray(arr, sb);
                 return;
             }
             sb.append("[\n");
-            for (int i = 0; i < list.size(); i++) {
+            for (int i = 0; i < arr.size(); i++) {
                 indent(sb, depth + 1);
-                write(list.get(i), sb, depth + 1, null);
-                if (i < list.size() - 1) {
+                write(arr.get(i), sb, depth + 1, null);
+                if (i < arr.size() - 1) {
                     sb.append(',');
                 }
                 sb.append('\n');
@@ -69,20 +75,20 @@ final class MjsonPretty {
             sb.append(']');
             return;
         }
-        if (j.isObject()) {
-            Map<String, Json> map = j.asJsonMap();
-            if (map.isEmpty()) {
+        if (j.isJsonObject()) {
+            JsonObject obj = j.getAsJsonObject();
+            if (obj.entrySet().isEmpty()) {
                 sb.append("{}");
                 return;
             }
             if ("author".equals(fieldName)) {
-                writeCompactObject(j, sb);
+                writeCompactObject(obj, sb);
                 return;
             }
             sb.append("{\n");
-            Iterator<Map.Entry<String, Json>> it = map.entrySet().iterator();
+            Iterator<Map.Entry<String, JsonElement>> it = obj.entrySet().iterator();
             while (it.hasNext()) {
-                Map.Entry<String, Json> e = it.next();
+                Map.Entry<String, JsonElement> e = it.next();
                 indent(sb, depth + 1);
                 appendQuoted(sb, e.getKey());
                 sb.append(": ");
@@ -99,51 +105,55 @@ final class MjsonPretty {
         sb.append("null");
     }
 
-    private static void writeCompactArray(Json j, StringBuilder sb) {
-        List<Json> list = j.asJsonList();
+    private static void writeCompactArray(JsonArray arr, StringBuilder sb) {
         sb.append('[');
-        for (int i = 0; i < list.size(); i++) {
-            Json item = list.get(i);
-            if (item == null || item.isNull()) {
+        for (int i = 0; i < arr.size(); i++) {
+            JsonElement item = arr.get(i);
+            if (item == null || item.isJsonNull()) {
                 sb.append("null");
-            } else if (item.isString()) {
-                appendQuoted(sb, item.asString());
-            } else if (item.isBoolean()) {
-                sb.append(item.asBoolean());
-            } else if (item.isNumber()) {
-                Object v = item.getValue();
-                sb.append(v != null ? v.toString() : "0");
+            } else if (item.isJsonPrimitive()) {
+                JsonPrimitive p = item.getAsJsonPrimitive();
+                if (p.isString()) {
+                    appendQuoted(sb, p.getAsString());
+                } else if (p.isBoolean()) {
+                    sb.append(p.getAsBoolean());
+                } else if (p.isNumber()) {
+                    sb.append(p.getAsNumber().toString());
+                } else {
+                    write(item, sb, 0, null);
+                }
             } else {
-                // Fallback for unexpected nested structures.
                 write(item, sb, 0, null);
             }
-            if (i < list.size() - 1) {
+            if (i < arr.size() - 1) {
                 sb.append(", ");
             }
         }
         sb.append(']');
     }
 
-    private static void writeCompactObject(Json j, StringBuilder sb) {
-        Map<String, Json> map = j.asJsonMap();
+    private static void writeCompactObject(JsonObject obj, StringBuilder sb) {
         sb.append('{');
-        Iterator<Map.Entry<String, Json>> it = map.entrySet().iterator();
+        Iterator<Map.Entry<String, JsonElement>> it = obj.entrySet().iterator();
         while (it.hasNext()) {
-            Map.Entry<String, Json> e = it.next();
+            Map.Entry<String, JsonElement> e = it.next();
             appendQuoted(sb, e.getKey());
             sb.append(": ");
-            Json v = e.getValue();
-            if (v == null || v.isNull()) {
+            JsonElement v = e.getValue();
+            if (v == null || v.isJsonNull()) {
                 sb.append("null");
-            } else if (v.isString()) {
-                appendQuoted(sb, v.asString());
-            } else if (v.isBoolean()) {
-                sb.append(v.asBoolean());
-            } else if (v.isNumber()) {
-                Object raw = v.getValue();
-                sb.append(raw != null ? raw.toString() : "0");
+            } else if (v.isJsonPrimitive()) {
+                JsonPrimitive p = v.getAsJsonPrimitive();
+                if (p.isString()) {
+                    appendQuoted(sb, p.getAsString());
+                } else if (p.isBoolean()) {
+                    sb.append(p.getAsBoolean());
+                } else if (p.isNumber()) {
+                    sb.append(p.getAsNumber().toString());
+                } else {
+                    write(v, sb, 0, null);
+                }
             } else {
-                // Fallback for unexpected nested structures.
                 write(v, sb, 0, null);
             }
             if (it.hasNext()) {
