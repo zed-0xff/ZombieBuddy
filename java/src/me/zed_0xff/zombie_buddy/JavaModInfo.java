@@ -1,6 +1,7 @@
 package me.zed_0xff.zombie_buddy;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -9,25 +10,24 @@ import java.util.regex.Pattern;
  * Contains JAR file path and package name for a Java mod.
  */
 public record JavaModInfo(
-    File modDirectory,   // directory containing the mod.info
+    File modDir,         // directory containing the mod.info
     File modInfoFile,    // mod.info file itself
-    String jarFilePath,  // JAR file path relative to modDirectory
+    String jarFilePath,  // JAR file path relative to modDir
     String javaPkgName,  // Package name
     String zbVersionMin, // Minimum ZombieBuddy version required
     String zbVersionMax, // Maximum ZombieBuddy version required
-    /** From {@code name=} in mod.info; may be null. */
-    String displayName
+    String displayName   // From {@code name=} in mod.info; may be null
 ) {
     /** Project Zomboid Steam app id used in Workshop paths: .../content/108600/<publishedfileid>/... */
     private static final String PZ_APP_ID = "108600";
-    private static final Pattern WORKSHOP_ITEM_ID_IN_PATH =
-        Pattern.compile("/content/" + PZ_APP_ID + "/([0-9]+)/");
+    private static final Pattern WORKSHOP_ITEM_ID_IN_PATH = Pattern.compile("/content/" + PZ_APP_ID + "/([0-9]+)/");
+    private static final Pattern WORKSHOP_ITEM_ID_IN_TXT  = Pattern.compile("^id=([0-9]+)$");
 
     /** Strongly-typed Steam Workshop item id ({@code publishedfileid}). */
     public record WorkshopItemID(long value) {}
 
-    public JavaModInfo(File modDirectory, File modInfoFile) {
-        this(modDirectory, modInfoFile, null, null, null, null, null);
+    public JavaModInfo(File modDir, File modInfoFile) {
+        this(modDir, modInfoFile, null, null, null, null, null);
     }
     
     public boolean hasJarFile() {
@@ -41,7 +41,7 @@ public record JavaModInfo(
         if (isEmpty(jarFilePath)) {
             return null;
         }
-        return new File(modDirectory, jarFilePath);
+        return new File(modDir, jarFilePath);
     }
 
     /**
@@ -51,19 +51,47 @@ public record JavaModInfo(
      * @return typed Workshop item id, or {@code null} when not a Workshop-installed mod path.
      */
     public WorkshopItemID getWorkshopItemID() {
-        if (modDirectory == null) {
+        if (modDir == null) {
             return null;
         }
-        String p = modDirectory.getAbsolutePath().replace('\\', '/');
+        String p = modDir.getAbsolutePath().replace('\\', '/');
         Matcher m = WORKSHOP_ITEM_ID_IN_PATH.matcher(p + "/");
-        if (!m.find()) {
+        if (m.find()) {
+            try {
+                return new WorkshopItemID(Long.parseLong(m.group(1)));
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        if (p.contains("/Workshop/")) {
+            return parseWorkshopItemIDFromWorkshopTxt(modDir);
+        }
+        return null;
+    }
+
+    private static WorkshopItemID parseWorkshopItemIDFromWorkshopTxt(File modDir) {
+        File workshopTxt = new File(modDir, "workshop.txt");
+        if (!workshopTxt.isFile()) {
             return null;
         }
-        try {
-            return new WorkshopItemID(Long.parseLong(m.group(1)));
-        } catch (NumberFormatException ignored) {
+        try (var reader = new java.io.BufferedReader(new java.io.FileReader(workshopTxt))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String s = line.trim();
+                Matcher m = WORKSHOP_ITEM_ID_IN_TXT.matcher(s);
+                if (!m.matches()) {
+                    continue;
+                }
+                try {
+                    return new WorkshopItemID(Long.parseLong(m.group(1)));
+                } catch (NumberFormatException ignored) {
+                    return null;
+                }
+            }
+        } catch (IOException ignored) {
             return null;
         }
+        return null;
     }
     
     /**
@@ -94,7 +122,7 @@ public record JavaModInfo(
      * Validates parsed values and creates JavaModInfo, or null if invalid.
      * @param logMissingJarFile if true, log when javaJarFile is missing (parse); if false, silent (parseMerged)
      */
-    private static JavaModInfo validateAndCreate(ParsedValues parsed, File modInfoFile, File modDirectory, boolean logMissingJarFile) {
+    private static JavaModInfo validateAndCreate(ParsedValues parsed, File modInfoFile, File modDir, boolean logMissingJarFile) {
         String jarFilePath = parsed.jarFilePath();
         String javaPkgName = parsed.javaPkgName();
         String zbVersionMin = parsed.zbVersionMin();
@@ -126,7 +154,7 @@ public record JavaModInfo(
             return null;
         }
         return new JavaModInfo(
-            modDirectory,
+            modDir,
             modInfoFile,
             jarFilePath,
             javaPkgName,
@@ -205,39 +233,39 @@ public record JavaModInfo(
      * Parses a mod.info file and returns a JavaModInfo object.
      * Returns null if the mod.info file doesn't exist or cannot be read.
      * 
-     * @param modDirectory The directory containing the mod.info file
+     * @param modDir The directory containing the mod.info file
      * @return JavaModInfo object, or null if the file doesn't exist or cannot be parsed
      */
-    public static JavaModInfo parse(File modDirectory) {
-        if (modDirectory == null || !modDirectory.isDirectory()) {
+    public static JavaModInfo parse(File modDir) {
+        if (modDir == null || !modDir.isDirectory()) {
             if (Loader.g_verbosity > 0) {
-                Logger.info("Mod directory does not exist or is not a directory: " + modDirectory);
+                Logger.info("Mod directory does not exist or is not a directory: " + modDir);
             }
             return null;
         }
         
-        File modInfoFile = new File(modDirectory, "mod.info");
+        File modInfoFile = new File(modDir, "mod.info");
         ParsedValues parsed = parseModInfoFile(modInfoFile);
         if (parsed == null) {
             if (Loader.g_verbosity > 0) {
-                Logger.info("mod.info not found or failed to parse in directory: " + modDirectory);
+                Logger.info("mod.info not found or failed to parse in directory: " + modDir);
             }
             return null;
         }
-        return validateAndCreate(parsed, modInfoFile, modDirectory, true);
+        return validateAndCreate(parsed, modInfoFile, modDir, true);
     }
     
     /**
      * Parses a mod.info file from a directory path string.
      * 
-     * @param modDirectoryPath The path to the directory containing the mod.info file
+     * @param modDirPath The path to the directory containing the mod.info file
      * @return JavaModInfo object, or null if the file doesn't exist or cannot be parsed
      */
-    public static JavaModInfo parse(String modDirectoryPath) {
-        if (modDirectoryPath == null || modDirectoryPath.isEmpty()) {
+    public static JavaModInfo parse(String modDirPath) {
+        if (modDirPath == null || modDirPath.isEmpty()) {
             return null;
         }
-        return parse(new File(modDirectoryPath));
+        return parse(new File(modDirPath));
     }
     
     /**
@@ -266,8 +294,8 @@ public record JavaModInfo(
         // Check if JAR exists in versionDir (using the same relative path from mod.info)
         String jarFilePath = commonParsed.jarFilePath();
         File jarInVersion = new File(versionDir, jarFilePath);
-        File modDirectory = jarInVersion.exists() ? versionDir : commonDir;
-        return validateAndCreate(commonParsed, commonModInfoFile, modDirectory, false);
+        File modDir = jarInVersion.exists() ? versionDir : commonDir;
+        return validateAndCreate(commonParsed, commonModInfoFile, modDir, false);
     }
     
     /**

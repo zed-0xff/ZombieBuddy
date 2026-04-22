@@ -544,12 +544,52 @@ public class Loader {
     /** Restores the same label the game uses while loading mods (see {@link GameWindow#DoLoadingText}). */
     private static final String LOADING_MODS = "Loading Mods";
 
+    private static String decisionKey(JavaModInfo jModInfo, String modId) {
+        if (jModInfo != null) {
+            JavaModInfo.WorkshopItemID wid = jModInfo.getWorkshopItemID();
+            if (wid != null) {
+                return Long.toString(wid.value());
+            }
+        }
+        return modId != null && !modId.isEmpty() ? modId : (jModInfo != null ? jModInfo.javaPkgName() : "");
+    }
+
+    private static void addDecisionModId(Map<String, Set<String>> byKey, String decisionKey, String modId) {
+        if (byKey == null || decisionKey == null || decisionKey.isEmpty()) {
+            return;
+        }
+        String mid = modId != null ? modId.trim() : "";
+        if (mid.isEmpty()) {
+            return;
+        }
+        byKey.computeIfAbsent(decisionKey, k -> new LinkedHashSet<>()).add(mid);
+    }
+
+    private static void addDecisionAuthor(
+        Map<String, JavaModApprovalsStore.DecisionAuthor> byKey,
+        String decisionKey,
+        SteamID64 sid,
+        Map<SteamID64, JavaModApprovalsStore.AuthorEntry> authors
+    ) {
+        if (byKey == null || decisionKey == null || decisionKey.isEmpty() || sid == null) {
+            return;
+        }
+        String name = null;
+        if (authors != null) {
+            JavaModApprovalsStore.AuthorEntry ae = authors.get(sid);
+            if (ae != null) {
+                name = ae.name;
+            }
+        }
+        byKey.put(decisionKey, new JavaModApprovalsStore.DecisionAuthor(sid, name));
+    }
+
     private static boolean isJarAllowedByPolicy(String modId, JavaModInfo jModInfo, JarDecisionTable disk, String hash) {
         File jarFile = jModInfo != null ? jModInfo.getJarFileAsFile() : null;
         if (hash == null) return false;
 
         String policy = g_jarPolicy;
-        String modKey = modId != null && !modId.isEmpty() ? modId : jModInfo.javaPkgName();
+        String modKey = decisionKey(jModInfo, modId);
 
         String decision = lookupJarDecision(disk, modKey, hash);
         if (DECISION_YES.equals(decision)) return true;
@@ -627,7 +667,7 @@ public class Loader {
                         if (v == null) {
                             return new JavaModApprovalsStore.AuthorEntry(true, new LinkedHashSet<>());
                         }
-                        return new JavaModApprovalsStore.AuthorEntry(true, new LinkedHashSet<>(v.keys));
+                        return new JavaModApprovalsStore.AuthorEntry(true, new LinkedHashSet<>(v.keys), v.name);
                     });
                 }
             }
@@ -711,6 +751,19 @@ public class Loader {
         JavaModApprovalsStore.Snapshot approvalsSnapshot = JavaModApprovalsStore.loadSnapshot();
         JarDecisionTable approvals = approvalsSnapshot.jarDecisions();
         JarDecisionTable approvalsBefore = approvals.copy();
+        Map<String, Set<String>> decisionModIds = new HashMap<>();
+        for (Map.Entry<String, Set<String>> e : approvalsSnapshot.decisionModIds().entrySet()) {
+            decisionModIds.put(e.getKey(), new LinkedHashSet<>(e.getValue()));
+        }
+        Map<String, Set<String>> decisionModIdsBefore = new HashMap<>();
+        for (Map.Entry<String, Set<String>> e : decisionModIds.entrySet()) {
+            decisionModIdsBefore.put(e.getKey(), new LinkedHashSet<>(e.getValue()));
+        }
+        Map<String, JavaModApprovalsStore.DecisionAuthor> decisionAuthors = new HashMap<>();
+        for (Map.Entry<String, JavaModApprovalsStore.DecisionAuthor> e : approvalsSnapshot.decisionAuthors().entrySet()) {
+            decisionAuthors.put(e.getKey(), e.getValue());
+        }
+        Map<String, JavaModApprovalsStore.DecisionAuthor> decisionAuthorsBefore = new HashMap<>(decisionAuthors);
         Map<SteamID64, JavaModApprovalsStore.AuthorEntry> authorsBefore = new HashMap<>();
         g_authors.clear();
         for (Map.Entry<SteamID64, JavaModApprovalsStore.AuthorEntry> e : approvalsSnapshot.authors().entrySet()) {
@@ -755,7 +808,8 @@ public class Loader {
                 File jarFile = jModInfo.getJarFileAsFile();
                 String hash = sha256Hex(jarFile);
                 if (hash == null) continue;
-                String modKey = modId != null && !modId.isEmpty() ? modId : jModInfo.javaPkgName();
+                String modKey = decisionKey(jModInfo, modId);
+                addDecisionModId(decisionModIds, modKey, modId);
                 String modified = (jarFile != null && jarFile.exists())
                     ? java.time.Instant.ofEpochMilli(jarFile.lastModified())
                         .atZone(java.time.ZoneId.systemDefault())
@@ -804,6 +858,7 @@ public class Loader {
                     zbsValid = "";
                     zbsNotice = "";
                 }
+                addDecisionAuthor(decisionAuthors, modKey, zbsSID, g_authors);
                 boolean steamBanned = STEAM_BAN_STATUS_YES.equals(steamBanStatus);
                 if (!steamBanned && "yes".equals(zbsValid) && isAuthorTrusted(zbsSID)) {
                     approvals.put(modKey, hash, DECISION_YES);
@@ -883,6 +938,8 @@ public class Loader {
                         ? workshopUploaderForZbsVerify(workshopItemId, workshopDetailsById)
                         : null;
                     ZBSVerifier.Verification zbs = ZBSVerifier.verify(jarFile, zbsFile, hash, uploader);
+                    String modKey = decisionKey(jModInfo, modId);
+                    addDecisionAuthor(decisionAuthors, modKey, zbs.sid, g_authors);
                     if (!(zbs instanceof ZBSVerifier.ValidSignature)) {
                         shouldSkip = true;
                         skipReason = " (invalid ZBS: " + zbs.detailedMessage + ", modId=" + modId + ")";
@@ -905,7 +962,8 @@ public class Loader {
                 String decision = null;
                 boolean persisted = false;
                 if (hash != null) {
-                    String modKey = modId != null && !modId.isEmpty() ? modId : jModInfo.javaPkgName();
+                    String modKey = decisionKey(jModInfo, modId);
+                    addDecisionModId(decisionModIds, modKey, modId);
                     String v = approvals.get(modKey, hash);
                     if (v != null) {
                         decision = v;
@@ -928,8 +986,11 @@ public class Loader {
             }
         }
 
-        if (!approvalsBefore.equals(approvals) || !authorsBefore.equals(g_authors)) {
-            JavaModApprovalsStore.save(approvals, g_authors);
+        if (!approvalsBefore.equals(approvals)
+            || !authorsBefore.equals(g_authors)
+            || !decisionModIdsBefore.equals(decisionModIds)
+            || !decisionAuthorsBefore.equals(decisionAuthors)) {
+            JavaModApprovalsStore.save(approvals, g_authors, decisionModIds, decisionAuthors);
         }
         
         if (!shouldSkipList.isEmpty()) {
@@ -938,7 +999,7 @@ public class Loader {
                 if (shouldSkipList.get(i)) {
                     JavaModInfo jModInfo = jModInfos.get(i);
                     String reason = i < skipReasons.size() ? skipReasons.get(i) : "";
-                    Logger.info("Excluded: " + jModInfo.modDirectory().getAbsolutePath() + reason);
+                    Logger.info("Excluded: " + jModInfo.modDir().getAbsolutePath() + reason);
                 }
             }
             
@@ -964,14 +1025,14 @@ public class Loader {
     public static void printModList(ArrayList<JavaModInfo> jModInfos) {
         int longestPathLength = 0;
         for (JavaModInfo jModInfo : jModInfos) {
-            if (jModInfo.modDirectory().getAbsolutePath().length() > longestPathLength) {
-                longestPathLength = jModInfo.modDirectory().getAbsolutePath().length();
+            if (jModInfo.modDir().getAbsolutePath().length() > longestPathLength) {
+                longestPathLength = jModInfo.modDir().getAbsolutePath().length();
             }
         }
 
         String formatString = "    %-" + longestPathLength + "s %s";
         for (JavaModInfo jModInfo : jModInfos) {
-            Logger.info(String.format(formatString, jModInfo.modDirectory().getAbsolutePath(), jModInfo.javaPkgName()));
+            Logger.info(String.format(formatString, jModInfo.modDir().getAbsolutePath(), jModInfo.javaPkgName()));
         }
     }
 
@@ -1664,12 +1725,12 @@ public class Loader {
     }
 
     public static void loadJavaMod(JavaModInfo modInfo) {
-        Logger.info("------------------------------------------- loading Java mod: " + modInfo.modDirectory());
+        Logger.info("------------------------------------------- loading Java mod: " + modInfo.modDir());
         
         // Load JAR file
         File jarFile = modInfo.getJarFileAsFile();
         if (jarFile == null) {
-            Logger.error("Error! No JAR file specified for mod: " + modInfo.modDirectory());
+            Logger.error("Error! No JAR file specified for mod: " + modInfo.modDir());
             Logger.info("-------------------------------------------");
             return;
         }

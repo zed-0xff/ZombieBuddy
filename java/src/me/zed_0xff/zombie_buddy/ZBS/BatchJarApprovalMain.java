@@ -6,6 +6,7 @@ import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -49,7 +50,23 @@ public final class BatchJarApprovalMain {
 
     private static final Color ZBS_ROW_OK = new Color(220, 255, 220);
     private static final Color ZBS_ROW_BAD = new Color(255, 210, 210);
-    private static final Color STATUS_UNKNOWN_BG = new Color(255, 244, 176);
+    private static final Insets HEADER_INSETS = new Insets(3, 8, 3, 8);
+    private static final Insets ROW_INSETS = new Insets(0, 0, 0, 0);
+    private static final int COL_MOD = 0;
+    private static final int COL_AUTHOR = 1;
+    private static final int COL_UPDATED = 2;
+    private static final int COL_STEAM_BAN = 3;
+    private static final int COL_ALLOW = 4;
+    private static final int COL_TRUST = 5;
+    private static final double W_MOD_HEADER = 0.24;
+    private static final double W_AUTHOR_HEADER = 0.27;
+    private static final double W_UPDATED = 0.14;
+    private static final double W_STEAM_BAN = 0.14;
+    private static final double W_ALLOW_WITH_TRUST = 0.09;
+    private static final double W_ALLOW_NO_TRUST = 0.21;
+    private static final double W_TRUST = 0.12;
+    private static final double W_MOD_ROW = 0.26;
+    private static final double W_AUTHOR_ROW = 0.30;
 
     private BatchJarApprovalMain() {}
 
@@ -96,6 +113,7 @@ public final class BatchJarApprovalMain {
         Path resp,
         Map<SteamID64, String> steamIdToDisplayName
     ) {
+        final boolean showTrustColumn = entries.stream().anyMatch(e -> "yes".equals(e.zbsValid));
         JFrame frame = new JFrame("ZombieBuddy — Java mod approval " + JarBatchApprovalProtocol.osTag());
         frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         frame.addWindowListener(new WindowAdapter() {
@@ -113,23 +131,25 @@ public final class BatchJarApprovalMain {
 
         JPanel grid = new JPanel(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(3, 8, 3, 8);
+        c.insets = HEADER_INSETS;
         c.anchor = GridBagConstraints.WEST;
         c.gridy = 0;
 
         Font base = UIManager.getFont("Label.font");
         Font bold = base != null ? base.deriveFont(Font.BOLD) : null;
 
-        JLabel hName = new JLabel("Mod name");
-        JLabel hAuthor = new JLabel("Author");
-        JLabel hUpdated = new JLabel("Updated");
+        JLabel hName     = new JLabel("Mod");
+        JLabel hAuthor   = new JLabel("Author");
+        JLabel hUpdated  = new JLabel("Updated");
         JLabel hSteamBan = new JLabel("<html><center>Steam<br/>ban status</center></html>");
-        JLabel hTrust = new JLabel("<html><center>Trust<br/>author</center></html>");
-        JLabel hAllow = new JLabel("Allow");
+        JLabel hTrust    = new JLabel("<html><center>Trust<br/>author</center></html>");
+        JLabel hAllow    = new JLabel("Allow");
+
         hUpdated.setHorizontalAlignment(SwingConstants.CENTER);
         hSteamBan.setHorizontalAlignment(SwingConstants.CENTER);
         hAllow.setHorizontalAlignment(SwingConstants.CENTER);
         hTrust.setHorizontalAlignment(SwingConstants.CENTER);
+
         if (bold != null) {
             hName.setFont(bold);
             hAuthor.setFont(bold);
@@ -138,27 +158,31 @@ public final class BatchJarApprovalMain {
             hTrust.setFont(bold);
             hAllow.setFont(bold);
         }
-        c.gridx = 0;
-        c.weightx = 0.24;
+
+        c.gridx = COL_MOD;
+        c.weightx = W_MOD_HEADER;
         c.fill = GridBagConstraints.HORIZONTAL;
         grid.add(hName, c);
-        c.gridx = 1;
-        c.weightx = 0.27;
+        c.gridx = COL_AUTHOR;
+        c.weightx = W_AUTHOR_HEADER;
         grid.add(hAuthor, c);
-        c.gridx = 2;
-        c.weightx = 0.14;
+        c.gridx = COL_UPDATED;
+        c.weightx = W_UPDATED;
         grid.add(hUpdated, c);
-        c.gridx = 3;
-        c.weightx = 0.14;
+        c.gridx = COL_STEAM_BAN;
+        c.weightx = W_STEAM_BAN;
         grid.add(hSteamBan, c);
-        c.gridx = 4;
-        c.weightx = 0.09;
+        c.gridx = COL_ALLOW;
+        c.weightx = showTrustColumn ? W_ALLOW_WITH_TRUST : W_ALLOW_NO_TRUST;
         c.fill = GridBagConstraints.HORIZONTAL;
         grid.add(hAllow, c);
-        c.gridx = 5;
-        c.weightx = 0.12;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        grid.add(hTrust, c);
+
+        if (showTrustColumn) {
+            c.gridx = COL_TRUST;
+            c.weightx = W_TRUST;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            grid.add(hTrust, c);
+        }
 
         @SuppressWarnings("unchecked")
         final JRadioButton[] allowYes = new JRadioButton[entries.size()];
@@ -167,7 +191,9 @@ public final class BatchJarApprovalMain {
         @SuppressWarnings("unchecked")
         final JCheckBox[] trustChecks = new JCheckBox[entries.size()];
         final boolean[] initialAllowYes = new boolean[entries.size()];
+        final boolean[] forceDisableAllow = new boolean[entries.size()];
         final String[] authorGroupKey = new String[entries.size()];
+        c.insets = ROW_INSETS;
 
         int i = 0;
         for (JarBatchApprovalProtocol.Entry e : entries) {
@@ -179,27 +205,36 @@ public final class BatchJarApprovalMain {
             Color rowBg = steamBanYes ? ZBS_ROW_BAD : (zbsYes ? ZBS_ROW_OK : (zbsNo ? ZBS_ROW_BAD : null));
 
             c.gridy = i + 1;
-            c.gridx = 0;
-            c.weightx = 0.26;
-            c.fill = GridBagConstraints.HORIZONTAL;
-            JLabel nameLab = new JLabel(modTitle(e));
+            c.gridx = COL_MOD;
+            c.weightx = W_MOD_ROW;
+            c.fill = GridBagConstraints.BOTH;
+            String workshopItemId = workshopItemIdForEntry(e);
+            JLabel nameLab;
+            if (workshopItemId != null) {
+                String workshopUrl = workshopItemUrl(workshopItemId);
+                nameLab = new JLabel("<html><a href=\"" + workshopUrl + "\">" + escapeHtml(modTitle(e)) + "</a></html>");
+                nameLab.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                nameLab.addMouseListener(new MouseAdapter() {
+                    @Override
+                    public void mouseClicked(MouseEvent ev) {
+                        openUri(workshopUrl);
+                    }
+                });
+            } else {
+                nameLab = new JLabel(modTitle(e));
+            }
             String tip = "<html>" + escapeHtml(e.jarAbsolutePath)
                 + "<br/><b>SHA-256:</b> " + escapeHtml(e.sha256) + "</html>";
             nameLab.setToolTipText(tip);
-            if (rowBg != null) {
-                nameLab.setOpaque(true);
-                nameLab.setBackground(rowBg);
-            }
+            applyRowBackground(nameLab, rowBg);
             grid.add(nameLab, c);
 
-            c.gridx = 1;
-            c.weightx = 0.30;
+            c.gridx = COL_AUTHOR;
+            c.weightx = W_AUTHOR_ROW;
+            c.fill = GridBagConstraints.BOTH;
             JPanel authorCell = new JPanel();
             authorCell.setLayout(new BoxLayout(authorCell, BoxLayout.PAGE_AXIS));
-            authorCell.setOpaque(rowBg != null);
-            if (rowBg != null) {
-                authorCell.setBackground(rowBg);
-            }
+            applyRowBackground(authorCell, rowBg);
             String zbsSteamId = e.zbsSteamId != null ? e.zbsSteamId.value() : "";
             if (zbsYes && !zbsSteamId.isEmpty()) {
                 String profileUrl = ZBSVerifier.steamProfileUrl(zbsSteamId);
@@ -219,10 +254,7 @@ public final class BatchJarApprovalMain {
                         openUri(profileUrl);
                     }
                 });
-                if (rowBg != null) {
-                    linkLab.setOpaque(true);
-                    linkLab.setBackground(rowBg);
-                }
+                applyRowBackground(linkLab, rowBg);
                 authorCell.add(linkLab);
             } else if (zbsNo) {
                 String fullNotice = e.zbsNotice != null && !e.zbsNotice.isEmpty()
@@ -237,51 +269,33 @@ public final class BatchJarApprovalMain {
                     warn.setToolTipText("<html>" + escapeHtml(fullNotice).replace("\n", "<br/>") + "</html>");
                 }
                 warn.setAlignmentX(Component.LEFT_ALIGNMENT);
-                if (rowBg != null) {
-                    warn.setOpaque(true);
-                    warn.setBackground(rowBg);
-                }
+                applyRowBackground(warn, rowBg);
                 authorCell.add(warn);
             } else if (zbsUnsigned) {
                 JLabel u = new JLabel("<html><i>(unsigned)</i></html>");
                 u.setAlignmentX(Component.LEFT_ALIGNMENT);
-                if (rowBg != null) {
-                    u.setOpaque(true);
-                    u.setBackground(rowBg);
-                }
+                applyRowBackground(u, rowBg);
                 authorCell.add(u);
             } else {
                 String authorText = "?";
                 JLabel plain = new JLabel(authorText);
-                if (rowBg != null) {
-                    plain.setOpaque(true);
-                    plain.setBackground(rowBg);
-                }
+                applyRowBackground(plain, rowBg);
                 authorCell.add(plain);
             }
             grid.add(authorCell, c);
 
-            c.gridx = 2;
-            c.weightx = 0.14;
+            c.gridx = COL_UPDATED;
+            c.weightx = W_UPDATED;
+            c.fill = GridBagConstraints.BOTH;
             JLabel dateLab = new JLabel(e.modifiedHuman != null && !e.modifiedHuman.isEmpty() ? e.modifiedHuman : "—");
-            if (rowBg != null) {
-                dateLab.setOpaque(true);
-                dateLab.setBackground(rowBg);
-            }
+            applyRowBackground(dateLab, rowBg);
             grid.add(dateLab, c);
 
-            c.gridx = 3;
-            c.weightx = 0.14;
+            c.gridx = COL_STEAM_BAN;
+            c.weightx = W_STEAM_BAN;
+            c.fill = GridBagConstraints.BOTH;
             JLabel banStatusLab = new JLabel(steamBanYes ? "Yes" : (steamBanUnknown ? "Unknown" : "No"));
-            if (steamBanYes) {
-                banStatusLab.setForeground(new Color(176, 0, 0));
-            } else if (steamBanUnknown) {
-                banStatusLab.setOpaque(true);
-                banStatusLab.setBackground(STATUS_UNKNOWN_BG);
-            } else if (rowBg != null) {
-                banStatusLab.setOpaque(true);
-                banStatusLab.setBackground(rowBg);
-            }
+            applyRowBackground(banStatusLab, rowBg);
             if (e.steamBanReason != null && !e.steamBanReason.isEmpty()) {
                 banStatusLab.setToolTipText(escapeHtml(e.steamBanReason));
             }
@@ -290,7 +304,8 @@ public final class BatchJarApprovalMain {
             boolean defaultYes = Loader.DECISION_YES.equals(e.priorHint);
             JRadioButton yesB = new JRadioButton("Yes", defaultYes);
             JRadioButton noB = new JRadioButton("No", !defaultYes);
-            if (zbsNo || steamBanYes) {
+            forceDisableAllow[i] = zbsNo || steamBanYes;
+            if (forceDisableAllow[i]) {
                 yesB.setEnabled(false);
                 noB.setEnabled(false);
                 noB.setSelected(true);
@@ -303,29 +318,28 @@ public final class BatchJarApprovalMain {
             initialAllowYes[i] = yesB.isSelected();
 
             JPanel radios = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-            radios.setOpaque(rowBg != null);
-            if (rowBg != null) {
-                radios.setBackground(rowBg);
-            }
+            applyRowBackground(radios, rowBg);
             radios.add(yesB);
             radios.add(noB);
-            c.gridx = 4;
+            c.gridx = COL_ALLOW;
             c.weightx = 0.0;
-            c.fill = GridBagConstraints.NONE;
+            c.fill = GridBagConstraints.BOTH;
             grid.add(radios, c);
 
-            c.gridx = 5;
-            c.weightx = 0.12;
-            c.fill = GridBagConstraints.HORIZONTAL;
             JCheckBox trustCb = new JCheckBox("", false);
-            trustCb.setEnabled(zbsYes && !steamBanYes);
-            trustCb.setOpaque(rowBg != null);
-            if (rowBg != null) {
-                trustCb.setBackground(rowBg);
-            }
+            trustCb.setEnabled(showTrustColumn && zbsYes && !steamBanYes);
+            applyRowBackground(trustCb, rowBg);
             trustChecks[i] = trustCb;
             authorGroupKey[i] = zbsSteamId;
-            grid.add(trustCb, c);
+            if (showTrustColumn) {
+                JPanel trustCell = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+                applyRowBackground(trustCell, rowBg);
+                trustCell.add(trustCb);
+                c.gridx = COL_TRUST;
+                c.weightx = W_TRUST;
+                c.fill = GridBagConstraints.BOTH;
+                grid.add(trustCell, c);
+            }
             i++;
         }
         Map<String, List<Integer>> authorGroups = new HashMap<>();
@@ -379,11 +393,14 @@ public final class BatchJarApprovalMain {
                 boolean selected = trustChecks[sourceIdx].isSelected();
                 String key = authorGroupKey[sourceIdx];
                 if (key == null || key.isEmpty()) {
-                    if (selected || initialAllowYes[sourceIdx]) {
-                        allowYes[sourceIdx].setSelected(true);
-                    } else {
-                        allowNo[sourceIdx].setSelected(true);
-                    }
+                    setAllowStateForTrustRow(
+                        sourceIdx,
+                        selected,
+                        initialAllowYes,
+                        forceDisableAllow,
+                        allowYes,
+                        allowNo
+                    );
                     updateOkEnabled.run();
                     return;
                 }
@@ -395,11 +412,14 @@ public final class BatchJarApprovalMain {
                 try {
                     for (Integer row : group) {
                         trustChecks[row].setSelected(selected);
-                        if (selected || initialAllowYes[row]) {
-                            allowYes[row].setSelected(true);
-                        } else {
-                            allowNo[row].setSelected(true);
-                        }
+                        setAllowStateForTrustRow(
+                            row,
+                            selected,
+                            initialAllowYes,
+                            forceDisableAllow,
+                            allowYes,
+                            allowNo
+                        );
                     }
                 } finally {
                     syncingTrust[0] = false;
@@ -412,8 +432,10 @@ public final class BatchJarApprovalMain {
         JPanel south = new JPanel();
         south.setLayout(new BoxLayout(south, BoxLayout.PAGE_AXIS));
         south.add(savePersist);
-        south.add(Box.createVerticalStrut(6));
-        south.add(trustNotice);
+        if (showTrustColumn) {
+            south.add(Box.createVerticalStrut(6));
+            south.add(trustNotice);
+        }
         south.add(Box.createVerticalStrut(8));
         south.add(buttons);
         root.add(south, BorderLayout.SOUTH);
@@ -461,6 +483,78 @@ public final class BatchJarApprovalMain {
         frame.pack();
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
+    }
+
+    private static String workshopItemIdForEntry(JarBatchApprovalProtocol.Entry e) {
+        if (e == null) {
+            return null;
+        }
+        String byKey = normalizeWorkshopItemId(e.modKey);
+        if (byKey != null) {
+            return byKey;
+        }
+        return normalizeWorkshopItemId(e.modId);
+    }
+
+    private static String normalizeWorkshopItemId(String value) {
+        if (value == null) {
+            return null;
+        }
+        String s = value.trim();
+        if (s.isEmpty()) {
+            return null;
+        }
+        for (int i = 0; i < s.length(); i++) {
+            if (!Character.isDigit(s.charAt(i))) {
+                return null;
+            }
+        }
+        try {
+            long parsed = Long.parseLong(s);
+            return parsed > 0 ? Long.toString(parsed) : null;
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private static String workshopItemUrl(String workshopItemId) {
+        return "https://steamcommunity.com/sharedfiles/filedetails/?id=" + workshopItemId;
+    }
+
+    private static void applyRowBackground(JComponent component, Color rowBg) {
+        component.setOpaque(rowBg != null);
+        if (rowBg != null) {
+            component.setBackground(rowBg);
+        }
+    }
+
+    private static void setAllowStateForTrustRow(
+        int row,
+        boolean trustSelected,
+        boolean[] initialAllowYes,
+        boolean[] forceDisableAllow,
+        JRadioButton[] allowYes,
+        JRadioButton[] allowNo
+    ) {
+        if (trustSelected) {
+            allowYes[row].setSelected(true);
+            allowYes[row].setEnabled(false);
+            allowNo[row].setEnabled(false);
+            return;
+        }
+        if (forceDisableAllow[row]) {
+            allowNo[row].setSelected(true);
+            allowYes[row].setEnabled(false);
+            allowNo[row].setEnabled(false);
+            return;
+        }
+        if (initialAllowYes[row]) {
+            allowYes[row].setSelected(true);
+        } else {
+            allowNo[row].setSelected(true);
+        }
+        allowYes[row].setEnabled(true);
+        allowNo[row].setEnabled(true);
     }
 
     private static void openUri(String url) {
