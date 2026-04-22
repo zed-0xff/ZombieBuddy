@@ -25,7 +25,7 @@ import com.google.gson.JsonParser;
  * <pre>
  * {
  *   "formatVersion": 1,
- *   "jarDecisionsByWorkshopItem": {
+ *   "mods": {
  *     "WorkshopItemID": {
  *       "mod_ids": [ "..." ],
  *       "decisions": { "sha256hex": true | false },
@@ -50,17 +50,18 @@ public final class JavaModApprovalsStore {
     public static final String LEGACY_TXT_FILE_NAME = "java_mod_approvals.txt";
 
     private static final int FORMAT_VERSION = 1;
-    private static final String KEY_FORMAT_VERSION = "formatVersion";
-    private static final String KEY_JAR_DECISIONS = "jarDecisionsByWorkshopItem";
-    private static final String KEY_AUTHORS = "authors";
-    private static final String KEY_DECISIONS = "decisions";
-    private static final String KEY_MOD_IDS = "mod_ids";
-    private static final String KEY_AUTHOR = "author";
-    private static final String KEY_ID = "id";
 
-    private static final String KEY_TRUST = "trust";
-    private static final String KEY_KEYS = "keys";
-    private static final String KEY_NAME = "name";
+    private static final String KEY_FORMAT_VERSION = "formatVersion";
+    private static final String KEY_MODS           = "mods";
+    private static final String KEY_AUTHORS        = "authors";
+    private static final String KEY_DECISIONS      = "decisions";
+    private static final String KEY_MOD_IDS        = "mod_ids";
+    private static final String KEY_AUTHOR         = "author";
+    private static final String KEY_ID             = "id";
+
+    private static final String KEY_TRUST          = "trust";
+    private static final String KEY_KEYS           = "keys";
+    private static final String KEY_NAME           = "name";
 
     private JavaModApprovalsStore() {}
 
@@ -254,7 +255,7 @@ public final class JavaModApprovalsStore {
                 root.addProperty(KEY_FORMAT_VERSION, FORMAT_VERSION);
             }
             Map<SteamID64, String> knownNames = SteamAuthorNames.loadSteamIdToDisplayName();
-            root.add(KEY_JAR_DECISIONS, jarDecisionsToJson(table, decisionModIds, decisionAuthors, knownNames));
+            root.add(KEY_MODS, jarDecisionsToJson(table, decisionModIds, decisionAuthors, knownNames));
             root.add(KEY_AUTHORS, authorsToJson(authors, knownNames));
             Files.writeString(jp, ZBGson.PRETTY.toJson(root), StandardCharsets.UTF_8);
             int written = table == null ? 0 : table.decisionCount();
@@ -367,9 +368,9 @@ public final class JavaModApprovalsStore {
             return;
         }
         JsonObject root = rootEl.getAsJsonObject();
-        JsonElement jarDecisionsEl = root.get(KEY_JAR_DECISIONS);
-        if (jarDecisionsEl != null && jarDecisionsEl.isJsonObject()) {
-            for (Map.Entry<String, JsonElement> modEntry : jarDecisionsEl.getAsJsonObject().entrySet()) {
+        JsonElement JarModsEl = root.get(KEY_MODS);
+        if (JarModsEl != null && JarModsEl.isJsonObject()) {
+            for (Map.Entry<String, JsonElement> modEntry : JarModsEl.getAsJsonObject().entrySet()) {
                 String workshopItemId = modEntry.getKey();
                 if (!isWorkshopItemIdKey(workshopItemId)) {
                     continue;

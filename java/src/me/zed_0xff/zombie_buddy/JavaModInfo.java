@@ -64,13 +64,17 @@ public record JavaModInfo(
             }
         }
         if (p.contains("/Workshop/")) {
-            return parseWorkshopItemIDFromWorkshopTxt(modDir);
+            File dir = modDir;
+            for (int ascent = 0; ascent < 4 && dir != null; ascent++) {
+                dir = dir.getParentFile();
+            }
+            return dir == null ? null : workshopItemIdFromWorkshopTxtIn(dir);
         }
         return null;
     }
 
-    private static WorkshopItemID parseWorkshopItemIDFromWorkshopTxt(File modDir) {
-        File workshopTxt = new File(modDir, "workshop.txt");
+    private static WorkshopItemID workshopItemIdFromWorkshopTxtIn(File dir) {
+        File workshopTxt = new File(dir, "workshop.txt");
         if (!workshopTxt.isFile()) {
             return null;
         }

@@ -358,9 +358,12 @@ public final class BatchJarApprovalMain {
         scroll.setPreferredSize(new Dimension(960, 420));
         root.add(scroll, BorderLayout.CENTER);
 
-        JCheckBox savePersist = new JCheckBox(
-            "Save decisions to disk (persist across game launches)", true);
-        savePersist.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JLabel savePersistLabel = new JLabel("Save decisions to disk (persist across game launches)");
+        JCheckBox savePersist = new JCheckBox("", true);
+        savePersistLabel.setLabelFor(savePersist);
+        JPanel savePersistRow = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        savePersistRow.add(savePersistLabel);
+        savePersistRow.add(savePersist);
         JLabel trustNotice = new JLabel(
             "<html><small><i>\"Trust author\" means all mods by that author are auto-allowed while their digital signature remains valid and the mod is not banned.</i></small></html>");
         trustNotice.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -368,6 +371,11 @@ public final class BatchJarApprovalMain {
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         JButton ok = new JButton("OK");
         JButton cancel = new JButton("Cancel");
+        int checkboxShiftRight = Math.max(
+            0,
+            (ok.getPreferredSize().width - savePersist.getPreferredSize().width) / 2
+        );
+        savePersistRow.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, checkboxShiftRight));
         buttons.add(cancel);
         buttons.add(ok);
         Runnable updateOkEnabled = () -> {
@@ -431,7 +439,7 @@ public final class BatchJarApprovalMain {
 
         JPanel south = new JPanel();
         south.setLayout(new BoxLayout(south, BoxLayout.PAGE_AXIS));
-        south.add(savePersist);
+        south.add(savePersistRow);
         if (showTrustColumn) {
             south.add(Box.createVerticalStrut(6));
             south.add(trustNotice);

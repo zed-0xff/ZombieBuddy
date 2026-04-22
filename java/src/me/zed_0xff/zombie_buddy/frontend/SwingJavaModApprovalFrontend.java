@@ -24,8 +24,7 @@ public final class SwingJavaModApprovalFrontend implements JavaModApprovalFronte
         if (runSwingSubprocessBatch(pending, disk)) {
             return;
         }
-        Logger.warn("Swing batch approval failed or unavailable; no alternate UI in this frontend (pending="
-            + pending.size() + " mod(s)).");
+        Logger.warn("Swing batch approval failed or unavailable (" + pending.size() + " pending mods)");
     }
 
     private boolean runSwingSubprocessBatch(List<JarBatchApprovalProtocol.Entry> pending, JarDecisionTable disk) {
@@ -38,8 +37,8 @@ public final class SwingJavaModApprovalFrontend implements JavaModApprovalFronte
         Path tmpIn = null;
         Path tmpOut = null;
         try {
-            tmpIn = java.nio.file.Files.createTempFile("zb-batch-req-", ".txt");
-            tmpOut = java.nio.file.Files.createTempFile("zb-batch-resp-", ".txt");
+            tmpIn = java.nio.file.Files.createTempFile("zb-batch-req-", ".json");
+            tmpOut = java.nio.file.Files.createTempFile("zb-batch-resp-", ".json");
             JarBatchApprovalProtocol.writeRequest(tmpIn, pending);
             String javaExe = Path.of(
                 System.getProperty("java.home"),
