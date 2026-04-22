@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
+require "json"
+
 ZB_MAIN = "me.zed_0xff.zombie_buddy.BatchJarApprovalMain"
+ZB_BATCH_HEADER = "ZB_BATCH_V6"
 
 def zb_find_java
   if (h = ENV["JAVA_HOME"]) && !h.empty?
@@ -11,24 +14,33 @@ def zb_find_java
   raise "java not found; set JAVA_HOME or install a JDK"
 end
 
-def zb_sample_batch_request_v5(entries)
-  lines = [ "ZB_BATCH_V5", entries.size.to_s ]
-  entries.each do |e|
-    lines << "---"
-    lines << e[:mod_key]
-    lines << e[:mod_id]
-    lines << e[:jar_path]
-    lines << e[:sha256]
-    lines << e[:modified]
-    lines << e[:prior_hint].to_s
-    lines << e[:mod_display_name].to_s
-    lines << e[:zbs_valid].to_s
-    lines << e[:zbs_steam_id].to_s
-    lines << e[:zbs_notice].to_s
-    lines << e[:steam_ban_status].to_s
-    lines << e[:steam_ban_reason].to_s
-  end
-  lines.join("\n") + "\n"
+# Gson shape for {@code JavaModInfo.WorkshopItemID} / {@code SteamID64} records.
+def zb_json_entry(h)
+  out = {
+    "modKey"          => h[:mod_key],
+    "modId"           => h[:mod_id],
+    "jarAbsolutePath" => h[:jar_path].to_s,
+    "sha256"          => h[:sha256].to_s,
+    "modifiedHuman"   => h[:modified].to_s,
+    "priorHint"       => h[:prior_hint].to_s,
+    "modDisplayName"  => h[:mod_display_name].to_s,
+    "zbsValid"        => h[:zbs_valid].to_s,
+    "zbsNotice"       => h[:zbs_notice].to_s,
+    "steamBanStatus"  => h[:steam_ban_status].to_s,
+    "steamBanReason"  => h[:steam_ban_reason].to_s,
+  }
+  wid = h[:workshop_item_id]
+  out["workshopItemId"] = { "value" => wid.to_i } if wid
+  zid = h[:zbs_steam_id].to_s.strip
+  out["zbsSteamId"] = { "value" => zid } unless zid.empty?
+  out
+end
+
+def zb_sample_batch_request_v6_json(entries)
+  JSON.pretty_generate(
+    "header" => ZB_BATCH_HEADER,
+    "entries" => entries.map { |e| zb_json_entry(e) }
+  )
 end
 
 namespace :zb do
@@ -58,6 +70,7 @@ namespace :zb do
       {
         mod_key: "DemoModOk#{i}",
         mod_id: "DemoModOk#{i}",
+        workshop_item_id: 3_000_000_000_001 + i,
         jar_path: "/tmp/DemoModOk#{i}/media/java/client/DemoModOk.jar",
         sha256: hex64,
         modified: "2026-01-01",
@@ -87,6 +100,7 @@ namespace :zb do
       {
         mod_key: "DemoModBanned",
         mod_id: "DemoModBanned",
+        workshop_item_id: 3_000_000_000_100,
         jar_path: "/tmp/DemoModBanned/media/java/client/DemoModBanned.jar",
         sha256: "d" * 64,
         modified: "2026-01-03",
@@ -101,6 +115,7 @@ namespace :zb do
       {
         mod_key: "DemoModUnknownBan",
         mod_id: "DemoModUnknownBan",
+        workshop_item_id: 3_000_000_000_101,
         jar_path: "/tmp/DemoModUnknownBan/media/java/client/DemoModUnknownBan.jar",
         sha256: "e" * 64,
         modified: "2026-01-04",
@@ -129,9 +144,9 @@ namespace :zb do
     ]
 
     Dir.mktmpdir("zb-approval-dialog-") do |dir|
-      req = File.join(dir, "request.txt")
-      resp = File.join(dir, "response.txt")
-      File.write(req, zb_sample_batch_request_v5(sample))
+      req = File.join(dir, "request.json")
+      resp = File.join(dir, "response.json")
+      File.write(req, zb_sample_batch_request_v6_json(sample))
 
       cmd = [ java, "-Djava.awt.headless=false", "-cp", jar, ZB_MAIN, req, resp ]
       puts cmd.join(" ")
