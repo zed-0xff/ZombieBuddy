@@ -361,7 +361,7 @@ public final class PatchEngine {
                                         int argumentIndex = -1;
                                         
                                         for (Annotation ann : paramAnns[i]) {
-                                            Logger.debug("param " + i + " annotation: " + ann);
+                                            Logger.trace("param " + i + " annotation: " + ann);
                                             if (ann instanceof Advice.Argument arg) {
                                                 isArgument = true;
                                                 hasAnyArguments = true;
