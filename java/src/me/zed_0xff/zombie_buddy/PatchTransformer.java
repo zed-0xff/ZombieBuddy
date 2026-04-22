@@ -52,8 +52,7 @@ final class PatchTransformer {
                         
                         if (!hasSkipOnSet) {
                             Logger.error("!!!!!!!");
-                            Logger.error("WARNING: Annotated method " + method.getName() + 
-                                "() in patch class " + patchClass.getName() + 
+                            Logger.error("WARNING: Annotated method " + method.getName() + "() in patch class " + patchClass.getName() + 
                                 " returns non-void. This may cause UB and diarrhea.");
                             Logger.error("!!!!!!!");
                         }
@@ -168,15 +167,15 @@ final class PatchTransformer {
                             return av;
                         }
                         
-                        @Override
-                        public void visitEnd() {
-                            if (hasPatchAnnotation[0] && isNonVoid && !hasSkipOnSet[0]) {
-                                Logger.error("WARNING: Method " + methodName + 
-                                    " in patch class " + patchClass.getName() + 
-                                    " is annotated with @Patch.OnEnter or @Patch.OnExit but returns non-void. This may cause UB and diarrhea.");
-                            }
-                            super.visitEnd();
-                        }
+                        // @Override
+                        // public void visitEnd() {
+                        //     if (hasPatchAnnotation[0] && isNonVoid && !hasSkipOnSet[0]) {
+                        //         Logger.error("WARNING: Method " + methodName + 
+                        //             " in patch class " + patchClass.getName() + 
+                        //             " is annotated with @Patch.OnEnter or @Patch.OnExit but returns non-void. This may cause UB and diarrhea.");
+                        //     }
+                        //     super.visitEnd();
+                        // }
 
                         @Override
                         public AnnotationVisitor visitParameterAnnotation(int parameter, String descriptor, boolean visible) {

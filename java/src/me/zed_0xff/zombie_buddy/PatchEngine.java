@@ -1,6 +1,7 @@
 package me.zed_0xff.zombie_buddy;
 
 import java.io.File;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -12,6 +13,7 @@ import java.util.Set;
 import io.github.classgraph.*;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.asm.Advice;
+import net.bytebuddy.implementation.bind.annotation.RuntimeType;
 import net.bytebuddy.implementation.MethodCall;
 import net.bytebuddy.implementation.MethodDelegation;
 import net.bytebuddy.implementation.SuperMethodCall;
@@ -27,16 +29,45 @@ public final class PatchEngine {
 
     private static record PatchTarget(String className, String methodName) {}
 
-    private static final Set<String> ADVICE_ANNOTATION_PATTERNS = Set.of("Advice$OnMethodEnter", "Advice$OnMethodExit");
-    private static final Set<String> RUNTIME_TYPE_PATTERNS = Set.of("RuntimeType");
-    private static final Set<String> METHOD_DELEGATION_SPECIAL_ANNOTATIONS = Set.of("This", "SuperCall", "SuperMethod");
-    private static final Set<String> ALL_ARGUMENTS_PATTERNS = Set.of("Advice$AllArguments");
+    private static final List<Class<? extends Annotation>> ADVICE_ANNOTATION_TYPES = List.of(
+            Advice.OnMethodEnter.class,
+            Advice.OnMethodExit.class
+            );
+    private static final Set<Class<? extends Annotation>> DELEGATION_PARAM_SPECIAL_ANNOTATIONS = Set.of(
+            net.bytebuddy.implementation.bind.annotation.SuperCall.class,
+            net.bytebuddy.implementation.bind.annotation.SuperMethod.class,
+            net.bytebuddy.implementation.bind.annotation.This.class
+            );
+    private static final Set<Class<? extends Annotation>> ADVICE_PARAM_SPECIAL_ANNOTATIONS = Set.of(
+            Advice.Return.class,
+            Advice.AllArguments.class,
+            Advice.Local.class,
+            Advice.This.class
+            );
 
-    private static boolean hasAnnotation(Method method, Set<String> annotationPatterns) {
-        for (java.lang.annotation.Annotation ann : method.getAnnotations()) {
-            String annType = ann.annotationType().getName();
-            for (String pattern : annotationPatterns) {
-                if (annType.contains(pattern)) {
+    private static boolean hasAnnotation(Method method, List<Class<? extends Annotation>> annTypes) {
+        for (var annType : annTypes) {
+            if (method.isAnnotationPresent(annType)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static Method findMethodWithAnnotation(Class<?> clazz, Class<? extends Annotation> annType) {
+        for (Method method : clazz.getDeclaredMethods()) {
+            if (method.isAnnotationPresent(annType)) {
+                return method;
+            }
+        }
+        return null;
+    }
+
+    private static boolean hasParameterAnnotation(Method method, Class<? extends Annotation> annType) {
+        Annotation[][] paramAnns = method.getParameterAnnotations();
+        for (Annotation[] paramAnn : paramAnns) {
+            for (Annotation ann : paramAnn) {
+                if (annType.isInstance(ann)) {
                     return true;
                 }
             }
@@ -44,32 +75,8 @@ public final class PatchEngine {
         return false;
     }
 
-    private static Method findMethodWithAnnotation(Class<?> clazz, Set<String> annotationPatterns) {
-        for (Method method : clazz.getDeclaredMethods()) {
-            if (hasAnnotation(method, annotationPatterns)) {
-                return method;
-            }
-        }
-        return null;
-    }
-
-    private static boolean hasParameterAnnotation(Method method, Set<String> annotationPatterns) {
-        java.lang.annotation.Annotation[][] paramAnns = method.getParameterAnnotations();
-        for (java.lang.annotation.Annotation[] paramAnn : paramAnns) {
-            for (java.lang.annotation.Annotation ann : paramAnn) {
-                String annType = ann.annotationType().getName();
-                for (String pattern : annotationPatterns) {
-                    if (annType.contains(pattern)) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
-    private static List<Class<?>> inferSignatureFromMethod(Method patchMethod, Set<String> specialAnnotationPatterns) {
-        java.lang.annotation.Annotation[][] paramAnns = patchMethod.getParameterAnnotations();
+    private static List<Class<?>> inferSignatureFromMethod(Method patchMethod, Set<Class<? extends Annotation>> specialAnnotationTypes) {
+        Annotation[][] paramAnns = patchMethod.getParameterAnnotations();
         Class<?>[] paramTypes = patchMethod.getParameterTypes();
         Map<Integer, Class<?>> argumentMap = new HashMap<>();
 
@@ -77,23 +84,14 @@ public final class PatchEngine {
             boolean isSpecial = false;
             int argumentIndex = -1;
 
-            for (java.lang.annotation.Annotation ann : paramAnns[i]) {
-                String annType = ann.annotationType().getName();
-                for (String pattern : specialAnnotationPatterns) {
-                    if (annType.contains(pattern)) {
-                        isSpecial = true;
-                        break;
-                    }
+            for (Annotation ann : paramAnns[i]) {
+                if (specialAnnotationTypes.contains(ann.annotationType())) {
+                    isSpecial = true;
+                    break;
                 }
-                if (isSpecial) break;
-
-                if (annType.contains("Argument")) {
-                    try {
-                        java.lang.reflect.Method valueMethod = ann.annotationType().getMethod("value");
-                        argumentIndex = (Integer) valueMethod.invoke(ann);
-                    } catch (Exception e) {
-                        argumentIndex = i;
-                    }
+                // https://javadoc.io/static/net.bytebuddy/byte-buddy/1.18.8/net/bytebuddy/implementation/bind/annotation/Argument.html
+                if (ann instanceof net.bytebuddy.implementation.bind.annotation.Argument arg) {
+                    argumentIndex = arg.value();
                     Class<?> paramType = paramTypes[i];
                     argumentMap.put(argumentIndex, paramType.isArray() ? paramType.getComponentType() : paramType);
                     break;
@@ -140,6 +138,7 @@ public final class PatchEngine {
             return;
         }
 
+        // Group patches by target class+method
         Map<PatchTarget, List<Class<?>>> advicePatches = new HashMap<>();
         Map<PatchTarget, Class<?>> delegationPatches = new HashMap<>();
         Set<String> classesToWarmUp = new HashSet<>();
@@ -156,25 +155,27 @@ public final class PatchEngine {
             }
 
             PatchTarget target = new PatchTarget(ann.className(), ann.methodName());
+            
             if (ann.warmUp()) {
                 classesToWarmUp.add(ann.className());
             }
-
+            
             if (ann.isAdvice()) {
                 advicePatches.computeIfAbsent(target, k -> new ArrayList<>()).add(patch);
             } else {
                 if (delegationPatches.containsKey(target)) {
-                    Logger.info("WARNING: multiple MethodDelegation patches for " +
-                        ann.className() + "." + ann.methodName() + " - only last one will apply!");
+                    Logger.warn("multiple MethodDelegation patches for " + ann.className() + "." + ann.methodName() + " - only last one will apply!");
                 }
                 delegationPatches.put(target, patch);
             }
         }
 
+        // Collect all target classes that need patching
         Set<String> targetClasses = new HashSet<>();
         for (PatchTarget t : advicePatches.keySet()) targetClasses.add(t.className());
         for (PatchTarget t : delegationPatches.keySet()) targetClasses.add(t.className());
 
+        // Check which target classes are already loaded
         Set<String> loadedClasses = new HashSet<>();
         for (Class<?> c : Loader.g_instrumentation.getAllLoadedClasses()) {
             String className = c.getName();
@@ -186,10 +187,23 @@ public final class PatchEngine {
             Logger.info("Already loaded classes to retransform: " + loadedClasses);
         }
 
+        // Warn about MethodDelegation on already-loaded classes (won't work with retransformation)
+        // for (var entry : delegationPatches.entrySet()) {
+        //     if (loadedClasses.contains(entry.getKey().className())) {
+        //         Logger.error("WARNING: MethodDelegation patch for already-loaded class " + 
+        //             entry.getKey().className() + "." + entry.getKey().methodName() + 
+        //             " - this may not work! Use isAdvice=true for loaded classes.");
+        //     }
+        // }
+
+        // Check if we have Advice patches on already-loaded classes
+        // If so, we need to disable class format changes for retransformation to work
         boolean hasAdviceOnLoadedClasses = false;
+        Set<String> advLoadedClasses = new HashSet<>();
         for (var entry : advicePatches.entrySet()) {
             if (loadedClasses.contains(entry.getKey().className())) {
                 hasAdviceOnLoadedClasses = true;
+                advLoadedClasses.add(entry.getKey().className());
                 break;
             }
         }
@@ -198,26 +212,27 @@ public final class PatchEngine {
         if (Loader.g_verbosity > 0) {
             if (Loader.g_verbosity <= 2) {
                 bbLogger = AgentBuilder.Listener.StreamWriting.toSystemOut().withTransformationsOnly();
-            } else {
+            } else { // 3+
                 bbLogger = AgentBuilder.Listener.StreamWriting.toSystemOut();
             }
         }
 
         AgentBuilder builder = new AgentBuilder.Default();
+        
+        // Only disable class format changes if we have Advice patches on already-loaded classes
+        // This is needed for retransformation to work, but breaks MethodDelegation
         if (hasAdviceOnLoadedClasses) {
-            if (Loader.g_verbosity > 0) {
-                Logger.info("Disabling class format changes for Advice patches on already-loaded classes");
-            }
+            Logger.debug("Disabling class format changes for Advice patches on already-loaded classes");
             builder = builder.disableClassFormatChanges();
         }
-
+        
         builder = builder
             .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
             .with(bbLogger)
             .with(new AgentBuilder.Listener.Adapter() {
                 @Override
-                public void onTransformation(net.bytebuddy.description.type.TypeDescription td,
-                                             ClassLoader cl,
+                public void onTransformation(net.bytebuddy.description.type.TypeDescription td, 
+                                             ClassLoader cl, 
                                              net.bytebuddy.utility.JavaModule jm,
                                              boolean loaded,
                                              net.bytebuddy.dynamic.DynamicType dt) {
@@ -232,18 +247,20 @@ public final class PatchEngine {
                 }
 
                 @Override
-                public void onIgnored(net.bytebuddy.description.type.TypeDescription td,
-                                     ClassLoader cl,
+                public void onIgnored(net.bytebuddy.description.type.TypeDescription td, 
+                                     ClassLoader cl, 
                                      net.bytebuddy.utility.JavaModule jm,
                                      boolean loaded) {
+                    // Log ignored classes that we're targeting
                     String className = td.getName();
                     if (targetClasses.contains(className)) {
-                        Logger.error("WARNING: Target class IGNORED: " + className + " (loaded=" + loaded + ")");
+                        Logger.error("Target class IGNORED: " + className + " (loaded=" + loaded + ")");
                     }
                 }
             });
 
         for (String className : targetClasses) {
+            // Collect all method patches for this class
             Map<String, List<Class<?>>> methodAdvices = new HashMap<>();
             Map<String, Class<?>> methodDelegations = new HashMap<>();
 
@@ -262,22 +279,27 @@ public final class PatchEngine {
                 .type(SyntaxSugar.typeMatcher(className))
                 .transform((bl, td, cl, mo, pd) -> {
                     var result = bl;
-
+                    
+                    // Apply stacked Advice patches per method
                     for (var entry : methodAdvices.entrySet()) {
                         String methodName = entry.getKey();
                         List<Class<?>> advices = entry.getValue();
-
+                        
                         Logger.info("patching " + className + "." + methodName + " with " + advices.size() + " advice(s)");
-
+                        
+                        // Check if method exists in the type description
                         var methods = td.getDeclaredMethods().filter(SyntaxSugar.methodMatcher(methodName));
                         if (methods.isEmpty()) {
-                            Logger.error("WARNING: Method " + methodName + " not found in " + td.getName());
+                            Logger.error("Method " + methodName + " not found in " + td.getName());
                         }
-
+                        
+                        // Apply each advice via separate .visit() calls - they stack
                         for (Class<?> adviceClass : advices) {
+                            // Get the Patch annotation to read strictMatch parameter
                             Patch patchAnn = adviceClass.getAnnotation(Patch.class);
                             boolean strictMatch = patchAnn != null && patchAnn.strictMatch();
-
+                            
+                            // Transform patch class to replace Patch.* annotations with ByteBuddy's
                             Class<?> transformedClass;
                             try {
                                 transformedClass = PatchTransformer.transformPatchClass(adviceClass, Loader.g_instrumentation, Loader.g_verbosity, false);
@@ -290,98 +312,102 @@ public final class PatchEngine {
                                 e.printStackTrace();
                                 continue;
                             }
-
+                            
+                            // KISS approach: Simple and predictable method matching
                             var methodMatcher = SyntaxSugar.methodMatcher(methodName);
-
+                            
                             boolean hasAllArguments = false;
                             boolean hasNoParamMethod = false;
                             List<Class<?>> inferredTypes = null;
-                            Integer minParameterCount = null;
-                            List<Map<Integer, Class<?>>> allAdviceMaps = new ArrayList<>();
-                            List<Boolean> allAdviceExactMatch = new ArrayList<>();
-                            Set<List<Class<?>>> allInferredSignatures = new HashSet<>();
-
-                            for (Method adviceMethod : adviceClass.getDeclaredMethods()) {
-                                if (!hasAnnotation(adviceMethod, ADVICE_ANNOTATION_PATTERNS)) continue;
-
-                                java.lang.annotation.Annotation[][] paramAnns = adviceMethod.getParameterAnnotations();
-
-                                if (hasParameterAnnotation(adviceMethod, ALL_ARGUMENTS_PATTERNS)) {
+                            Integer minParameterCount = null; // For incomplete @Argument sequences
+                            // List of argument constraint maps from each advice method
+                            java.util.List<java.util.Map<Integer, Class<?>>> allAdviceMaps = new java.util.ArrayList<>();
+                            // List of booleans indicating if exact parameter count is required for each advice method
+                            java.util.List<Boolean> allAdviceExactMatch = new java.util.ArrayList<>();
+                            
+                            // Track all inferred signatures to detect multiple methods with different signatures
+                            java.util.Set<List<Class<?>>> allInferredSignatures = new java.util.HashSet<>();
+                            
+                            for (Method adviceMethod : transformedClass.getDeclaredMethods()) {
+                                // Check if this method has advice annotations
+                                if (!hasAnnotation(adviceMethod, ADVICE_ANNOTATION_TYPES)) continue;
+                                
+                                Annotation[][] paramAnns = adviceMethod.getParameterAnnotations();
+                                
+                                // Check for @AllArguments annotation
+                                if (hasParameterAnnotation(adviceMethod, Advice.AllArguments.class)) {
                                     hasAllArguments = true;
                                 }
-
+                                
+                                // If method has no parameters (and no @AllArguments), match only methods with no parameters
                                 if (adviceMethod.getParameterCount() == 0 && !hasAllArguments) {
                                     hasNoParamMethod = true;
                                 }
-
+                                
+                                // Try to infer signature from @Argument annotations
+                                // Process all methods to detect multiple signatures, not just the first one
                                 if (!hasAllArguments) {
                                     Class<?>[] paramTypes = adviceMethod.getParameterTypes();
-                                    Map<Integer, Class<?>> argumentMap = new HashMap<>();
+                                    
+                                    // Map to collect argument indices and their types for THIS advice method
+                                    java.util.Map<Integer, Class<?>> argumentMap = new java.util.HashMap<>();
                                     boolean hasAnyArguments = false;
-                                    boolean allParamsAreSpecial = paramTypes.length > 0;
+                                    boolean allParamsAreSpecial = paramTypes.length > 0; // Will be set to false if we find a non-special param
                                     int regularParamCount = 0;
-
+                                    
                                     for (int i = 0; i < paramAnns.length; i++) {
                                         boolean isArgument = false;
-                                        boolean isLocal = false;
-                                        boolean isThis = false;
+                                        boolean skip = false;
                                         int argumentIndex = -1;
-
-                                        for (java.lang.annotation.Annotation ann : paramAnns[i]) {
-                                            String annType = ann.annotationType().getName();
-                                            if (annType.contains("Advice$Argument")) {
+                                        
+                                        for (Annotation ann : paramAnns[i]) {
+                                            Logger.debug("param " + i + " annotation: " + ann);
+                                            if (ann instanceof Advice.Argument arg) {
                                                 isArgument = true;
                                                 hasAnyArguments = true;
-                                                allParamsAreSpecial = false;
-                                                try {
-                                                    java.lang.reflect.Method valueMethod = ann.annotationType().getMethod("value");
-                                                    argumentIndex = (Integer) valueMethod.invoke(ann);
-                                                } catch (Exception e) {
-                                                    argumentIndex = i;
-                                                }
+                                                allParamsAreSpecial = false; // @Argument is not "special" in this context
+                                                argumentIndex = arg.value();
                                                 Class<?> paramType = paramTypes[i];
                                                 Class<?> typeToStore = paramType.isArray() ? paramType.getComponentType() : paramType;
+                                                Logger.trace("arg #" + argumentIndex + " of type " + typeToStore);
                                                 argumentMap.put(argumentIndex, typeToStore);
                                                 break;
-                                            } else if (annType.contains("Advice$Local")) {
-                                                isLocal = true;
-                                                break;
-                                            } else if (annType.contains("Advice$This")) {
-                                                isThis = true;
+                                            }
+
+                                            // Skip @Local / @This / @Return parameters - they're not part of the target method signature
+                                            // (@AllArguments already handled above)
+                                            if (ADVICE_PARAM_SPECIAL_ANNOTATIONS.contains(ann.annotationType())) {
+                                                skip = true;
                                                 break;
                                             }
                                         }
-
-                                        if (isLocal || isThis) continue;
-
-                                        if (!isArgument) {
-                                            boolean isSpecial = false;
-                                            for (java.lang.annotation.Annotation ann : paramAnns[i]) {
-                                                String annType = ann.annotationType().getName();
-                                                if (annType.contains("Advice$Return") || annType.contains("Advice$AllArguments") || annType.contains("Advice$Local") || annType.contains("Advice$This")) {
-                                                    isSpecial = true;
-                                                    break;
-                                                }
-                                            }
-                                            if (!isSpecial) {
-                                                allParamsAreSpecial = false;
-                                                argumentMap.put(i, paramTypes[i]);
-                                                regularParamCount++;
-                                            }
+                                        
+                                        // If not @Argument and not @Return/@AllArguments/@Local/@This, include it as a regular parameter
+                                        if (!skip && !isArgument) {
+                                            // Regular parameter (not annotated) - assume it's in order
+                                            allParamsAreSpecial = false;
+                                            Logger.trace("arg #" + i + " of type " + paramTypes[i]);
+                                            argumentMap.put(i, paramTypes[i]);
+                                            regularParamCount++;
                                         }
                                     }
-
+                                    
                                     if (!argumentMap.isEmpty()) {
                                         allAdviceMaps.add(argumentMap);
                                         allAdviceExactMatch.add(!hasAnyArguments);
                                     }
-
+                                    
+                                    // If all parameters are special (e.g., only @Return), treat as matching methods with no parameters
                                     if (allParamsAreSpecial && paramTypes.length > 0) {
                                         hasNoParamMethod = true;
                                     }
-
+                                    
+                                    // Build signature list from the argument map
                                     if (hasAnyArguments && !argumentMap.isEmpty()) {
+                                        // Find the maximum index to determine signature length
                                         int maxIndex = argumentMap.keySet().stream().mapToInt(Integer::intValue).max().orElse(-1);
+                                        
+                                        // Check if we have a complete sequence from 0 to maxIndex
                                         boolean hasCompleteSequence = true;
                                         for (int idx = 0; idx <= maxIndex; idx++) {
                                             if (!argumentMap.containsKey(idx)) {
@@ -389,31 +415,40 @@ public final class PatchEngine {
                                                 break;
                                             }
                                         }
+                                        
+                                        // For @Argument annotations, we use "at least N parameters" matching
+                                        // This allows @Argument(0) to match methods with 1, 2, 3+ parameters
+                                        // and @Argument(1) to match methods with 2, 3+ parameters, etc.
                                         int requiredParamCount = maxIndex + 1;
                                         if (minParameterCount == null || requiredParamCount > minParameterCount) {
                                             minParameterCount = requiredParamCount;
                                         }
                                         if (Loader.g_verbosity > 1) {
                                             if (hasCompleteSequence) {
-                                                Logger.info("DEBUG: Complete @Argument sequence (0 to " + maxIndex + "), matching methods with at least " + requiredParamCount + " parameters");
+                                                Logger.debug("Complete @Argument sequence (0 to " + maxIndex + "), matching methods with at least " + requiredParamCount + " parameters");
                                             } else {
-                                                Logger.info("DEBUG: Incomplete @Argument sequence, requires at least " + requiredParamCount + " parameters");
+                                                Logger.debug("Incomplete @Argument sequence, requires at least " + requiredParamCount + " parameters");
                                             }
                                         }
+                                        
+                                        // Still build signature for multiple signature detection, but don't use it for exact matching
                                         if (hasCompleteSequence) {
+                                            // Build the signature list in order
                                             List<Class<?>> sig = new ArrayList<>();
                                             for (int idx = 0; idx <= maxIndex; idx++) {
                                                 sig.add(argumentMap.get(idx));
                                             }
                                             allInferredSignatures.add(sig);
+                                            // Don't set inferredTypes - we'll use minParameterCount for matching instead
                                         }
                                     } else if (!argumentMap.isEmpty()) {
+                                        // No @Argument annotations, but we have regular parameters
+                                        // Build signature from regular parameters in order
                                         List<Class<?>> sig = new ArrayList<>();
                                         for (int idx = 0; idx < paramTypes.length; idx++) {
                                             boolean isSpecial = false;
-                                            for (java.lang.annotation.Annotation ann : paramAnns[idx]) {
-                                                String annType = ann.annotationType().getName();
-                                                if (annType.contains("Advice$Return") || annType.contains("Advice$AllArguments") || annType.contains("Advice$This")) {
+                                            for (Annotation ann : paramAnns[idx]) {
+                                                if (ADVICE_PARAM_SPECIAL_ANNOTATIONS.contains(ann.annotationType())) {
                                                     isSpecial = true;
                                                     break;
                                                 }
@@ -431,150 +466,190 @@ public final class PatchEngine {
                                     }
                                 }
                             }
-
+                            
+                            // If we have multiple methods with different signatures, use name-based matching
+                            // so ByteBuddy can match each method to the appropriate overload
                             boolean hasMultipleSignatures = allInferredSignatures.size() > 1;
                             if (Loader.g_verbosity > 1) {
-                                Logger.info("DEBUG: allInferredSignatures.size() = " + allInferredSignatures.size() + " for " + className + "." + methodName);
+                                Logger.debug("allInferredSignatures.size() = " + allInferredSignatures.size() + " for " + className + "." + methodName);
                                 for (List<Class<?>> sig : allInferredSignatures) {
-                                    Logger.info("DEBUG:   signature: " + sig);
+                                    Logger.debug("  signature: " + sig);
                                 }
                             }
                             if (hasMultipleSignatures) {
-                                inferredTypes = null;
+                                inferredTypes = null; // Clear inferred types to force name-based matching
                             }
 
-                            if (strictMatch && hasNoParamMethod && !hasAllArguments && inferredTypes == null && minParameterCount == null) {
-                                methodMatcher = methodMatcher.and(ElementMatchers.takesNoArguments());
-                                if (Loader.g_verbosity > 1) {
-                                    Logger.info("DEBUG: Matching only no-parameter methods for " + methodName);
-                                }
-                            } else if (minParameterCount != null) {
-                                final int minParams = minParameterCount;
-                                methodMatcher = methodMatcher.and(ElementMatchers.takesGenericArguments(
-                                    args -> {
-                                        int count = 0;
-                                        for (var ignored : args) count++;
-                                        return count >= minParams;
-                                    }
-                                ));
-                                if (!allAdviceMaps.isEmpty()) {
-                                    for (int mapIdx = 0; mapIdx < allAdviceMaps.size(); mapIdx++) {
-                                        Map<Integer, Class<?>> argMap = allAdviceMaps.get(mapIdx);
-                                        for (Map.Entry<Integer, Class<?>> argEntry : argMap.entrySet()) {
-                                            final int argIdx = argEntry.getKey();
-                                            final Class<?> expectedType = argEntry.getValue();
-                                            methodMatcher = methodMatcher.and(ElementMatchers.takesGenericArguments(
-                                                args -> {
-                                                    int idx = 0;
-                                                    for (var arg : args) {
-                                                        if (idx == argIdx) {
-                                                            return arg.asErasure().isAssignableFrom(expectedType);
-                                                        }
-                                                        idx++;
+                            Logger.info(
+                                    "hasMultipleSignatures: " + hasMultipleSignatures +
+                                    ", hasAllArguments: " + hasAllArguments +
+                                    ", hasNoParamMethod: " + hasNoParamMethod +
+                                    ", inferredTypes: " + inferredTypes
+                                    );
+                            
+                            // Apply matching strategy
+                            if (hasAllArguments) {
+                                // @AllArguments = match all overloads by name
+                                Logger.debug("Using name-based matching for " + methodName + " (has @AllArguments)");
+                            } else if (hasNoParamMethod && !strictMatch && allAdviceMaps.isEmpty()) {
+                                // Match any method (default behavior for no-param advice when strictMatch=false)
+                                Logger.debug("Matching any method for " + methodName + " (strictMatch=false, default)");
+                            } else {
+                                // Signature-aware matching for overloads and @Argument annotations
+                                final java.util.List<java.util.Map<Integer, Class<?>>> maps = new java.util.ArrayList<>(allAdviceMaps);
+                                final java.util.List<Boolean> exactMatches = new java.util.ArrayList<>(allAdviceExactMatch);
+                                final int minParams = (minParameterCount != null) ? minParameterCount : 0;
+                                final boolean strict = strictMatch;
+                                final boolean noParam = hasNoParamMethod;
+                                
+                                methodMatcher = SyntaxSugar.methodMatcher(methodName)
+                                    .and(new net.bytebuddy.matcher.ElementMatcher<net.bytebuddy.description.method.MethodDescription>() {
+                                        @Override
+                                        public boolean matches(net.bytebuddy.description.method.MethodDescription target) {
+                                            int targetParamCount = target.getParameters().size();
+                                            
+                                            // If advice has no parameters, check strictMatch
+                                            if (noParam && targetParamCount == 0) return true;
+                                            if (strict && noParam && maps.isEmpty() && targetParamCount > 0) return false;
+                                            
+                                            for (int i = 0; i < maps.size(); i++) {
+                                                java.util.Map<Integer, Class<?>> argMap = maps.get(i);
+                                                boolean exact = exactMatches.get(i);
+                                                
+                                                if (exact && targetParamCount != argMap.size()) continue;
+                                                if (!exact && targetParamCount < argMap.size()) continue;
+                                                if (!exact && targetParamCount < minParams) continue;
+
+                                                boolean allArgsMatch = true;
+                                                for (java.util.Map.Entry<Integer, Class<?>> entry : argMap.entrySet()) {
+                                                    int idx = entry.getKey();
+                                                    if (idx >= targetParamCount) {
+                                                        allArgsMatch = false;
+                                                        break;
                                                     }
-                                                    return false;
+                                                    Class<?> expected = entry.getValue();
+                                                    if (expected == Object.class) continue;
+                                                    net.bytebuddy.description.type.TypeDescription actual = target.getParameters().get(idx).getType().asErasure();
+                                                    if (!actual.isAssignableTo(expected)) {
+                                                        allArgsMatch = false;
+                                                        break;
+                                                    }
                                                 }
-                                            ));
+                                                if (allArgsMatch) return true;
+                                            }
+                                            
+                                            // If no signatures match, and we have no-param advice with strictMatch=false, allow it
+                                            return noParam && !strict;
                                         }
-                                    }
-                                }
-                                if (Loader.g_verbosity > 1) {
-                                    Logger.info("DEBUG: Matching methods with at least " + minParams + " parameters for " + methodName);
-                                }
-                            } else if (inferredTypes != null && !inferredTypes.isEmpty()) {
-                                methodMatcher = methodMatcher.and(ElementMatchers.takesArguments(inferredTypes.toArray(new Class<?>[0])));
-                                if (Loader.g_verbosity > 1) {
-                                    Logger.info("DEBUG: Matching exact signature " + inferredTypes + " for " + methodName);
+                                    });
+                                    
+                                Logger.debug("Using signature-aware matching for " + methodName + " (signatures: " + maps.size() + ", minParams: " + minParams + ")");
+                            }
+                            
+                            try {
+                                result = result.visit(Advice.to(transformedClass).on(methodMatcher));
+                                Logger.debug("Applied advice to " + className + "." + methodName);
+                            } catch (Exception e) {
+                                Logger.error("ERROR: Failed to apply advice to " + className + "." + methodName + ": " + e.getMessage());
+                                if (Loader.g_verbosity > 0) {
+                                    e.printStackTrace();
                                 }
                             }
-
-                            result = result.visit(Advice.to(transformedClass).on(methodMatcher));
                         }
                     }
-
+                    
+                    // Apply MethodDelegation patches (only one per method)
                     for (var entry : methodDelegations.entrySet()) {
                         String methodName = entry.getKey();
-                        Class<?> delegateClass = entry.getValue();
-
-                        Patch patchAnn = delegateClass.getAnnotation(Patch.class);
-
-                        Method delegateMethod = findMethodWithAnnotation(delegateClass, RUNTIME_TYPE_PATTERNS);
-                        if (delegateMethod == null) {
-                            for (Method m : delegateClass.getDeclaredMethods()) {
-                                if (java.lang.reflect.Modifier.isStatic(m.getModifiers()) &&
-                                    java.lang.reflect.Modifier.isPublic(m.getModifiers())) {
-                                    delegateMethod = m;
-                                    break;
-                                }
-                            }
+                        Class<?> delegationClass = entry.getValue();
+                        
+                        // Transform the delegation class to convert Patch.* annotations to ByteBuddy annotations
+                        Class<?> transformedDelegationClass = PatchTransformer.transformPatchClass(delegationClass, Loader.g_instrumentation, Loader.g_verbosity, true);
+                        if (transformedDelegationClass == null) {
+                            Logger.error("ERROR: PatchTransformer returned null for " + delegationClass.getName());
+                            transformedDelegationClass = delegationClass; // Fall back to original
                         }
-
-                        if (delegateMethod == null) {
-                            Logger.error("ERROR: No suitable delegate method found in " + delegateClass.getName());
-                            continue;
-                        }
-
-                        List<Class<?>> inferredTypes = inferSignatureFromMethod(delegateMethod, 
-                            Set.of("Return", "StubValue", "DefaultCall", "FieldValue", "Origin", "This", "SuperCall", "SuperMethod"));
-
-                        var methodMatcher = SyntaxSugar.methodMatcher(methodName);
-                        if (inferredTypes != null && !inferredTypes.isEmpty()) {
-                            if (Loader.g_verbosity > 1) {
-                                Logger.info("DEBUG: MethodDelegation inferred signature " + inferredTypes + " for " + methodName);
-                            }
-                            methodMatcher = methodMatcher.and(ElementMatchers.takesArguments(inferredTypes.toArray(new Class<?>[0])));
-                        }
-
-                        boolean isAdviceCompatible = patchAnn != null && patchAnn.isAdvice();
-                        if (isAdviceCompatible) {
-                            Class<?> transformedClass;
+                        
+                        Logger.info("patching " + className + "." + methodName + " with delegation");
+                        
+                        // Special handling for constructors: always use Object's constructor when overriding
+                        if (methodName.equals("<init>")) {
                             try {
-                                transformedClass = PatchTransformer.transformPatchClass(delegateClass, Loader.g_instrumentation, Loader.g_verbosity, true);
-                                if (transformedClass == null) {
-                                    Logger.error("ERROR: PatchTransformer returned null for MethodDelegation " + delegateClass.getName());
-                                    continue;
+                                // Infer constructor signature from delegation method's @Argument annotations
+                                Method delegationMethod = findMethodWithAnnotation(transformedDelegationClass, RuntimeType.class);
+                                List<Class<?>> inferredConstructorSignature = null;
+                                if (delegationMethod != null) {
+                                    inferredConstructorSignature = inferSignatureFromMethod(delegationMethod, DELEGATION_PARAM_SPECIAL_ANNOTATIONS);
                                 }
+                                
+                                // Build constructor matcher based on inferred signature
+                                net.bytebuddy.matcher.ElementMatcher.Junction<net.bytebuddy.description.method.MethodDescription> constructorMatcher;
+                                if (inferredConstructorSignature != null && !inferredConstructorSignature.isEmpty()) {
+                                    // Match constructor with specific signature
+                                    constructorMatcher = net.bytebuddy.matcher.ElementMatchers.isConstructor()
+                                        .and(net.bytebuddy.matcher.ElementMatchers.takesArguments(inferredConstructorSignature.toArray(new Class<?>[0])));
+                                } else {
+                                    // No signature inferred, match all constructors (fallback)
+                                    constructorMatcher = net.bytebuddy.matcher.ElementMatchers.isConstructor();
+                                }
+                                
+                                // Always use Object's constructor when overriding a constructor.
+                                // Field initializers will still run during object allocation (before any constructor is called).
+                                java.lang.reflect.Constructor<?> objectConstructor = Object.class.getDeclaredConstructor();
+                                result = result
+                                    .constructor(constructorMatcher)
+                                    .intercept(MethodCall.invoke(objectConstructor)
+                                        .andThen(MethodDelegation.to(transformedDelegationClass)));
                             } catch (Exception e) {
-                                Logger.error("ERROR: Failed to transform MethodDelegation class " + delegateClass.getName() + ": " + e.getMessage());
-                                e.printStackTrace();
-                                continue;
+                                Logger.error("ERROR: Could not set up constructor delegation: " + e.getMessage());
+                                if (Loader.g_verbosity > 0) {
+                                    e.printStackTrace();
+                                }
+                                // Fallback to SuperMethodCall
+                                result = result
+                                    .constructor(ElementMatchers.any())
+                                    .intercept(SuperMethodCall.INSTANCE.andThen(MethodDelegation.to(transformedDelegationClass)));
                             }
-                            result = result.visit(Advice.to(transformedClass).on(methodMatcher));
                         } else {
-                            Logger.info("patching " + className + "." + methodName + " with MethodDelegation to " + delegateClass.getName());
-                            Class<?> transformedClass;
-                            try {
-                                transformedClass = PatchTransformer.transformPatchClass(delegateClass, Loader.g_instrumentation, Loader.g_verbosity, true);
-                                if (transformedClass == null) {
-                                    Logger.error("ERROR: PatchTransformer returned null for MethodDelegation " + delegateClass.getName());
-                                    continue;
-                                }
-                            } catch (Exception e) {
-                                Logger.error("ERROR: Failed to transform MethodDelegation class " + delegateClass.getName() + ": " + e.getMessage());
-                                e.printStackTrace();
-                                continue;
-                            }
-                            if (methodName.equals("<init>")) {
-                                try {
-                                    result = result.constructor(methodMatcher)
-                                        .intercept(MethodCall.invoke(Object.class.getConstructor())
-                                            .andThen(MethodDelegation.to(transformedClass)));
-                                } catch (NoSuchMethodException e) {
-                                    Logger.error("ERROR: Object() constructor not found: " + e.getMessage());
-                                    continue;
-                                }
-                            } else {
-                                result = result.method(methodMatcher)
-                                    .intercept(MethodDelegation.to(transformedClass));
-                            }
+                        result = result
+                            .method(SyntaxSugar.methodMatcher(methodName))
+                            .intercept(MethodDelegation.to(transformedDelegationClass));
                         }
                     }
+                    
                     return result;
                 });
         }
-
+        
         builder.installOn(Loader.g_instrumentation);
 
+        // Explicitly retransform already-loaded classes to ensure Advice is applied
+        // ByteBuddy's agent builder with RETRANSFORMATION strategy should handle this automatically,
+        // but we call retransformClasses() explicitly to trigger the transformation immediately.
+        // Note: ByteBuddy's Advice may not work correctly with retransformation for already-loaded classes
+        // due to JVM limitations. If this doesn't work, patches need to be loaded before the target class.
+        if (!advLoadedClasses.isEmpty()) {
+            Logger.info("Explicitly retransforming " + advLoadedClasses.size() + " already-loaded class(es)");
+            // Logger.info("WARNING: Advice patches on already-loaded classes may not work due to JVM retransformation limitations.");
+            // Logger.info("Consider loading patches before the target class is loaded, or use MethodDelegation instead.");
+            for (String className : advLoadedClasses) {
+                try {
+                    Class<?> cls = Class.forName(className);
+                    // Retransform through ByteBuddy's agent pipeline
+                    Loader.g_instrumentation.retransformClasses(cls);
+                    Logger.debug("Retransformed: " + className);
+                } catch (ClassNotFoundException e) {
+                    Logger.error("Could not find class for retransformation: " + className);
+                } catch (Exception e) {
+                    Logger.error("Error retransforming class " + className + ": " + e.getMessage());
+                    if (Loader.g_verbosity > 0) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+
+        // Warm up classes _AFTER_ installing the agent builder
         for (String className : classesToWarmUp) {
             Logger.info("warming up class: " + className);
             try {

@@ -110,4 +110,20 @@ public class TargetPatchOverloadedMethods {
             testjar.OverloadedMethodsI.patchCalled = "arg0_match";
         }
     }
+
+    // Scenario 10: Single method match with one int argument and @Local variable
+    @Patch(className = "testjar.OverloadedMethodsJ", methodName = "calculate")
+    public class TargetPatchOverloadedMethodsJ {
+        @Patch.OnEnter
+        public static void enterWithArg0(int firstArg, @Patch.Local("argValue") int argValue) {
+            // Store the second argument value in the local variable
+            argValue = firstArg;
+        }
+        
+        @Patch.OnExit
+        public static void exitWithArg0(int firstArg, @Patch.Local("argValue") int argValue) {
+            // Use the local variable to set the patch called flag
+            testjar.OverloadedMethodsJ.patchCalled = "arg0_local_" + argValue;
+        }
+    }
 }

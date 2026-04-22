@@ -11,6 +11,21 @@ public class Logger {
     private static PrintStream out = System.out;
     private static PrintStream err = System.err;
 
+    public static void trace(String message, Object... args) {
+        if (Loader.g_verbosity < 2) return;
+
+        if (args != null && args.length > 0) {
+            message += " " + formatArgs(args);
+        }
+
+        message = PREFIX + "[t] " + message;
+        try {
+            System.out.println(message);
+        } catch (Exception e) { // might fail on game boot
+            out.println(message);
+        }
+    }
+
     public static void debug(String message, Object... args) {
         if (Loader.g_verbosity < 1) return;
 
