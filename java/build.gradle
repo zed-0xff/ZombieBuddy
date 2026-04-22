@@ -31,7 +31,7 @@ dependencies {
     implementation 'io.github.classgraph:classgraph:4.8.184'
     implementation 'org.sharegov:mjson:1.4.2'
     implementation 'org.bouncycastle:bcprov-jdk18on:1.78.1'
-    implementation 'tools.jackson.core:jackson-databind:3.1.2'
+    implementation 'com.google.code.gson:gson:2.12.1'
 
     compileOnly files(GAME_CLASSPATH)
     
@@ -68,8 +68,7 @@ shadowJar {
     }
     mergeServiceFiles()
     
-    relocate 'com.fasterxml.jackson', 'zb.com.fasterxml.jackson'
-    relocate 'tools.jackson', 'zb.tools.jackson'
+    relocate 'com.google.gson', 'zb.com.google.gson'
 
     exclude 'META-INF/*.SF'
     exclude 'META-INF/*.DSA'

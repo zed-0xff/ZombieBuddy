@@ -1,16 +1,17 @@
 package me.zed_0xff.zombie_buddy;
 
 import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import tools.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.annotations.SerializedName;
 
 /**
  * JSON file protocol between {@link Loader} (game process) and
@@ -20,53 +21,66 @@ public final class JarBatchApprovalProtocol {
 
     static final String HDR_REQ  = "ZB_BATCH_V6";
     static final String HDR_RESP = "ZB_BATCH_V3_OUT";
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final Gson JSON = new GsonBuilder()
+        .setPrettyPrinting()
+        .disableHtmlEscaping()
+        .create();
 
     static final String TOK_ALLOW_PERSIST = "ALLOW_PERSIST";
     static final String TOK_ALLOW_SESSION = "ALLOW_SESSION";
     static final String TOK_DENY_PERSIST  = "DENY_PERSIST";
     static final String TOK_DENY_SESSION  = "DENY_SESSION";
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    @JsonIgnoreProperties(ignoreUnknown = true)
     public static final class Entry {
+        @SerializedName("modKey")
         public final String modKey;
+        @SerializedName("modId")
         public final String modId;
         /** Nullable workshop item id for this row. */
+        @SerializedName("workshopItemId")
         public final JavaModInfo.WorkshopItemID workshopItemId;
+        @SerializedName("jarAbsolutePath")
         public final String jarAbsolutePath;
+        @SerializedName("sha256")
         public final String sha256;
+        @SerializedName("modifiedHuman")
         public final String modifiedHuman;
         /** {@code yes} / {@code no} to pre-select that radio; empty = default (No). */
+        @SerializedName("priorHint")
         public final String priorHint;
         /** Display name from mod.info {@code name=}; may be empty (UI falls back to {@link #modId}). */
+        @SerializedName("modDisplayName")
         public final String modDisplayName;
         /** {@code yes} / {@code no} / {@code unsigned} (missing .zbs while allowed) / empty (legacy). */
+        @SerializedName("zbsValid")
         public final String zbsValid;
         /** Author's Steam id from {@code .zbs} when present. */
+        @SerializedName("zbsSteamId")
         public final SteamID64 zbsSteamId;
         /** Non-empty when {@link #zbsValid} is {@code no}. */
+        @SerializedName("zbsNotice")
         public final String zbsNotice;
         /** {@code yes} / {@code no} / {@code unknown}. */
+        @SerializedName("steamBanStatus")
         public final String steamBanStatus;
         /** Optional explanation (e.g. API error or Steam ban reason). */
+        @SerializedName("steamBanReason")
         public final String steamBanReason;
 
-        @JsonCreator
         public Entry(
-            @JsonProperty("modKey") String modKey,
-            @JsonProperty("modId") String modId,
-            @JsonProperty("workshopItemId") JavaModInfo.WorkshopItemID workshopItemId,
-            @JsonProperty("jarAbsolutePath") String jarAbsolutePath,
-            @JsonProperty("sha256") String sha256,
-            @JsonProperty("modifiedHuman") String modifiedHuman,
-            @JsonProperty("priorHint") String priorHint,
-            @JsonProperty("modDisplayName") String modDisplayName,
-            @JsonProperty("zbsValid") String zbsValid,
-            @JsonProperty("zbsSteamId") SteamID64 zbsSteamId,
-            @JsonProperty("zbsNotice") String zbsNotice,
-            @JsonProperty("steamBanStatus") String steamBanStatus,
-            @JsonProperty("steamBanReason") String steamBanReason
+            String modKey,
+            String modId,
+            JavaModInfo.WorkshopItemID workshopItemId,
+            String jarAbsolutePath,
+            String sha256,
+            String modifiedHuman,
+            String priorHint,
+            String modDisplayName,
+            String zbsValid,
+            SteamID64 zbsSteamId,
+            String zbsNotice,
+            String steamBanStatus,
+            String steamBanReason
         ) {
             this.modKey = modKey;
             this.modId = modId;
@@ -85,26 +99,24 @@ public final class JarBatchApprovalProtocol {
     }
 
     /** One row in the batch response file: decision key, optional workshop id, JAR hash, token, optional trusted author SteamID64. */
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    @JsonIgnoreProperties(ignoreUnknown = true)
     public static final class OutLine {
+        @SerializedName("modId")
         public final String modId;
+        @SerializedName("workshopItemId")
         public final JavaModInfo.WorkshopItemID workshopItemId;
+        @SerializedName("sha256")
         public final String sha256;
+        @SerializedName("token")
         public final String token;
+        @SerializedName("trustedAuthorSteamId")
         public final String trustedAuthorSteamId;
 
-        public OutLine(String modId, JavaModInfo.WorkshopItemID workshopItemId, String sha256, String token) {
-            this(modId, workshopItemId, sha256, token, "");
-        }
-
-        @JsonCreator
         public OutLine(
-            @JsonProperty("modId") String modId,
-            @JsonProperty("workshopItemId") JavaModInfo.WorkshopItemID workshopItemId,
-            @JsonProperty("sha256") String sha256,
-            @JsonProperty("token") String token,
-            @JsonProperty("trustedAuthorSteamId") String trustedAuthorSteamId
+            String modId,
+            JavaModInfo.WorkshopItemID workshopItemId,
+            String sha256,
+            String token,
+            String trustedAuthorSteamId
         ) {
             this.modId = modId != null ? modId : "";
             this.workshopItemId = workshopItemId;
@@ -116,34 +128,42 @@ public final class JarBatchApprovalProtocol {
 
     public static void writeRequest(Path path, List<Entry> entries) throws IOException {
         List<Entry> safe = entries == null ? Collections.emptyList() : entries;
-        JSON.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), new RequestEnvelope(HDR_REQ, safe));
+        try (Writer w = Files.newBufferedWriter(path)) {
+            JSON.toJson(new RequestEnvelope(HDR_REQ, safe), w);
+        }
     }
 
     public static List<Entry> readRequest(Path path) throws IOException {
-        RequestEnvelope env = JSON.readValue(path.toFile(), RequestEnvelope.class);
-        if (env == null || !HDR_REQ.equals(env.header)) {
-            throw new IOException("Bad request header: " + (env != null ? env.header : null));
+        try (Reader r = Files.newBufferedReader(path)) {
+            RequestEnvelope env = JSON.fromJson(r, RequestEnvelope.class);
+            if (env == null || !HDR_REQ.equals(env.header)) {
+                throw new IOException("Bad request header: " + (env != null ? env.header : null));
+            }
+            return env.entries != null ? env.entries : Collections.emptyList();
         }
-        return env.entries != null ? env.entries : Collections.emptyList();
     }
 
     public static void writeResponse(Path path, List<OutLine> lines) throws IOException {
         List<OutLine> safe = lines == null ? Collections.emptyList() : lines;
-        JSON.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), new ResponseEnvelope(HDR_RESP, safe));
+        try (Writer w = Files.newBufferedWriter(path)) {
+            JSON.toJson(new ResponseEnvelope(HDR_RESP, safe), w);
+        }
     }
 
     public static List<OutLine> readResponse(Path path) throws IOException {
-        ResponseEnvelope env = JSON.readValue(path.toFile(), ResponseEnvelope.class);
-        if (env == null || !HDR_RESP.equals(env.header)) {
-            return null;
-        }
-        List<OutLine> out = env.lines != null ? env.lines : Collections.emptyList();
-        for (OutLine line : out) {
-            if (!isValidToken(line.token)) {
+        try (Reader r = Files.newBufferedReader(path)) {
+            ResponseEnvelope env = JSON.fromJson(r, ResponseEnvelope.class);
+            if (env == null || !HDR_RESP.equals(env.header)) {
                 return null;
             }
+            List<OutLine> out = env.lines != null ? env.lines : Collections.emptyList();
+            for (OutLine line : out) {
+                if (!isValidToken(line.token)) {
+                    return null;
+                }
+            }
+            return out;
         }
-        return out;
     }
 
     static boolean isValidToken(String tok) {
@@ -164,27 +184,25 @@ public final class JarBatchApprovalProtocol {
         }
     }
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    @JsonIgnoreProperties(ignoreUnknown = true)
     private static final class RequestEnvelope {
+        @SerializedName("header")
         public final String header;
+        @SerializedName("entries")
         public final List<Entry> entries;
 
-        @JsonCreator
-        RequestEnvelope(@JsonProperty("header") String header, @JsonProperty("entries") List<Entry> entries) {
+        RequestEnvelope(String header, List<Entry> entries) {
             this.header = header;
             this.entries = entries != null ? entries : new ArrayList<>();
         }
     }
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    @JsonIgnoreProperties(ignoreUnknown = true)
     private static final class ResponseEnvelope {
+        @SerializedName("header")
         public final String header;
+        @SerializedName("lines")
         public final List<OutLine> lines;
 
-        @JsonCreator
-        ResponseEnvelope(@JsonProperty("header") String header, @JsonProperty("lines") List<OutLine> lines) {
+        ResponseEnvelope(String header, List<OutLine> lines) {
             this.header = header;
             this.lines = lines != null ? lines : new ArrayList<>();
         }
