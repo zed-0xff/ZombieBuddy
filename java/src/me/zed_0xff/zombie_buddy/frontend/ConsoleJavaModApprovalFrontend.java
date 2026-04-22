@@ -56,7 +56,7 @@ public final class ConsoleJavaModApprovalFrontend implements JavaModApprovalFron
                     tok = JarBatchApprovalProtocol.TOK_DENY_SESSION;
                 }
             }
-            out.add(new JarBatchApprovalProtocol.OutLine(e.modKey, e.workshopItemId, e.sha256, tok));
+            out.add(new JarBatchApprovalProtocol.OutLine(e.modKey, e.workshopItemId, e.sha256, tok, ""));
         }
         Loader.applyBatchApprovalLines(out, disk);
     }

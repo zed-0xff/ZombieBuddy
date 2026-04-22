@@ -23,7 +23,7 @@ public final class TinyfdJavaModApprovalFrontend implements JavaModApprovalFront
         for (JarBatchApprovalProtocol.Entry e : pending) {
             JarApprovalOutcome o = promptForEntry(e);
             Loader.applyBatchApprovalLines(
-                List.of(new JarBatchApprovalProtocol.OutLine(e.modKey, e.workshopItemId, e.sha256, o.toBatchToken())),
+                List.of(new JarBatchApprovalProtocol.OutLine(e.modKey, e.workshopItemId, e.sha256, o.toBatchToken(), "")),
                 disk
             );
         }

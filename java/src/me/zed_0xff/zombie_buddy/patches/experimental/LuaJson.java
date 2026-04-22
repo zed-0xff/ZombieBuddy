@@ -7,7 +7,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import mjson.Json;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
+
 import se.krka.kahlua.integration.LuaReturn;
 import se.krka.kahlua.vm.KahluaException;
 import se.krka.kahlua.vm.KahluaTable;
@@ -25,93 +30,93 @@ public class LuaJson {
         return toJsonValue(luaValue, 0, maxDepth, seen).toString();
     }
 
-    /** Returns the Lua value as an mjson Json tree (no string round-trip). */
-    public static Json toJsonTree(Object luaValue) {
+    /** Returns the Lua value as a Gson {@link JsonElement} tree (no string round-trip). */
+    public static JsonElement toJsonTree(Object luaValue) {
         return toJsonTree(luaValue, DEFAULT_MAX_DEPTH);
     }
 
-    /** Returns the Lua value as an mjson Json tree (no string round-trip). */
-    public static Json toJsonTree(Object luaValue, int maxDepth) {
+    /** Returns the Lua value as a Gson {@link JsonElement} tree (no string round-trip). */
+    public static JsonElement toJsonTree(Object luaValue, int maxDepth) {
         Set<Object> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         return toJsonValue(luaValue, 0, maxDepth, seen);
     }
 
-    private static Json toJsonValue(Object value, int depth, int maxDepth, Set<Object> seen) {
+    private static JsonElement toJsonValue(Object value, int depth, int maxDepth, Set<Object> seen) {
         if (value == null) {
-            return Json.nil();
+            return JsonNull.INSTANCE;
         }
         if (value instanceof Map) {
             if (seen.contains(value)) {
-                return Json.make("[ref]");
+                return new JsonPrimitive("[ref]");
             }
             if (depth >= maxDepth) {
-                return Json.make("[object]");
+                return new JsonPrimitive("[object]");
             }
             seen.add(value);
-            Json obj = Json.object();
+            JsonObject obj = new JsonObject();
             for (Map.Entry<?, ?> e : ((Map<?, ?>) value).entrySet()) {
                 String key = e.getKey() != null ? e.getKey().toString() : "null";
-                obj.set(key, toJsonValue(e.getValue(), depth + 1, maxDepth, seen));
+                obj.add(key, toJsonValue(e.getValue(), depth + 1, maxDepth, seen));
             }
             return obj;
         }
         if (value instanceof KahluaTable) {
             if (seen.contains(value)) {
-                return Json.make("[ref]");
+                return new JsonPrimitive("[ref]");
             }
             if (depth >= maxDepth) {
-                return Json.make("[table]");
+                return new JsonPrimitive("[table]");
             }
             seen.add(value);
             KahluaTable table = (KahluaTable) value;
             if (isArray(table)) {
-                Json arr = Json.array();
+                JsonArray arr = new JsonArray();
                 int len = table.len();
                 for (int i = 1; i <= len; i++) {
                     arr.add(toJsonValue(table.rawget(i), depth + 1, maxDepth, seen));
                 }
                 return arr;
             }
-            Json obj = Json.object();
+            JsonObject obj = new JsonObject();
             KahluaTableIterator iter = table.iterator();
             while (iter.advance()) {
                 Object key = iter.getKey();
                 String keyStr = (key instanceof Double)
                     ? String.valueOf(((Double) key).longValue())
                     : key.toString();
-                Json val = toJsonValue(iter.getValue(), depth + 1, maxDepth, seen);
-                obj.set(keyStr, val);
+                JsonElement val = toJsonValue(iter.getValue(), depth + 1, maxDepth, seen);
+                obj.add(keyStr, val);
             }
             return obj;
         }
         if (value instanceof Double) {
             Double d = (Double) value;
             if (d == Math.floor(d) && !Double.isInfinite(d)) {
-                return Json.make(d.longValue());
+                return new JsonPrimitive(d.longValue());
             }
-            return Json.make(d);
+            return new JsonPrimitive(d);
         }
         if (value instanceof Boolean) {
-            return Json.make((Boolean) value);
+            return new JsonPrimitive((Boolean) value);
         }
         if (value instanceof String) {
-            return Json.make((String) value);
+            return new JsonPrimitive((String) value);
         }
         if (value instanceof List) {
             if (seen.contains(value)) {
-                return Json.make("[ref]");
+                return new JsonPrimitive("[ref]");
             }
             if (depth >= maxDepth) {
-                return Json.make("[list]");
+                return new JsonPrimitive("[list]");
             }
             seen.add(value);
-            Json arr = Json.array();
+            JsonArray arr = new JsonArray();
             for (Object elt : (List<?>) value) {
                 arr.add(toJsonValue(elt, depth + 1, maxDepth, seen));
             }
             return arr;
         }
-        return Json.make(value.toString());
+        return new JsonPrimitive(value.toString());
     }
 
     private static boolean isArray(KahluaTable table) {
@@ -128,9 +133,9 @@ public class LuaJson {
     }
 
     /** Serialize a Java exception to JSON for HTTP error response. */
-    public static Json serializeJavaException(Throwable ex) {
-        Json o = Json.object();
-        o.set("className", ex.getClass().getName());
+    public static JsonObject serializeJavaException(Throwable ex) {
+        JsonObject o = new JsonObject();
+        o.addProperty("className", ex.getClass().getName());
         String message = ex.getMessage();
         if (message == null || message.isEmpty()) message = ex.toString();
         StringBuilder fullMessage = new StringBuilder(message);
@@ -139,41 +144,58 @@ public class LuaJson {
             String cm = cause.getMessage();
             fullMessage.append(cm != null && !cm.isEmpty() ? cm : cause.toString());
         }
-        o.set("message", fullMessage.toString());
+        o.addProperty("message", fullMessage.toString());
         StackTraceElement[] stack = ex.getStackTrace();
         if (stack != null && stack.length > 0) {
             StackTraceElement frame = stack[0];
-            o.set("file", frame.getFileName());
-            o.set("line", frame.getLineNumber());
-            o.set("method", frame.getMethodName());
-            Json stackTrace = Json.array();
+            o.addProperty("file", frame.getFileName());
+            o.addProperty("line", frame.getLineNumber());
+            o.addProperty("method", frame.getMethodName());
+            JsonArray stackTrace = new JsonArray();
             for (StackTraceElement f : stack) {
                 String fn = f.getFileName();
-                stackTrace.add(f.getClassName() + "." + f.getMethodName() + "(" + (fn != null ? fn : "?") + ":" + f.getLineNumber() + ")");
+                stackTrace.add(new JsonPrimitive(
+                    f.getClassName() + "." + f.getMethodName() + "(" + (fn != null ? fn : "?") + ":" + f.getLineNumber() + ")"
+                ));
             }
-            o.set("stackTrace", stackTrace);
+            o.add("stackTrace", stackTrace);
         }
         return o;
     }
 
     /** Serialize a KahluaException to JSON for HTTP error response. */
-    public static Json serializeKahluaException(KahluaException ex, String[] kahluaErrors) {
-        Json o = Json.object();
-        o.set("errorString", ex.getMessage());
-        o.set("kahluaErrors", kahluaErrors != null ? Json.make(Arrays.asList(kahluaErrors)) : Json.nil());
+    public static JsonObject serializeKahluaException(KahluaException ex, String[] kahluaErrors) {
+        JsonObject o = new JsonObject();
+        o.addProperty("errorString", ex.getMessage());
+        o.add("kahluaErrors", stringArrayToJsonArray(kahluaErrors));
         return o;
     }
 
     /** Serialize a LuaReturn (failed protected call) to JSON for HTTP error response. */
-    public static Json serializeLuaReturn(LuaReturn luaReturn, String[] kahluaErrors) {
-        Json o = Json.object();
-        o.set("errorString", luaReturn.getErrorString());
-        o.set("luaStackTrace", luaReturn.getLuaStackTrace());
+    public static JsonObject serializeLuaReturn(LuaReturn luaReturn, String[] kahluaErrors) {
+        JsonObject o = new JsonObject();
+        o.addProperty("errorString", luaReturn.getErrorString());
+        o.addProperty("luaStackTrace", luaReturn.getLuaStackTrace());
         Object errorObj = luaReturn.getErrorObject();
-        o.set("errorObject", errorObj != null ? String.valueOf(errorObj) : Json.nil());
+        if (errorObj != null) {
+            o.addProperty("errorObject", String.valueOf(errorObj));
+        } else {
+            o.add("errorObject", JsonNull.INSTANCE);
+        }
         RuntimeException javaEx = luaReturn.getJavaException();
-        o.set("javaException", javaEx != null ? serializeJavaException(javaEx) : Json.nil());
-        o.set("kahluaErrors", kahluaErrors != null ? Json.make(Arrays.asList(kahluaErrors)) : Json.nil());
+        o.add("javaException", javaEx != null ? serializeJavaException(javaEx) : JsonNull.INSTANCE);
+        o.add("kahluaErrors", stringArrayToJsonArray(kahluaErrors));
         return o;
+    }
+
+    private static JsonElement stringArrayToJsonArray(String[] kahluaErrors) {
+        if (kahluaErrors == null) {
+            return JsonNull.INSTANCE;
+        }
+        JsonArray arr = new JsonArray();
+        for (String s : kahluaErrors) {
+            arr.add(s != null ? new JsonPrimitive(s) : JsonNull.INSTANCE);
+        }
+        return arr;
     }
 }

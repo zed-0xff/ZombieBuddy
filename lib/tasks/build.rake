@@ -1,5 +1,5 @@
 desc 'build'
-task :build => ["42_13:build", "clean", "42_12:build"]
+task :build => ["unstable:build", "clean", "42_12:build"]
 
 namespace "42_12" do
   desc 'build'
@@ -14,13 +14,13 @@ namespace "42_12" do
   end
 end
 
-namespace "42_13" do
+namespace "unstable" do
   desc 'build'
   task :build => :chdir do
     env = {
       "JAVA_HOME" => "/Library/Java/JavaVirtualMachines/openjdk-24.jdk/Contents/Home"
     }
-    cp_root = File.join(PROJECT_ROOT, "versions/42.13/java")
+    cp_root = File.join(PROJECT_ROOT, "versions/unstable/java")
     cp = [File.join(cp_root, "projectzomboid.jar")].join(",")
 
     sh env, "gradle build --warning-mode all -PgameClasspath=#{cp}"

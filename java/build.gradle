@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'signing'
+    id 'com.gradleup.shadow' version '9.2.2'
 }
 
 // Game classpath - list of JARs or directories provided via command line (-PgameClasspath=path1,path2,path3)
@@ -28,8 +29,8 @@ dependencies {
     implementation 'net.bytebuddy:byte-buddy:1.18.4'
     implementation 'net.bytebuddy:byte-buddy-agent:1.18.4'
     implementation 'io.github.classgraph:classgraph:4.8.184'
-    implementation 'org.sharegov:mjson:1.4.2'
     implementation 'org.bouncycastle:bcprov-jdk18on:1.78.1'
+    implementation 'com.google.code.gson:gson:2.12.1'
 
     compileOnly files(GAME_CLASSPATH)
     
@@ -42,6 +43,7 @@ dependencies {
 
 jar {
     archiveBaseName.set("ZombieBuddy")
+    archiveClassifier.set("plain")
     manifest {
         attributes(
             'Premain-Class': 'me.zed_0xff.zombie_buddy.Agent',
@@ -50,13 +52,23 @@ jar {
             'Implementation-Version': version
         )
     }
-    
-    // Create fat JAR - include all dependencies
-    from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+}
+
+shadowJar {
+    archiveBaseName.set("ZombieBuddy")
+    archiveClassifier.set("")
+    manifest {
+        attributes(
+            'Premain-Class': 'me.zed_0xff.zombie_buddy.Agent',
+            'Can-Redefine-Classes': 'true',
+            'Can-Retransform-Classes': 'true',
+            'Implementation-Version': version
+        )
     }
-    // Exclude META-INF files from dependencies to avoid conflicts
-    // Keep our own META-INF/MANIFEST.MF
+    mergeServiceFiles()
+    
+    relocate 'com.google.gson', 'zb.com.google.gson'
+
     exclude 'META-INF/*.SF'
     exclude 'META-INF/*.DSA'
     exclude 'META-INF/*.RSA'
@@ -87,10 +99,10 @@ if (useKeychain) {
     
     // Create a custom task that uses jarsigner with KeychainStore
     task signJar(type: Exec) {
-        dependsOn jar
+        dependsOn shadowJar
         onlyIf { keyAlias != null }
         
-        def jarFile = jar.archiveFile.get().asFile
+        def jarFile = shadowJar.archiveFile.get().asFile
         
         // Use jarsigner from PATH or find it from JAVA_HOME
         def jarsignerPath = System.getenv('JAVA_HOME') ? 
@@ -132,7 +144,7 @@ if (useKeychain) {
         keyAlias = project.findProperty('signing.keyAlias')
         keyPassword = project.findProperty('signing.keyPassword')
         
-        sign jar
+        sign shadowJar
     }
 }
 
@@ -218,14 +230,20 @@ tasks.named("check") {
 
 tasks.named("build") {
     dependsOn check
+    dependsOn shadowJar
     finalizedBy copyNativeDll
 }
 
-// Ensure copyNativeDll runs after jar is built
-copyNativeDll.mustRunAfter jar
+tasks.named("assemble") {
+    dependsOn shadowJar
+}
+
+// Ensure copyNativeDll runs after the shaded agent JAR is built
+copyNativeDll.mustRunAfter shadowJar
 
 // disable annotation processing, JNI headers, and incremental compilation
 tasks.withType(JavaCompile).configureEach {
+    options.release = 17
     options.annotationProcessorPath = files()
     options.generatedSourceOutputDirectory.set(provider { null })
     options.headerOutputDirectory.set(provider { null })
@@ -367,18 +385,18 @@ task test_patched(type: Test) {
     useJUnitPlatform()
     dependsOn testJar
     dependsOn testpatchesJar
-    dependsOn jar  // Ensure ZombieBuddy.jar is built before tests
-    
+    dependsOn shadowJar  // Fat shaded ZombieBuddy.jar (javaagent)
+
     // Use testPatched source set
     testClassesDirs = sourceSets.testPatched.output.classesDirs
     classpath = sourceSets.testPatched.runtimeClasspath
-    
+
     // Add javaagent JVM argument with patches_jar parameter
     // Format: <path>:<package_name>
     def patchesJarPath = testpatchesJar.archiveFile.get().asFile.absolutePath
     def patchesPackageName = "me.zed_0xff.zombie_buddy.testpatches"
     jvmArgs = [
-        "-javaagent:${jar.archiveFile.get().asFile.absolutePath}=patches_jar=${patchesJarPath}:${patchesPackageName},verbosity=2"
+        "-javaagent:${shadowJar.archiveFile.get().asFile.absolutePath}=patches_jar=${patchesJarPath}:${patchesPackageName},verbosity=2"
     ]
 }
 
