@@ -242,18 +242,14 @@ public record JavaModInfo(
      */
     public static JavaModInfo parse(File modDir) {
         if (modDir == null || !modDir.isDirectory()) {
-            if (Loader.g_verbosity > 0) {
-                Logger.info("Mod directory does not exist or is not a directory: " + modDir);
-            }
+            Logger.debug("Mod directory does not exist or is not a directory: " + modDir);
             return null;
         }
         
         File modInfoFile = new File(modDir, "mod.info");
         ParsedValues parsed = parseModInfoFile(modInfoFile);
         if (parsed == null) {
-            if (Loader.g_verbosity > 0) {
-                Logger.info("mod.info not found or failed to parse in directory: " + modDir);
-            }
+            Logger.trace("mod.info not found or failed to parse in directory: " + modDir);
             return null;
         }
         return validateAndCreate(parsed, modInfoFile, modDir, true);
