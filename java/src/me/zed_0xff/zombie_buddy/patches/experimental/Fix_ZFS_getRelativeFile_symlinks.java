@@ -1,12 +1,12 @@
 package me.zed_0xff.zombie_buddy.patches.experimental;
 
-import me.zed_0xff.zombie_buddy.Logger;
 import me.zed_0xff.zombie_buddy.Patch;
 
 import java.io.File;
 import java.net.URI;
 import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 // getRelativeFile(
 //  file:/users/zed/zomboid/mods/zscienceskill/42.13/,
@@ -23,77 +23,72 @@ import java.nio.file.Path;
 // readlink /Users/zed/Zomboid/mods/ZBSpec/mods/ZBSpec/41/media/lua => ../../common/media/lua
 
 public class Fix_ZFS_getRelativeFile_symlinks {
-    @Patch(className= "zombie.ZomboidFileSystem", methodName= "getRelativeFile")
+    // rootCanonical -> (linkCanonical -> logicalRelativePath)
+    public static final Map<String, Map<String, String>> symlinkMappings = new ConcurrentHashMap<>();
+    
+    public static String fixResult(URI root, String path, String result) {
+        if (result == null || path == null || root == null) return result;
+        if (!result.equals(path) || !path.startsWith("/")) return result;
+        if (!"file".equals(root.getScheme())) return result;
+
+        try {
+            File rootFile = new File(root);
+            String rootCanonical = rootFile.getCanonicalPath();
+            String pathCanonical = new File(path).getCanonicalPath();
+            
+            // Direct case: path is directly under root
+            if (pathCanonical.startsWith(rootCanonical + File.separator)) {
+                return pathCanonical.substring(rootCanonical.length() + 1).replace(File.separatorChar, '/');
+            }
+            
+            // Symlink case: check cached mappings
+            Map<String, String> mappings = symlinkMappings.computeIfAbsent(rootCanonical,
+                k -> scanSymlinks(rootFile, 2));
+            
+            for (var entry : mappings.entrySet()) {
+                String linkCanonical = entry.getKey();
+                if (pathCanonical.startsWith(linkCanonical + File.separator)) {
+                    String remainder = pathCanonical.substring(linkCanonical.length() + 1).replace(File.separatorChar, '/');
+                    return entry.getValue() + "/" + remainder;
+                }
+                if (pathCanonical.equals(linkCanonical)) {
+                    return entry.getValue();
+                }
+            }
+        } catch (Exception ignored) {}
+        return result;
+    }
+    
+    private static Map<String, String> scanSymlinks(File dir, int depth) {
+        Map<String, String> result = new ConcurrentHashMap<>();
+        scanSymlinksRecursive(dir, dir.toPath().toAbsolutePath().normalize(), result, depth);
+        return result;
+    }
+    
+    private static void scanSymlinksRecursive(File dir, java.nio.file.Path rootPath, Map<String, String> result, int depth) {
+        if (depth < 0) return;
+        File[] children = dir.listFiles();
+        if (children == null) return;
+        
+        for (File child : children) {
+            try {
+                var childPath = child.toPath();
+                if (Files.isSymbolicLink(childPath)) {
+                    String logical = rootPath.relativize(childPath.toAbsolutePath().normalize())
+                        .toString().replace(File.separatorChar, '/');
+                    result.put(child.getCanonicalPath(), logical);
+                } else if (depth > 0 && child.isDirectory()) {
+                    scanSymlinksRecursive(child, rootPath, result, depth - 1);
+                }
+            } catch (Exception ignored) {}
+        }
+    }
+    
+    @Patch(className = "zombie.ZomboidFileSystem", methodName = "getRelativeFile")
     public static class Patch_ZFS_getRelativeFile {
         @Patch.OnExit
         public static void exit(URI root, String path, @Patch.Return(readOnly = false) String result) {
-            if (result == null || path == null || root == null) return;
-            if (!result.equals(path) || !path.startsWith("/")) return;
-            if (root.getScheme() == null || !root.getScheme().equals("file")) return;
-
-            try {
-                File rootFile = new File(root);
-                String rootCanonical = rootFile.getCanonicalPath();
-                String pathCanonical = new File(path).getCanonicalPath();
-
-                // Direct non-symlink case.
-                String rootPrefix = rootCanonical.endsWith(File.separator) ? rootCanonical : (rootCanonical + File.separator);
-                if (pathCanonical.startsWith(rootPrefix)) {
-                    result = pathCanonical.substring(rootPrefix.length()).replace(File.separatorChar, '/');
-                    Logger.info("Fixed getRelativeFile() result: " + result + " (direct)");
-                    return; // Patch.Return: result is written back
-                }
-
-                // Symlink case: scan under root up to depth 2 and map canonical target back to
-                // the symlink's logical location relative to root.
-                String viaSymlink = resolveViaSymlinkUnderRoot(rootFile, pathCanonical, 2);
-                if (viaSymlink != null) {
-                    result = viaSymlink;
-                    Logger.info("Fixed getRelativeFile() result: " + result + " (via-symlink)");
-                    return;
-                }
-            } catch (Exception e) {
-                // leave result unchanged
-            }
-            // get false warnings when game tries to find same file in different dirs
-            // Logger.warn("Couldn't fix getRelativeFile() result " + Logger.formatArg(result) + " for root " + Logger.formatArg(root));
-        }
-
-        public static String resolveViaSymlinkUnderRoot(File rootFile, String pathCanonical, int maxDepth) {
-            if (rootFile == null || pathCanonical == null || maxDepth < 0) return null;
-            File[] children = rootFile.listFiles();
-            if (children == null) return null;
-
-            Path rootAbs = rootFile.toPath().toAbsolutePath().normalize();
-            for (File child : children) {
-                if (child == null) continue;
-                Path childPath = child.toPath();
-                try {
-                    if (Files.isSymbolicLink(childPath)) {
-                        String linkCanonical = child.getCanonicalPath();
-                        String linkPrefix = linkCanonical.endsWith(File.separator) ? linkCanonical : (linkCanonical + File.separator);
-                        if (pathCanonical.equals(linkCanonical) || pathCanonical.startsWith(linkPrefix)) {
-                            String remainder = "";
-                            if (pathCanonical.startsWith(linkPrefix)) {
-                                remainder = pathCanonical.substring(linkPrefix.length()).replace(File.separatorChar, '/');
-                            }
-
-                            Path childAbs = childPath.toAbsolutePath().normalize();
-                            String logicalPrefix = rootAbs.relativize(childAbs).toString().replace(File.separatorChar, '/');
-                            if (logicalPrefix.isEmpty()) return remainder;
-                            return remainder.isEmpty() ? logicalPrefix : (logicalPrefix + "/" + remainder);
-                        }
-                        continue;
-                    }
-                    if (maxDepth > 0 && child.isDirectory()) {
-                        String nested = resolveViaSymlinkUnderRoot(child, pathCanonical, maxDepth - 1);
-                        if (nested != null) return nested;
-                    }
-                } catch (Exception ignored) {
-                    // ignore broken/inaccessible entry and continue scanning
-                }
-            }
-            return null;
+            result = fixResult(root, path, result);
         }
     }
 }
