@@ -19,7 +19,7 @@ public class Patch_watermark {
         @Patch.OnExit
         static void exit() {
             _draw_watermark = false;
-            Hooks.run("onGameInitComplete");
+            Callbacks.onGameInitComplete.run();
         }
     }
 

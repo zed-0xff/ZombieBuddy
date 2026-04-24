@@ -111,7 +111,7 @@ public class Agent {
         
         // Register onGameInitComplete hooks based on arguments
         if (arguments.containsKey("exit_after_game_init")) {
-            Hooks.register("onGameInitComplete", Agent::onGameInitCompleteExitHook);
+            Callbacks.onGameInitComplete.register(Agent::exitOnGameInitComplete);
         }
 
         // Expose classes with @Exposer.LuaClass annotation from main package
@@ -134,8 +134,8 @@ public class Agent {
         return arguments.containsKey("experimental");
     }
 
-    /** Called from Hooks when exit_after_game_init was requested. */
-    private static void onGameInitCompleteExitHook() {
+    /** Called from Callbacks when exit_after_game_init was requested. */
+    private static void exitOnGameInitComplete() {
         if (arguments.containsKey("exit_after_game_init")) {
             Logger.info("Exiting after game init as requested.");
             Core.getInstance().quit();

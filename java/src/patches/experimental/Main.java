@@ -34,7 +34,7 @@ public class Main {
 
                 // Register hook to write the random port file on game init
                 if (isRandomPort) {
-                    Hooks.register("onGameInitComplete", () -> {
+                    Callbacks.onGameInitComplete.register(() -> {
                         HttpServer server = HttpServer.getInstance();
                         if (server != null && server.wasRandomPort()) {
                             writePortFile(server.getPort());

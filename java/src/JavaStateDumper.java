@@ -11,6 +11,10 @@ public class JavaStateDumper {
     private static GLFWKeyCallbackI originalKeyCallback = null;
     private static boolean installed = false;
 
+    static {
+        Callbacks.onDisplayCreate.register(JavaStateDumper::installKeyCallback);
+    }
+
     public static void installKeyCallback() {
         if (installed) return;
         installed = true;
