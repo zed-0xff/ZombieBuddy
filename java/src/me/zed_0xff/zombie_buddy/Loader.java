@@ -486,32 +486,18 @@ public class Loader {
                 }
                 File zbsFile = ctx.jarFile != null ? new File(ctx.jarFile.getAbsolutePath() + ".zbs") : null;
                 JavaModInfo.WorkshopItemID workshopItemId = steamModeEnabled ? ctx.workshopItemId : null;
-                String zbsValid;
-                SteamID64 zbsSID = null;
-                String zbsNotice;
                 String steamBanStatus = ctx.banInfo != null ? ctx.banInfo.status : SteamWorkshopClient.BAN_STATUS_NO;
                 String steamBanReason = ctx.banInfo != null ? ctx.banInfo.reason : "";
-                if (steamModeEnabled) {
-                    if (zbsFile == null || !zbsFile.isFile()) {
-                        if (g_allowUnsignedMods) {
-                            zbsValid = "unsigned";
-                            zbsNotice = "";
-                        } else {
-                            zbsValid = "no";
-                            zbsNotice = "Missing .zbs file (allow_unsigned_mods=false)";
-                        }
-                    } else {
-                        SteamID64 uploaderID = SteamWorkshopClient.getUploaderForVerification(ctx.workshopItemId, workshopDetailsById);
-                        ZBSVerifier.Verification zbs = ZBSVerifier.verify(ctx.jarFile, zbsFile, ctx.hash, uploaderID);
-                        mergeAuthorKeysFromVerification(g_authors, zbs);
-                        zbsValid = zbs instanceof ZBSVerifier.ValidSignature ? "yes" : "no";
-                        zbsSID = zbs.sid;
-                        zbsNotice = LoaderUtils.zbsNoticeForUi(zbs);
-                    }
-                } else {
-                    zbsValid = "";
-                    zbsNotice = "";
+                LoaderUtils.ZBSCheckResult zbsResult = steamModeEnabled
+                    ? LoaderUtils.checkZBS(ctx.jarFile, ctx.hash, ctx.workshopItemId, 
+                        steamModeEnabled, g_allowUnsignedMods, workshopDetailsById)
+                    : LoaderUtils.ZBSCheckResult.DISABLED;
+                if (zbsResult.verification() != null) {
+                    mergeAuthorKeysFromVerification(g_authors, zbsResult.verification());
                 }
+                String zbsValid = zbsResult.valid();
+                SteamID64 zbsSID = zbsResult.sid();
+                String zbsNotice = zbsResult.notice();
                 String authorIdStr = zbsSID != null ? zbsSID.value() : null;
                 if (!ctx.steamBanned && "yes".equals(zbsValid) && isAuthorTrusted(zbsSID)) {
                     // Auto-approve signed mods from trusted authors
@@ -573,22 +559,14 @@ public class Loader {
 
             // ZBS: skipped entirely for policy=allow-all; invalid signatures always block when checks apply.
             if (!shouldSkip && zbsSignatureChecksEnabled() && ctx.jarFile != null && ctx.hash != null) {
-                File zbsFile = new File(ctx.jarFile.getAbsolutePath() + ".zbs");
-                if (!zbsFile.isFile()) {
-                    if (!g_allowUnsignedMods) {
-                        shouldSkip = true;
-                        skipReason = " (missing .zbs file; allow_unsigned_mods=false, modId=" + ctx.modId + ")";
-                    }
-                } else {
-                    SteamID64 uploaderID = steamModeEnabled
-                        ? SteamWorkshopClient.getUploaderForVerification(ctx.workshopItemId, workshopDetailsById)
-                        : null;
-                    ZBSVerifier.Verification zbs = ZBSVerifier.verify(ctx.jarFile, zbsFile, ctx.hash, uploaderID);
-                    mergeAuthorKeysFromVerification(g_authors, zbs);
-                    if (!(zbs instanceof ZBSVerifier.ValidSignature)) {
-                        shouldSkip = true;
-                        skipReason = " (invalid ZBS: " + zbs.detailedMessage + ", modId=" + ctx.modId + ")";
-                    }
+                LoaderUtils.ZBSCheckResult zbsResult = LoaderUtils.checkZBS(ctx.jarFile, ctx.hash, 
+                    ctx.workshopItemId, steamModeEnabled, g_allowUnsignedMods, workshopDetailsById);
+                if (zbsResult.verification() != null) {
+                    mergeAuthorKeysFromVerification(g_authors, zbsResult.verification());
+                }
+                if (zbsResult.shouldBlock()) {
+                    shouldSkip = true;
+                    skipReason = " (" + zbsResult.blockReason() + ", modId=" + ctx.modId + ")";
                 }
             }
 

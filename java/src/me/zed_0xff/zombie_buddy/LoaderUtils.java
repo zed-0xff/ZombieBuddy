@@ -7,12 +7,63 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.CodeSource;
 import java.security.MessageDigest;
+import java.util.Map;
 import java.util.jar.JarFile;
 
 /**
  * Utility methods for the mod loader.
  */
 public final class LoaderUtils {
+
+    /** Result of ZBS signature verification check. */
+    public record ZBSCheckResult(
+        String valid,                    // "yes", "no", "unsigned", or ""
+        SteamID64 sid,                   // signer ID or null
+        String notice,                   // UI notice text
+        boolean shouldBlock,             // true if JAR should be blocked
+        String blockReason,              // reason for blocking (if shouldBlock)
+        ZBSVerifier.Verification verification  // the raw verification result, or null
+    ) {
+        public static final ZBSCheckResult DISABLED = new ZBSCheckResult("", null, "", false, null, null);
+        public static final ZBSCheckResult UNSIGNED_ALLOWED = new ZBSCheckResult("unsigned", null, "", false, null, null);
+        
+        public static ZBSCheckResult missingNotAllowed() {
+            return new ZBSCheckResult("no", null, "Missing .zbs file (allow_unsigned_mods=false)", 
+                true, "missing .zbs file; allow_unsigned_mods=false", null);
+        }
+    }
+
+    /**
+     * Perform ZBS signature verification for a JAR file.
+     */
+    public static ZBSCheckResult checkZBS(
+            File jarFile,
+            String jarHash,
+            JavaModInfo.WorkshopItemID workshopItemId,
+            boolean steamModeEnabled,
+            boolean allowUnsignedMods,
+            Map<JavaModInfo.WorkshopItemID, SteamWorkshopClient.ItemDetails> workshopDetailsById
+    ) {
+        File zbsFile = new File(jarFile.getAbsolutePath() + ".zbs");
+        
+        if (!zbsFile.isFile()) {
+            return allowUnsignedMods ? ZBSCheckResult.UNSIGNED_ALLOWED : ZBSCheckResult.missingNotAllowed();
+        }
+
+        SteamID64 uploaderID = steamModeEnabled
+            ? SteamWorkshopClient.getUploaderForVerification(workshopItemId, workshopDetailsById)
+            : null;
+        ZBSVerifier.Verification zbs = ZBSVerifier.verify(jarFile, zbsFile, jarHash, uploaderID);
+        
+        boolean valid = zbs instanceof ZBSVerifier.ValidSignature;
+        String notice = zbsNoticeForUi(zbs);
+        
+        if (valid) {
+            return new ZBSCheckResult("yes", zbs.sid, notice, false, null, zbs);
+        } else {
+            return new ZBSCheckResult("no", zbs.sid, notice, true, "invalid ZBS: " + zbs.detailedMessage, zbs);
+        }
+    }
 
     private LoaderUtils() {}
 
