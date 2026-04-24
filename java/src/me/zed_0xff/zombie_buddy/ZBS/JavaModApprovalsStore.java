@@ -60,7 +60,7 @@ public final class JavaModApprovalsStore {
         public String id = "";
         
         @SerializedName("workshop_id")
-        public String workshopId;
+        public JavaModInfo.WorkshopItemID workshopId;
         
         @SerializedName("jar_hash")
         public String jarHash;
@@ -72,11 +72,11 @@ public final class JavaModApprovalsStore {
         public String time;
         
         @SerializedName("author_id")
-        public String authorId;
+        public SteamID64 authorId;
 
         public ModEntry() {}
 
-        public ModEntry(String id, String workshopId, String jarHash, boolean decision, String time, String authorId) {
+        public ModEntry(String id, JavaModInfo.WorkshopItemID workshopId, String jarHash, boolean decision, String time, SteamID64 authorId) {
             this.id = id != null ? id : "";
             this.workshopId = workshopId;
             this.jarHash = jarHash;

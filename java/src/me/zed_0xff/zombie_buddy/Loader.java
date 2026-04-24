@@ -143,7 +143,8 @@ public class Loader {
         boolean anyOtherNo = false;
         boolean anyOtherYes = false;
         for (JavaModApprovalsStore.ModEntry e : storedEntries) {
-            if (!modId.equals(e.id) && !modId.equals(e.workshopId)) continue;
+            String wsIdStr = e.workshopId != null ? Long.toString(e.workshopId.value()) : null;
+            if (!modId.equals(e.id) && !modId.equals(wsIdStr)) continue;
             if (hash.equals(e.jarHash)) continue;
             if (e.decision) anyOtherYes = true;
             else anyOtherNo = true;
@@ -217,7 +218,8 @@ public class Loader {
      * Add or update a decision in g_storedEntries (for persistence).
      * Updates existing entry with matching jarHash, or adds a new one.
      */
-    private static void storeDecision(String jarHash, boolean allow, String modId, String workshopId, String authorId) {
+    private static void storeDecision(String jarHash, boolean allow, String modId, 
+            JavaModInfo.WorkshopItemID workshopId, SteamID64 authorId) {
         if (jarHash == null) return;
         // Update existing entry if found
         for (JavaModApprovalsStore.ModEntry e : g_storedEntries) {
@@ -225,7 +227,7 @@ public class Loader {
                 e.decision = allow;
                 if (modId != null && !modId.isEmpty()) e.id = modId;
                 if (workshopId != null) e.workshopId = workshopId;
-                if (authorId != null && !authorId.isEmpty()) e.authorId = authorId;
+                if (authorId != null) e.authorId = authorId;
                 return;
             }
         }
@@ -285,8 +287,7 @@ public class Loader {
 
         if (POLICY_ALLOW_ALL.equals(policy)) {
             disk.put(hash, DECISION_YES);
-            String workshopIdStr = SteamWorkshopClient.idToString(jModInfo != null ? jModInfo.getWorkshopItemID() : null);
-            storeDecision(hash, true, modId, workshopIdStr, null);
+            storeDecision(hash, true, modId, jModInfo != null ? jModInfo.getWorkshopItemID() : null, null);
             return true;
         }
         if (POLICY_DENY_NEW.equals(policy)) {
@@ -321,7 +322,6 @@ public class Loader {
             String tok = ol.token;
             if (!JarBatchApprovalProtocol.isValidToken(tok)) continue;
             String hash = ol.sha256;
-            String workshopIdStr = ol.workshopItemId != null ? Long.toString(ol.workshopItemId.value()) : null;
             boolean allow = JarBatchApprovalProtocol.TOK_ALLOW_PERSIST.equals(tok)
                          || JarBatchApprovalProtocol.TOK_ALLOW_SESSION.equals(tok);
             boolean persist = JarBatchApprovalProtocol.TOK_ALLOW_PERSIST.equals(tok)
@@ -329,7 +329,8 @@ public class Loader {
             if (persist) {
                 disk.put(hash, allow ? DECISION_YES : DECISION_NO);
                 String authorIdStr = ol.trustedAuthorSteamId != null ? ol.trustedAuthorSteamId.trim() : null;
-                storeDecision(hash, allow, ol.modId, workshopIdStr, authorIdStr);
+                SteamID64 authorSid = (authorIdStr != null && !authorIdStr.isEmpty()) ? new SteamID64(authorIdStr) : null;
+                storeDecision(hash, allow, ol.modId, ol.workshopItemId, authorSid);
             } else {
                 g_sessionJarDecisions.put(hash, allow ? DECISION_YES : DECISION_NO);
             }
@@ -498,11 +499,10 @@ public class Loader {
                 String zbsValid = zbsResult.valid();
                 SteamID64 zbsSID = zbsResult.sid();
                 String zbsNotice = zbsResult.notice();
-                String authorIdStr = zbsSID != null ? zbsSID.value() : null;
                 if (!ctx.steamBanned && "yes".equals(zbsValid) && isAuthorTrusted(zbsSID)) {
                     // Auto-approve signed mods from trusted authors
                     approvals.put(ctx.hash, DECISION_YES);
-                    storeDecision(ctx.hash, true, ctx.modId, workshopIdStr, authorIdStr);
+                    storeDecision(ctx.hash, true, ctx.modId, ctx.workshopItemId, zbsSID);
                     continue;
                 }
                 if (!ctx.steamBanned) {
