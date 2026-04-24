@@ -17,6 +17,8 @@ import zombie.GameWindow;
 import zombie.core.znet.SteamUtils;
 import zombie.gameStates.ChooseGameInfo;
 
+import me.zed_0xff.zombie_buddy.JavaModApprovalsStore.AuthorEntry;
+
 public class Loader {
     public static Instrumentation g_instrumentation;
     public static int g_verbosity = 0;
@@ -85,7 +87,7 @@ public class Loader {
     // Session-only decisions (not persisted)
     private static final JarDecisionTable g_sessionJarDecisions = new JarDecisionTable();
     // Author trust entries
-    private static final Map<SteamID64, JavaModApprovalsStore.AuthorEntry> g_authors = new HashMap<>();
+    private static final Map<SteamID64, AuthorEntry> g_authors = new HashMap<>();
 
     private static final Object g_approvalFrontendLock = new Object();
     private static volatile JavaModApprovalFrontend g_approvalFrontend;
@@ -199,11 +201,11 @@ public class Loader {
         return table;
     }
 
-    private static Map<SteamID64, JavaModApprovalsStore.AuthorEntry> buildAuthorsMap(
-        Map<String, JavaModApprovalsStore.AuthorEntry> rawAuthors
+    private static Map<SteamID64, AuthorEntry> buildAuthorsMap(
+        Map<String, AuthorEntry> rawAuthors
     ) {
-        Map<SteamID64, JavaModApprovalsStore.AuthorEntry> result = new HashMap<>();
-        for (Map.Entry<String, JavaModApprovalsStore.AuthorEntry> e : rawAuthors.entrySet()) {
+        Map<SteamID64, AuthorEntry> result = new HashMap<>();
+        for (Map.Entry<String, AuthorEntry> e : rawAuthors.entrySet()) {
             if (e.getKey() != null && !e.getKey().isEmpty()) {
                 result.put(new SteamID64(e.getKey()), e.getValue());
             }
@@ -238,11 +240,11 @@ public class Loader {
         ));
     }
 
-    private static Map<String, JavaModApprovalsStore.AuthorEntry> buildRawAuthorsMap(
-        Map<SteamID64, JavaModApprovalsStore.AuthorEntry> authors
+    private static Map<String, AuthorEntry> buildRawAuthorsMap(
+        Map<SteamID64, AuthorEntry> authors
     ) {
-        Map<String, JavaModApprovalsStore.AuthorEntry> result = new LinkedHashMap<>();
-        for (Map.Entry<SteamID64, JavaModApprovalsStore.AuthorEntry> e : authors.entrySet()) {
+        Map<String, AuthorEntry> result = new LinkedHashMap<>();
+        for (Map.Entry<SteamID64, AuthorEntry> e : authors.entrySet()) {
             if (e.getKey() != null && e.getKey().value() != null) {
                 result.put(e.getKey().value(), e.getValue());
             }
@@ -251,7 +253,7 @@ public class Loader {
     }
 
     private static void mergeAuthorKeysFromVerification(
-        Map<SteamID64, JavaModApprovalsStore.AuthorEntry> authors,
+        Map<SteamID64, AuthorEntry> authors,
         ZBSVerifier.Verification zbs
     ) {
         if (authors == null || zbs == null || zbs.sid == null || zbs.profileKeys == null || zbs.profileKeys.isEmpty()) {
@@ -265,7 +267,7 @@ public class Loader {
                 keys.addAll(existing.keys);
             }
             keys.addAll(zbs.profileKeys);
-            return new JavaModApprovalsStore.AuthorEntry(trust, keys, name);
+            return new AuthorEntry(trust, keys, name);
         });
     }
 
@@ -312,7 +314,7 @@ public class Loader {
     public static void applyBatchApprovalLines(
         List<JarBatchApprovalProtocol.OutLine> lines,
         JarDecisionTable disk,
-        Map<SteamID64, JavaModApprovalsStore.AuthorEntry> authors
+        Map<SteamID64, AuthorEntry> authors
     ) {
         if (lines == null) return;
         for (JarBatchApprovalProtocol.OutLine ol : lines) {
@@ -337,9 +339,9 @@ public class Loader {
                     SteamID64 sid = new SteamID64(trustedSteamId);
                     authors.compute(sid, (k, v) -> {
                         if (v == null) {
-                            return new JavaModApprovalsStore.AuthorEntry(true, new LinkedHashSet<>(), null);
+                            return new AuthorEntry(true, new LinkedHashSet<>(), null);
                         }
-                        return new JavaModApprovalsStore.AuthorEntry(true, new LinkedHashSet<>(v.keys), v.name);
+                        return new AuthorEntry(true, new LinkedHashSet<>(v.keys), v.name);
                     });
                 }
             }
@@ -350,7 +352,7 @@ public class Loader {
         if (sid == null) {
             return false;
         }
-        JavaModApprovalsStore.AuthorEntry ae = g_authors.get(sid);
+        AuthorEntry ae = g_authors.get(sid);
         return ae != null && ae.trust;
     }
 
@@ -411,11 +413,11 @@ public class Loader {
         int storedEntriesCountBefore = g_storedEntries.size();
         JarDecisionTable approvals = buildJarDecisionTable(g_storedEntries);
         JarDecisionTable approvalsBefore = approvals.copy();
-        Map<SteamID64, JavaModApprovalsStore.AuthorEntry> authorsBefore = new HashMap<>();
+        Map<SteamID64, AuthorEntry> authorsBefore = new HashMap<>();
         g_authors.clear();
-        for (Map.Entry<SteamID64, JavaModApprovalsStore.AuthorEntry> e : buildAuthorsMap(fileData.authors).entrySet()) {
-            authorsBefore.put(e.getKey(), new JavaModApprovalsStore.AuthorEntry(e.getValue().trust, new LinkedHashSet<>(e.getValue().keys), e.getValue().name));
-            g_authors.put(e.getKey(), new JavaModApprovalsStore.AuthorEntry(e.getValue().trust, new LinkedHashSet<>(e.getValue().keys), e.getValue().name));
+        for (Map.Entry<SteamID64, AuthorEntry> e : buildAuthorsMap(fileData.authors).entrySet()) {
+            authorsBefore.put(e.getKey(), new AuthorEntry(e.getValue().trust, new LinkedHashSet<>(e.getValue().keys), e.getValue().name));
+            g_authors.put(e.getKey(), new AuthorEntry(e.getValue().trust, new LinkedHashSet<>(e.getValue().keys), e.getValue().name));
         }
 
         // Structural-only skip flags (must match the policy loop below) — used to batch all PROMPT dialogs.
