@@ -2,7 +2,7 @@
 
 require "json"
 
-ZB_MAIN = "me.zed_0xff.zombie_buddy.BatchJarApprovalMain"
+ZB_MAIN = "me.zed_0xff.zombie_buddy.frontend.BatchJarApprovalMain"
 ZB_BATCH_HEADER = "ZB_BATCH_V6"
 
 def zb_find_java
