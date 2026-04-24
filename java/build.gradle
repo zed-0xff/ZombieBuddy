@@ -251,7 +251,6 @@ copyNativeDll.mustRunAfter shadowJar
 
 // disable annotation processing, JNI headers, and incremental compilation
 tasks.withType(JavaCompile).configureEach {
-    options.release = 17
     options.annotationProcessorPath = files()
     options.generatedSourceOutputDirectory.set(provider { null })
     options.headerOutputDirectory.set(provider { null })
