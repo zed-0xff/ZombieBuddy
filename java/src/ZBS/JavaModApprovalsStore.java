@@ -22,16 +22,16 @@ import com.google.gson.annotations.SerializedName;
  *   "mods": [
  *     {
  *       "id": "ZBetterModList",
- *       "workshop_id": "3709229404",
+ *       "workshop_id": 3709229404,
  *       "jar_hash": "c180d888eac78369a58dd266e98095ca7e86e16533294ee43ec750e729827064",
  *       "decision": true,
  *       "time": "2026-04-01T12:34:56Z",
- *       "author_id": "76561198043849998"
+ *       "author_id": 76561198043849998
  *     }
  *   ],
- *   "authors": {
- *     "7656119…": { "trust": true, "keys": [ "…64 hex Ed25519 pubkey(s)…" ], "name": "..." }
- *   }
+ *   "authors": [
+ *     { "id": 76561198043849998, "trust": true, "keys": [ "…64 hex Ed25519 pubkey(s)…" ], "name": "..." }
+ *   ]
  * }
  */
 public final class JavaModApprovalsStore {
@@ -51,7 +51,7 @@ public final class JavaModApprovalsStore {
         public List<ModEntry> mods = new ArrayList<>();
         
         @SerializedName("authors")
-        public Map<String, AuthorEntry> authors = new LinkedHashMap<>();
+        public List<AuthorEntry> authors = new ArrayList<>();
     }
 
     /** A single mod approval entry. */
@@ -104,6 +104,9 @@ public final class JavaModApprovalsStore {
 
     /** Per SteamID64: trust flag and optional Ed25519 pubkey hex strings. */
     public static final class AuthorEntry {
+        @SerializedName("id")
+        public SteamID64 id;
+        
         @SerializedName("trust")
         public boolean trust;
         
@@ -115,7 +118,8 @@ public final class JavaModApprovalsStore {
 
         public AuthorEntry() {}
 
-        public AuthorEntry(boolean trust, Set<String> keys, String name) {
+        public AuthorEntry(SteamID64 id, boolean trust, Set<String> keys, String name) {
+            this.id = id;
             this.trust = trust;
             this.name = name != null && !name.trim().isEmpty() ? name.trim() : null;
             if (keys != null) {
@@ -131,12 +135,15 @@ public final class JavaModApprovalsStore {
         public boolean equals(Object o) {
             if (this == o) return true;
             if (!(o instanceof AuthorEntry other)) return false;
-            return trust == other.trust && keys.equals(other.keys) && Objects.equals(name, other.name);
+            return trust == other.trust 
+                && Objects.equals(id, other.id)
+                && keys.equals(other.keys) 
+                && Objects.equals(name, other.name);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(trust, keys, name);
+            return Objects.hash(id, trust, keys, name);
         }
     }
 
@@ -164,7 +171,7 @@ public final class JavaModApprovalsStore {
                     if (loaded != null) {
                         data = loaded;
                         if (data.mods == null) data.mods = new ArrayList<>();
-                        if (data.authors == null) data.authors = new LinkedHashMap<>();
+                        if (data.authors == null) data.authors = new ArrayList<>();
                         Logger.info("Java mod approvals read from " + jp + ": " + data.mods.size()
                             + " mod(s), " + data.authors.size() + " author(s)");
                     }
@@ -188,10 +195,9 @@ public final class JavaModApprovalsStore {
             // Resolve author names
             Map<SteamID64, String> knownNames = SteamAuthorNames.loadSteamIdToDisplayName();
             if (knownNames != null) {
-                for (Map.Entry<String, AuthorEntry> e : data.authors.entrySet()) {
-                    AuthorEntry ae = e.getValue();
-                    if (ae.name == null || ae.name.isEmpty()) {
-                        String resolved = knownNames.get(new SteamID64(e.getKey()));
+                for (AuthorEntry ae : data.authors) {
+                    if (ae.id != null && (ae.name == null || ae.name.isEmpty())) {
+                        String resolved = knownNames.get(ae.id);
                         if (resolved != null && !resolved.isEmpty()) {
                             ae.name = resolved;
                         }

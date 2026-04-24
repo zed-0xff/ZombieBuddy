@@ -237,7 +237,7 @@ public final class BatchJarApprovalMain {
             JPanel authorCell = new JPanel();
             authorCell.setLayout(new BoxLayout(authorCell, BoxLayout.PAGE_AXIS));
             applyRowBackground(authorCell, rowBg);
-            String zbsSteamId = e.zbsSteamId != null ? e.zbsSteamId.value() : "";
+            String zbsSteamId = e.zbsSteamId != null ? e.zbsSteamId.toString() : "";
             if (zbsYes && !zbsSteamId.isEmpty()) {
                 String profileUrl = ZBSVerifier.steamProfileUrl(zbsSteamId);
                 String resolved = steamIdToDisplayName != null
@@ -484,7 +484,7 @@ public final class BatchJarApprovalMain {
                     }
                     String trustedAuthorSteamId = "";
                     if (persist && trustChecks[k].isSelected() && "yes".equals(e.zbsValid)) {
-                        trustedAuthorSteamId = e.zbsSteamId != null ? e.zbsSteamId.value() : "";
+                        trustedAuthorSteamId = e.zbsSteamId != null ? e.zbsSteamId.toString() : "";
                     }
                     out.add(new JarBatchApprovalProtocol.OutLine(
                         e.modKey,

@@ -9,7 +9,7 @@ import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 
 /** Shared Gson configuration for on-disk and IPC JSON. */
-final class ZBGson {
+public final class ZBGson {
 
     private ZBGson() {}
 
@@ -19,7 +19,7 @@ final class ZBGson {
             if (value == null) {
                 out.nullValue();
             } else {
-                out.value(Long.toString(value.value()));
+                out.value(value.value());
             }
         }
 
@@ -29,13 +29,7 @@ final class ZBGson {
                 in.nextNull();
                 return null;
             }
-            String s = in.nextString();
-            if (s == null || s.isEmpty()) return null;
-            try {
-                return new JavaModInfo.WorkshopItemID(Long.parseLong(s));
-            } catch (NumberFormatException e) {
-                return null;
-            }
+            return new JavaModInfo.WorkshopItemID(in.nextLong());
         }
     };
 
@@ -55,14 +49,12 @@ final class ZBGson {
                 in.nextNull();
                 return null;
             }
-            String s = in.nextString();
-            if (s == null || s.isEmpty()) return null;
-            return new SteamID64(s);
+            return new SteamID64(in.nextLong());
         }
     };
 
     /** Pretty-printed output ({@link JarBatchApprovalProtocol}, {@link JavaModApprovalsStore}). */
-    static final Gson PRETTY = new GsonBuilder()
+    public static final Gson PRETTY = new GsonBuilder()
         .setPrettyPrinting()
         .disableHtmlEscaping()
         .registerTypeAdapter(JavaModInfo.WorkshopItemID.class, WORKSHOP_ID_ADAPTER)

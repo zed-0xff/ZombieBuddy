@@ -202,18 +202,6 @@ public class Loader {
         return table;
     }
 
-    private static Map<SteamID64, AuthorEntry> buildAuthorsMap(
-        Map<String, AuthorEntry> rawAuthors
-    ) {
-        Map<SteamID64, AuthorEntry> result = new HashMap<>();
-        for (Map.Entry<String, AuthorEntry> e : rawAuthors.entrySet()) {
-            if (e.getKey() != null && !e.getKey().isEmpty()) {
-                result.put(new SteamID64(e.getKey()), e.getValue());
-            }
-        }
-        return result;
-    }
-
     /**
      * Add or update a decision in g_storedEntries (for persistence).
      * Updates existing entry with matching jarHash, or adds a new one.
@@ -242,18 +230,6 @@ public class Loader {
         ));
     }
 
-    private static Map<String, AuthorEntry> buildRawAuthorsMap(
-        Map<SteamID64, AuthorEntry> authors
-    ) {
-        Map<String, AuthorEntry> result = new LinkedHashMap<>();
-        for (Map.Entry<SteamID64, AuthorEntry> e : authors.entrySet()) {
-            if (e.getKey() != null && e.getKey().value() != null) {
-                result.put(e.getKey().value(), e.getValue());
-            }
-        }
-        return result;
-    }
-
     private static void mergeAuthorKeysFromVerification(
         Map<SteamID64, AuthorEntry> authors,
         ZBSVerifier.Verification zbs
@@ -269,7 +245,7 @@ public class Loader {
                 keys.addAll(existing.keys);
             }
             keys.addAll(zbs.profileKeys);
-            return new AuthorEntry(trust, keys, name);
+            return new AuthorEntry(k, trust, keys, name);
         });
     }
 
@@ -340,9 +316,9 @@ public class Loader {
                     SteamID64 sid = new SteamID64(trustedSteamId);
                     authors.compute(sid, (k, v) -> {
                         if (v == null) {
-                            return new AuthorEntry(true, new LinkedHashSet<>(), null);
+                            return new AuthorEntry(k, true, new LinkedHashSet<>(), null);
                         }
-                        return new AuthorEntry(true, new LinkedHashSet<>(v.keys), v.name);
+                        return new AuthorEntry(k, true, new LinkedHashSet<>(v.keys), v.name);
                     });
                 }
             }
@@ -416,9 +392,11 @@ public class Loader {
         JarDecisionTable approvalsBefore = approvals.copy();
         Map<SteamID64, AuthorEntry> authorsBefore = new HashMap<>();
         g_authors.clear();
-        for (Map.Entry<SteamID64, AuthorEntry> e : buildAuthorsMap(fileData.authors).entrySet()) {
-            authorsBefore.put(e.getKey(), new AuthorEntry(e.getValue().trust, new LinkedHashSet<>(e.getValue().keys), e.getValue().name));
-            g_authors.put(e.getKey(), new AuthorEntry(e.getValue().trust, new LinkedHashSet<>(e.getValue().keys), e.getValue().name));
+        for (AuthorEntry ae : fileData.authors) {
+            if (ae.id != null) {
+                authorsBefore.put(ae.id, new AuthorEntry(ae.id, ae.trust, new LinkedHashSet<>(ae.keys), ae.name));
+                g_authors.put(ae.id, new AuthorEntry(ae.id, ae.trust, new LinkedHashSet<>(ae.keys), ae.name));
+            }
         }
 
         // Structural-only skip flags (must match the policy loop below) — used to batch all PROMPT dialogs.
@@ -613,7 +591,7 @@ public class Loader {
             || g_storedEntries.size() != storedEntriesCountBefore) {
             JavaModApprovalsStore.FileData dataToSave = new JavaModApprovalsStore.FileData();
             dataToSave.mods = new ArrayList<>(g_storedEntries);
-            dataToSave.authors = buildRawAuthorsMap(g_authors);
+            dataToSave.authors = new ArrayList<>(g_authors.values());
             JavaModApprovalsStore.save(dataToSave);
         }
         
