@@ -284,7 +284,7 @@ public class Loader {
      * Path to the ZombieBuddy JAR on disk (for spawning a non-headless child JVM). Returns null if not running from a plain JAR file.
      */
     public static String getZombieBuddyJarPathForSubprocess() {
-        return LoaderUtils.getZombieBuddyJarPath();
+        return Utils.getZombieBuddyJarPath();
     }
 
     public static void applyBatchApprovalLines(List<JarBatchApprovalProtocol.OutLine> lines, JarDecisionTable disk) {
@@ -432,7 +432,7 @@ public class Loader {
             JavaModInfo jModInfo = jModInfos.get(i);
             String modId = i < jModIds.size() ? jModIds.get(i) : jModInfo.javaPkgName();
             File jarFile = jModInfo.getJarFileAsFile();
-            String hash = LoaderUtils.sha256Hex(jarFile);
+            String hash = Utils.sha256Hex(jarFile);
             WorkshopItemID workshopItemId = jModInfo.getWorkshopItemID();
             SteamWorkshop.ItemDetails workshopDetails = steamModeEnabled && workshopItemId != null
                 ? workshopDetailsById.get(workshopItemId) : null;
@@ -464,10 +464,10 @@ public class Loader {
                 WorkshopItemID workshopItemId = steamModeEnabled ? ctx.workshopItemId : null;
                 String steamBanStatus = ctx.banInfo != null ? ctx.banInfo.status : SteamWorkshop.BAN_STATUS_NO;
                 String steamBanReason = ctx.banInfo != null ? ctx.banInfo.reason : "";
-                LoaderUtils.ZBSCheckResult zbsResult = steamModeEnabled
-                    ? LoaderUtils.checkZBS(ctx.jarFile, ctx.hash, ctx.workshopItemId, 
+                ZBSCheck.Result zbsResult = steamModeEnabled
+                    ? ZBSCheck.check(ctx.jarFile, ctx.hash, ctx.workshopItemId, 
                         steamModeEnabled, g_allowUnsignedMods, workshopDetailsById)
-                    : LoaderUtils.ZBSCheckResult.DISABLED;
+                    : ZBSCheck.Result.DISABLED;
                 if (zbsResult.verification() != null) {
                     mergeAuthorKeysFromVerification(g_authors, zbsResult.verification());
                 }
@@ -534,7 +534,7 @@ public class Loader {
 
             // ZBS: skipped entirely for policy=allow-all; invalid signatures always block when checks apply.
             if (!shouldSkip && zbsSignatureChecksEnabled() && ctx.jarFile != null && ctx.hash != null) {
-                LoaderUtils.ZBSCheckResult zbsResult = LoaderUtils.checkZBS(ctx.jarFile, ctx.hash, 
+                ZBSCheck.Result zbsResult = ZBSCheck.check(ctx.jarFile, ctx.hash, 
                     ctx.workshopItemId, steamModeEnabled, g_allowUnsignedMods, workshopDetailsById);
                 if (zbsResult.verification() != null) {
                     mergeAuthorKeysFromVerification(g_authors, zbsResult.verification());
@@ -684,7 +684,7 @@ public class Loader {
                     return;
                 } else {
                     // Validate that JAR contains the specified package
-                    if (!LoaderUtils.validatePackageInJar(jarFile, modInfo.javaPkgName())) {
+                    if (!validatePackageInJar(jarFile, modInfo.javaPkgName())) {
                         Logger.error("Error! JAR does not contain package " + modInfo.javaPkgName() + ": " + jarFile);
                         Logger.info("-------------------------------------------");
                         return;
@@ -729,6 +729,31 @@ public class Loader {
             Logger.info("" + cls + ": main() invoked successfully");
         } catch (Exception e) {
             Logger.error("" + cls + ": error invoking main(): " + e);
+        }
+    }
+
+    private static boolean validatePackageInJar(File jarFile, String packageName) {
+        if (jarFile == null || packageName == null || packageName.isEmpty()) {
+            return false;
+        }
+        try {
+            String packagePath = packageName.replace('.', '/');
+            try (JarFile jf = new JarFile(jarFile)) {
+                var entries = jf.entries();
+                while (entries.hasMoreElements()) {
+                    var entry = entries.nextElement();
+                    String entryName = entry.getName();
+                    if (entryName.startsWith(packagePath + "/") || 
+                        entryName.equals(packagePath) || 
+                        entryName.equals(packagePath + "/")) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            Logger.error("Error validating package in JAR " + jarFile + ": " + e);
+            return false;
         }
     }
 }

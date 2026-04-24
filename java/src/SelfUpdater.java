@@ -246,9 +246,9 @@ public final class SelfUpdater {
         }
 
         try {
-            byte[] sha256Bytes = LoaderUtils.sha256(cert.getEncoded());
+            byte[] sha256Bytes = Utils.sha256(cert.getEncoded());
             if (sha256Bytes != null && verbosity > 0) {
-                Logger.info("    SHA-256 Fingerprint: " + Utils.bytesToHex(sha256Bytes));
+                Logger.info("    SHA-256 Fingerprint: " + Utils.bytesToHex(sha256Bytes, "%02X", ":"));
             }
             return sha256Bytes;
         } catch (Exception e) {

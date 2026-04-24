@@ -1,8 +1,10 @@
 package me.zed_0xff.zombie_buddy;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.security.MessageDigest;
 import java.util.Collections;
 import java.util.List;
 
@@ -65,23 +67,64 @@ public final class Utils {
     }
 
     /**
-     * Converts a byte array to a hexadecimal string with colons (standard fingerprint format).
+     * Converts a byte array to a hexadecimal string.
      *
      * @param bytes The byte array to convert
-     * @return The hexadecimal string representation (e.g. "A7:75:10:1B:...")
+     * @param fmt Format string for each byte (e.g. "%02X" for uppercase, "%02x" for lowercase)
+     * @param sep Separator between bytes (e.g. ":" for fingerprints, "" for hashes)
+     * @return The hexadecimal string representation, or null if bytes is null
      */
-    public static String bytesToHex(byte[] bytes) {
-        if (bytes == null) {
-            return "";
-        }
-        StringBuilder sb = new StringBuilder();
+    public static String bytesToHex(byte[] bytes, String fmt, String sep) {
+        if (bytes == null) return null;
+        StringBuilder sb = new StringBuilder(bytes.length * (2 + sep.length()));
         for (int i = 0; i < bytes.length; i++) {
-            if (i > 0) {
-                sb.append(":");
-            }
-            sb.append(String.format("%02X", bytes[i]));
+            if (i > 0 && !sep.isEmpty()) sb.append(sep);
+            sb.append(String.format(fmt, bytes[i]));
         }
         return sb.toString();
+    }
+
+    /**
+     * Compute SHA-256 hash of a byte array.
+     * @return raw hash bytes or null on error
+     */
+    public static byte[] sha256(byte[] data) {
+        if (data == null) return null;
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(data);
+        } catch (Exception e) {
+            Logger.error("Could not compute SHA-256: " + e);
+            return null;
+        }
+    }
+
+    /**
+     * Compute SHA-256 hash of a byte array as lowercase hex string.
+     * @return hex string or null on error
+     */
+    public static String sha256Hex(byte[] data) {
+        byte[] hash = sha256(data);
+        return hash != null ? bytesToHex(hash, "%02x", "") : null;
+    }
+
+    /**
+     * Compute SHA-256 hash of a file as lowercase hex string.
+     * @return hex string or null if file doesn't exist or error occurs
+     */
+    public static String sha256Hex(File file) {
+        if (file == null || !file.exists() || !file.isFile()) return null;
+        try (FileInputStream in = new FileInputStream(file)) {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] buf = new byte[8192];
+            int read;
+            while ((read = in.read(buf)) > 0) {
+                md.update(buf, 0, read);
+            }
+            return bytesToHex(md.digest(), "%02x", "");
+        } catch (Exception e) {
+            Logger.error("Could not hash file " + file + ": " + e);
+            return null;
+        }
     }
 
     /**
@@ -106,6 +149,23 @@ public final class Utils {
             Logger.error("Error getting current JAR file path: " + e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * Path to the ZombieBuddy JAR on disk (for spawning subprocess).
+     * @return absolute path or null if not running from a JAR
+     */
+    public static String getZombieBuddyJarPath() {
+        try {
+            java.security.CodeSource cs = Utils.class.getProtectionDomain().getCodeSource();
+            if (cs == null || cs.getLocation() == null) return null;
+            java.nio.file.Path p = java.nio.file.Path.of(cs.getLocation().toURI());
+            if (!java.nio.file.Files.isRegularFile(p)) return null;
+            return p.toAbsolutePath().toString();
+        } catch (Exception e) {
+            Logger.warn("Could not resolve ZombieBuddy JAR path: " + e);
+            return null;
+        }
     }
 
     /**
