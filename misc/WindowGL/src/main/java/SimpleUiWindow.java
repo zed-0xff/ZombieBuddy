@@ -16,7 +16,6 @@ public final class SimpleUiWindow {
     private static final float MIN_H = 80f;
 
     private static final float CLIENT_BG = 1f;
-    /** Title strip background #0000b8 */
     private static final float TITLE_BAR_R = 0f;
     private static final float TITLE_BAR_G = 0f;
     private static final float TITLE_BAR_B = 0xb8 / 255f;
@@ -89,7 +88,7 @@ public final class SimpleUiWindow {
             curV     = handles[2];
             curNwse  = handles[3];
             curNesw  = handles[4];
-            // curText = handles[5];
+            // curText = handles[5]
             return;
         }
         createStandardResizeCursors();
@@ -97,10 +96,11 @@ public final class SimpleUiWindow {
 
     private static void createStandardResizeCursors() {
         curArrow = GLFW.glfwCreateStandardCursor(GLFW.GLFW_ARROW_CURSOR);
-        curH = GLFW.glfwCreateStandardCursor(GLFW.GLFW_HRESIZE_CURSOR);
-        curV = GLFW.glfwCreateStandardCursor(GLFW.GLFW_VRESIZE_CURSOR);
-        curNwse = GLFW.glfwCreateStandardCursor(GLFW.GLFW_RESIZE_NWSE_CURSOR);
-        curNesw = GLFW.glfwCreateStandardCursor(GLFW.GLFW_RESIZE_NESW_CURSOR);
+        curH     = GLFW.glfwCreateStandardCursor(GLFW.GLFW_HRESIZE_CURSOR);
+        curV     = GLFW.glfwCreateStandardCursor(GLFW.GLFW_VRESIZE_CURSOR);
+        curNwse  = GLFW.glfwCreateStandardCursor(GLFW.GLFW_RESIZE_NWSE_CURSOR);
+        curNesw  = GLFW.glfwCreateStandardCursor(GLFW.GLFW_RESIZE_NESW_CURSOR);
+
         if (curNwse == 0) {
             curNwse = GLFW.glfwCreateStandardCursor(GLFW.GLFW_CROSSHAIR_CURSOR);
         }
@@ -229,7 +229,7 @@ public final class SimpleUiWindow {
         }
     }
 
-    private void applyResize(long window, double mx, double my, int viewW, int viewH) {
+    private void applyResize(long window, double mx, double my, float viewW, float viewH) {
         float sx = resizeSnapX;
         float sy = resizeSnapY;
         float sw = resizeSnapW;
@@ -281,12 +281,13 @@ public final class SimpleUiWindow {
             default:
                 break;
         }
-        clampToView(viewW, viewH);
+        clampResizeInView(viewW, viewH);
         setCursor(window, cursorForGrip(activeResize));
     }
 
     /**
      * @return true if this press starts title drag or resize (caller may skip other click actions).
+     * @param mx,my logical coords (framebuffer px / {@link HelloWorld#uiScale})
      */
     public boolean handleMouseButton(long window, int button, int action, double mx, double my) {
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
@@ -318,7 +319,8 @@ public final class SimpleUiWindow {
         return false;
     }
 
-    public void handleCursorPos(long window, double mx, double my, int viewW, int viewH) {
+    /** @param viewW,viewH logical viewport size (matches ortho after UI scale). */
+    public void handleCursorPos(long window, double mx, double my, float viewW, float viewH) {
         boolean leftDown = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
 
         if (activeResize != ResizeGrip.NONE && leftDown) {
@@ -328,14 +330,15 @@ public final class SimpleUiWindow {
         if (dragging && leftDown) {
             x = (float) (mx - dragGrabDx);
             y = (float) (my - dragGrabDy);
-            clampToView(viewW, viewH);
+            clampPositionInView(viewW, viewH);
             GLFW.glfwSetCursor(window, 0);
             return;
         }
         updateHoverCursor(window, mx, my);
     }
 
-    private void clampToView(int viewW, int viewH) {
+    /** Move only: keep window on-screen without changing {@link #width} / {@link #height}. */
+    private void clampPositionInView(float viewW, float viewH) {
         if (x + width > viewW) {
             x = viewW - width;
         }
@@ -348,6 +351,18 @@ public final class SimpleUiWindow {
         if (y < 0) {
             y = 0;
         }
+    }
+
+    /** After resize: cap size to the desktop and enforce {@link #MIN_W}×{@link #MIN_H}, then position. */
+    private void clampResizeInView(float viewW, float viewH) {
+        x      = Math.max(0f, x);
+        y      = Math.max(0f, y);
+        width  = Math.min(width, Math.max(0f, viewW - x));
+        width  = Math.max(MIN_W, width);
+        height = Math.min(height, Math.max(0f, viewH - y));
+        height = Math.max(MIN_H, height);
+        x      = Math.max(0f, Math.min(x, viewW - width));
+        y      = Math.max(0f, Math.min(y, viewH - height));
     }
 
     public void render(int fontTex) {
@@ -378,10 +393,8 @@ public final class SimpleUiWindow {
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, fontTex);
 
-        int lh = HelloWorld.font != null && HelloWorld.font.face != null
-            ? HelloWorld.font.face.lineHeight
-            : 16;
-        float ty = y + Math.max(EDGE, (titleBarHeight - lh * titleFontScale) / 2f);
+        int lh = HelloWorld.font.face.lineHeight + 3;
+        float ty = y + titleBarHeight - lh * titleFontScale;
         float titleW = HelloWorld.measureTextAdvancePx(title) * titleFontScale;
         float titleX = x + (width - titleW) / 2f;
         HelloWorld.drawText(title, titleX, ty, titleFontScale);

@@ -40,6 +40,26 @@ public final class HelloWorld {
         return FONT_SCALES[fontScaleIndex % FONT_SCALES.length];
     }
 
+    /** UI scale: ortho and mouse are in logical px; one logical px maps to this many framebuffer px. */
+    static float uiScale() {
+        return (float) currentFontScale();
+    }
+
+    static void renderFrame(long window, int fontTex, SimpleUiWindow panel) {
+        applyFrameProjection(window);
+
+        GL11.glClearColor(DESKTOP_GRAY, DESKTOP_GRAY, DESKTOP_GRAY, 1f);
+        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, fontTex);
+
+        int lh = font.face != null ? font.face.lineHeight : 16;
+        drawText("Hello world!", 32, 32, 1f);
+        drawText("Привет мир!", 32, 32 + lh, 1f);
+
+        panel.render(fontTex);
+    }
+
     public static void main(String[] args) throws IOException {
         File jsonFile = new File(args.length > 0 ? args[0] : "font.json");
         Gson gson = new Gson();
@@ -82,7 +102,7 @@ public final class HelloWorld {
         File windowJson = new File(assets, "window_deco.json");
         WindowDecor windowDecor = WindowDecor.load(windowJson, gson);
         int titleH = windowDecor != null ? WindowDecor.FRAME_TOP_H : 28;
-        SimpleUiWindow panel = new SimpleUiWindow("Window", 80, 48, 420, 260, titleH, 1f);
+        SimpleUiWindow panel = new SimpleUiWindow("Clipboard Viewer", 80, 48, 420, 260, titleH, 1f);
         if (windowDecor != null) {
             panel.setWindowDecor(windowDecor);
         }
@@ -92,14 +112,17 @@ public final class HelloWorld {
             double[] cy = new double[1];
             GLFW.glfwGetCursorPos(win, cx, cy);
             double[] f = cursorToFramebuffer(win, cx[0], cy[0]);
-            boolean startedDrag = panel.handleMouseButton(win, button, action, f[0], f[1]);
+            float s = uiScale();
+            double lx = f[0] / s;
+            double ly = f[1] / s;
+            boolean startedDrag = panel.handleMouseButton(win, button, action, lx, ly);
             if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT
                 && action == GLFW.GLFW_PRESS
                 && !startedDrag
-                && !panel.contains(f[0], f[1])) {
+                && !panel.contains(lx, ly)) {
                 fontScaleIndex = (fontScaleIndex + 1) % FONT_SCALES.length;
-                int s = currentFontScale();
-                GLFW.glfwSetWindowTitle(win, "Desktop — " + s + "x");
+                int ui = currentFontScale();
+                GLFW.glfwSetWindowTitle(win, "Desktop — " + ui + "x");
             }
         });
 
@@ -109,7 +132,10 @@ public final class HelloWorld {
                 IntBuffer fbw = stack.mallocInt(1);
                 IntBuffer fbh = stack.mallocInt(1);
                 GLFW.glfwGetFramebufferSize(win, fbw, fbh);
-                panel.handleCursorPos(win, f[0], f[1], fbw.get(0), fbh.get(0));
+                float s = uiScale();
+                float vw = fbw.get(0) / s;
+                float vh = fbh.get(0) / s;
+                panel.handleCursorPos(win, f[0] / s, f[1] / s, vw, vh);
             }
         });
 
@@ -118,20 +144,13 @@ public final class HelloWorld {
         int fontTex = loadTexture(pngFile);
         GLFW.glfwSetWindowTitle(window, "Desktop — " + currentFontScale() + "x");
 
+        GLFW.glfwSetWindowRefreshCallback(window, win -> {
+            renderFrame(win, fontTex, panel);
+            GLFW.glfwSwapBuffers(win);
+        });
+
         while (!GLFW.glfwWindowShouldClose(window)) {
-            applyFrameProjection(window);
-
-            GL11.glClearColor(DESKTOP_GRAY, DESKTOP_GRAY, DESKTOP_GRAY, 1f);
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
-
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, fontTex);
-            float sc = currentFontScale();
-            int lh = font.face != null ? font.face.lineHeight : 16;
-            drawText("Hello world!", 32, 32, sc);
-            drawText("Привет мир!", 32, 32 + lh * sc, sc);
-
-            panel.render(fontTex);
-
+            renderFrame(window, fontTex, panel);
             GLFW.glfwSwapBuffers(window);
             GLFW.glfwPollEvents();
         }
@@ -173,10 +192,11 @@ public final class HelloWorld {
             GLFW.glfwGetFramebufferSize(window, fbw, fbh);
             int w = Math.max(1, fbw.get(0));
             int h = Math.max(1, fbh.get(0));
+            float s = uiScale();
             GL11.glViewport(0, 0, w, h);
             GL11.glMatrixMode(GL11.GL_PROJECTION);
             GL11.glLoadIdentity();
-            GL11.glOrtho(0, w, h, 0, -1, 1);
+            GL11.glOrtho(0, w / s, h / s, 0, -1, 1);
             GL11.glMatrixMode(GL11.GL_MODELVIEW);
             GL11.glLoadIdentity();
         }
