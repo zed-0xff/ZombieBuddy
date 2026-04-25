@@ -22,6 +22,7 @@ final class Atlas {
     final int w, h;
     java.util.Map<String, TileJson> tiles;
     java.util.Map<String, String> metadata;
+    int texId;
 
     private Atlas(BufferedImage img, int w, int h) {
         this.img = img; this.w = w; this.h = h;

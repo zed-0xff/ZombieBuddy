@@ -58,9 +58,13 @@ public final class HelloWorld {
         File cursorsJson = new File(assets, "cursors.json");
         CursorMgr.create(cursorsJson);
 
-        Window window = new Window(80, 48, 420, 260, "Window");
-        window.addControl(new Button(10, 10, 100, 20, "OK"));
-        window.addControl(new CheckBox(10, 40, 100, 20, "test"));
+        Window window = new Window(80, 48, 420, 260, "Window")
+                .addControl(w -> new Button(     w, 10, 10, 100, 20, "OK"))
+                .addControl(w -> new CheckBox(   w, 10, 40, 100, 20, "test"))
+                .addControl(w -> new RadioButton(w, 10, 70, 100, 20, "R1", "A"))
+                .addControl(w -> new RadioButton(w, 50, 70, 100, 20, "R2", "A"))
+                .addControl(w -> new RadioButton(w, 10, 90, 100, 20, "R3", "B"))
+                .addControl(w -> new RadioButton(w, 50, 90, 100, 20, "R4", "B"));
 
         GLFW.glfwSetMouseButtonCallback(glWindow, (win, button, action, mods) -> {
             double[] cx = new double[1];

@@ -9,6 +9,7 @@ import org.lwjgl.opengl.GL11;
 import java.io.File;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -18,7 +19,8 @@ import java.util.List;
 public class Window extends Element {
     Color bgColor = Color.WHITE;
     String title, status;
-    List<Control> controls = new ArrayList<>();
+    private final List<Control> controls = new ArrayList<>();
+    private final HashMap<String, List<RadioButton>> radioButtons = new HashMap<>();
 
     // static final Color titleBgColor = Color.NAVY;
     static final Color titleFgColor = Color.WHITE;
@@ -52,8 +54,17 @@ public class Window extends Element {
         recalcContentRect();
     }
 
-    public void addControl(Control control) {
+    public Window addControl(java.util.function.Function<Window, Control> factory) {
+        Control control = factory.apply(this);
+        if (control == null) {
+            throw new IllegalArgumentException("Factory returned null");
+        }
         controls.add(control);
+        if (control instanceof RadioButton radio) {
+            String key = radio.getKey();
+            radioButtons.computeIfAbsent(key, k -> new ArrayList<>()).add(radio);
+        }
+        return this;
     }
 
     public void setTitle(String s) {
@@ -335,5 +346,13 @@ public class Window extends Element {
     }
 
     public void close() {
+    }
+
+    void onRadioButtonChecked(RadioButton radio) {
+        String key = radio.getKey();
+        radioButtons.get(key)
+                .stream()
+                .filter(r -> r != radio)
+                .forEach(r -> r.checked = false);
     }
 }

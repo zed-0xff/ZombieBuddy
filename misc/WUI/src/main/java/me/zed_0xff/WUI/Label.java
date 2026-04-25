@@ -6,8 +6,8 @@ class Label extends Control {
     String text;
     Color textColor = Color.BLACK;
 
-    public Label(int x, int y, int w, int h, String text) {
-        super(x, y, w, h);
+    public Label(Window window, int x, int y, int w, int h, String text) {
+        super(window, x, y, w, h);
         this.text = text;
     }
 

@@ -2,9 +2,11 @@ package me.zed_0xff.WUI;
 
 abstract class Control extends Element {
     public boolean enabled = true;
+    final Window window;
 
-    public Control(int x, int y, int w, int h){
+    public Control(Window window, int x, int y, int w, int h){
         super(x, y, w, h);
+        this.window = window;
     }
 
     /** Render this control at (originX + x, originY + y). */

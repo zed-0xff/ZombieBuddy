@@ -10,8 +10,8 @@ class Button extends ButtonBase {
     Color bgColor = Color.GRAY;
     private boolean pressed;
 
-    public Button(int x, int y, int w, int h, String text) {
-        super(x, y, w, h, text);
+    public Button(Window window, int x, int y, int w, int h, String text) {
+        super(window, x, y, w, h, text);
     }
 
     @Override

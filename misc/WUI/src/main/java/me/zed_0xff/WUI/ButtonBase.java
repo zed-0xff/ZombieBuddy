@@ -1,8 +1,8 @@
 package me.zed_0xff.WUI;
 
 abstract class ButtonBase extends Label {
-    public ButtonBase(int x, int y, int w, int h, String text) {
-        super(x, y, w, h, text);
+    public ButtonBase(Window window, int x, int y, int w, int h, String text) {
+        super(window, x, y, w, h, text);
     }
 
     @Override
