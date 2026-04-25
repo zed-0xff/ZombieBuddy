@@ -308,12 +308,17 @@ public class Window extends Element {
                 dragGrabDy = my - y;
                 return true;
             }
-            return false;
         }
         if (action == GLFW.GLFW_RELEASE) {
             dragging = false;
             activeResize = ResizeGrip.NONE;
             updateHoverCursor(window, mx, my);
+        }
+        // Forward press/release to child controls (content-relative coords).
+        if (!controls.isEmpty() && !contentRect.isEmpty()) {
+            for (Control c : controls) {
+                c.handleMouseButton(action, mx - contentRect.x(), my - contentRect.y());
+            }
         }
         return false;
     }

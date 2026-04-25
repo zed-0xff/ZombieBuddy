@@ -34,7 +34,7 @@ final class ElementDecor {
     /** Corner cap sizes in screen px (from corner slices). */
     private int topLeftW, topRightW, bottomLeftW, bottomRightW;
 
-    /** Vertical offset (px) applied on top of the box center when drawing text. Positive moves text down. */
+    /** Distance from element top to text vertical center (px). */
     public int textY = 0;
 
     public ElementDecor(String name) {

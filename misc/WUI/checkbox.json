@@ -1,0 +1,11 @@
+{
+  "image": "checkbox.png",
+  "textX": 14,
+  "atlas": { "width": 52, "height": 13 },
+  "tiles": {
+    "default":        { "x":  0, "y": 0, "w": 13, "h": 13 },
+    "checked":        { "x": 13, "y": 0, "w": 13, "h": 13 },
+    "clicked":        { "x": 26, "y": 0, "w": 13, "h": 13 },
+    "checkedClicked": { "x": 39, "y": 0, "w": 13, "h": 13 }
+  }
+}

@@ -64,6 +64,7 @@ public final class HelloWorld {
 
         Window window = new Window(80, 48, 420, 260, "Window");
         window.addControl(new Button(10, 10, 100, 20, "OK"));
+        window.addControl(new CheckBox(10, 30, 100, 20, "test"));
 
         GLFW.glfwSetMouseButtonCallback(glWindow, (win, button, action, mods) -> {
             double[] cx = new double[1];
