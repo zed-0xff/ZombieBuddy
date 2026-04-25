@@ -1,0 +1,43 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+def rawGameClasspath = project.findProperty('gameClasspath')?.toString()?.trim()
+if (!rawGameClasspath) {
+    rawGameClasspath = System.getenv('PZ_CLASSPATH')?.trim()
+}
+if (!rawGameClasspath) {
+    rawGameClasspath = "/Users/zed/projects/zomboid/versions/unstable/java/projectzomboid.jar"
+}
+def GAME_CLASSPATH = rawGameClasspath ? rawGameClasspath.split(',').collect { file(it.trim()) } : []
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.google.code.gson:gson:2.12.1'
+    compileOnly files(GAME_CLASSPATH)
+    runtimeOnly files(GAME_CLASSPATH)
+}
+
+application {
+    mainClass = 'me.zed_0xff.WUI.HelloWorld'
+}
+
+tasks.named('compileJava', JavaCompile) {
+    doFirst {
+        if (GAME_CLASSPATH.isEmpty()) {
+            throw new GradleException(
+                'Set PZ_CLASSPATH or -PgameClasspath=... to Project Zomboid JARs (comma-separated) so org.lwjglx is on the classpath.'
+            )
+        }
+    }
+}
+
+tasks.named('run', JavaExec) {
+    if (System.getProperty('os.name', '').toLowerCase().contains('mac')) {
+        jvmArgs '-XstartOnFirstThread'
+    }
+}

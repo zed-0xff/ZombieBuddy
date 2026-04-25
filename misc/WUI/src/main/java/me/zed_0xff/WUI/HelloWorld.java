@@ -1,3 +1,5 @@
+package me.zed_0xff.WUI;
+
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 
@@ -23,9 +25,6 @@ public final class HelloWorld {
     static final int WIN_W = 640;
     static final int WIN_H = 480;
 
-    /** Win31-style desktop grey #c0c0c0 */
-    static final float DESKTOP_GRAY = 0xc0 / 255f;
-
     static int atlasW;
     static int atlasH;
     static FontJson font;
@@ -33,38 +32,33 @@ public final class HelloWorld {
     static Map<Long, Integer> kernAmount = new HashMap<>();
     static GlyphJson spaceGlyph;
 
-    private static final int[] FONT_SCALES = {1, 2, 3};
-    private static volatile int fontScaleIndex = 0;
-
-    static int currentFontScale() {
-        return FONT_SCALES[fontScaleIndex % FONT_SCALES.length];
-    }
+    private static final int[] SCALES = {1, 2, 3};
+    private static volatile int scaleIdx = 0;
 
     /** UI scale: ortho and mouse are in logical px; one logical px maps to this many framebuffer px. */
-    static float uiScale() {
-        return (float) currentFontScale();
+    static int uiScale() {
+        return SCALES[scaleIdx % SCALES.length];
     }
 
-    static void renderFrame(long window, int fontTex, SimpleUiWindow panel) {
-        applyFrameProjection(window);
+    static void renderFrame(long glWindow, int fontTex, Window window) {
+        applyFrameProjection(glWindow);
 
-        GL11.glClearColor(DESKTOP_GRAY, DESKTOP_GRAY, DESKTOP_GRAY, 1f);
+        GL11.glClearColor(Color.GRAY.getRf(), Color.GRAY.getGf(), Color.GRAY.getBf(), 1);
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
 
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, fontTex);
 
         int lh = font.face != null ? font.face.lineHeight : 16;
-        drawText("Hello world!", 32, 32, 1f);
-        drawText("Привет мир!", 32, 32 + lh, 1f);
+        drawText(32, 32,    "Hello world!");
+        drawText(32, 32+lh, "Привет мир!");
 
-        panel.render(fontTex);
+        window.render(fontTex);
     }
 
     public static void main(String[] args) throws IOException {
-        File jsonFile = new File(args.length > 0 ? args[0] : "font.json");
+        File jsonFile = new File("font.json");
         Gson gson = new Gson();
-        try (InputStreamReader r = new InputStreamReader(
-            java.nio.file.Files.newInputStream(jsonFile.toPath()), StandardCharsets.UTF_8)) {
+        try (InputStreamReader r = new InputStreamReader(java.nio.file.Files.newInputStream(jsonFile.toPath()))) {
             font = gson.fromJson(r, FontJson.class);
         }
         if (font == null || font.glyphs == null || font.glyphs.isEmpty()) {
@@ -88,80 +82,73 @@ public final class HelloWorld {
 
         if (!GLFW.glfwInit()) throw new IllegalStateException("glfwInit failed");
 
-        long window = GLFW.glfwCreateWindow(WIN_W, WIN_H, "Desktop", 0, 0);
-        if (window == 0) throw new RuntimeException("glfwCreateWindow failed");
+        long glWindow = GLFW.glfwCreateWindow(WIN_W, WIN_H, "Desktop", 0, 0);
+        if (glWindow == 0) throw new RuntimeException("glfwCreateWindow failed");
 
-        GLFW.glfwMakeContextCurrent(window);
+        GLFW.glfwMakeContextCurrent(glWindow);
         GLFW.glfwSwapInterval(1);
         GL.createCapabilities();
         initGlState();
 
         File cursorsJson = new File(assets, "cursors.json");
-        SimpleUiWindow.createResizeCursors(cursorsJson, gson);
+        Window.createCursors(cursorsJson, gson);
 
         File windowJson = new File(assets, "window_deco.json");
-        WindowDecor windowDecor = WindowDecor.load(windowJson, gson);
-        int titleH = windowDecor != null ? WindowDecor.FRAME_TOP_H : 28;
-        SimpleUiWindow panel = new SimpleUiWindow("Clipboard Viewer", 80, 48, 420, 260, titleH, 1f);
-        if (windowDecor != null) {
-            panel.setWindowDecor(windowDecor);
-        }
+        Window window = new Window(80, 48, 420, 260, "Window");
+        window.addControl(new Button(10, 10, 100, 20, "OK"));
 
-        GLFW.glfwSetMouseButtonCallback(window, (win, button, action, mods) -> {
+        GLFW.glfwSetMouseButtonCallback(glWindow, (win, button, action, mods) -> {
             double[] cx = new double[1];
             double[] cy = new double[1];
             GLFW.glfwGetCursorPos(win, cx, cy);
             double[] f = cursorToFramebuffer(win, cx[0], cy[0]);
-            float s = uiScale();
-            double lx = f[0] / s;
-            double ly = f[1] / s;
-            boolean startedDrag = panel.handleMouseButton(win, button, action, lx, ly);
+            int scale = uiScale();
+            int lx = (int)(f[0] / scale);
+            int ly = (int)(f[1] / scale);
+            boolean startedDrag = window.handleMouseButton(win, button, action, lx, ly);
             if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT
                 && action == GLFW.GLFW_PRESS
                 && !startedDrag
-                && !panel.contains(lx, ly)) {
-                fontScaleIndex = (fontScaleIndex + 1) % FONT_SCALES.length;
-                int ui = currentFontScale();
+                && !window.contains(lx, ly)) {
+                scaleIdx = (scaleIdx + 1) % SCALES.length;
+                int ui = uiScale();
                 GLFW.glfwSetWindowTitle(win, "Desktop — " + ui + "x");
             }
         });
 
-        GLFW.glfwSetCursorPosCallback(window, (win, xpos, ypos) -> {
+        GLFW.glfwSetCursorPosCallback(glWindow, (win, xpos, ypos) -> {
             double[] f = cursorToFramebuffer(win, xpos, ypos);
             try (MemoryStack stack = MemoryStack.stackPush()) {
                 IntBuffer fbw = stack.mallocInt(1);
                 IntBuffer fbh = stack.mallocInt(1);
                 GLFW.glfwGetFramebufferSize(win, fbw, fbh);
-                float s = uiScale();
-                float vw = fbw.get(0) / s;
-                float vh = fbh.get(0) / s;
-                panel.handleCursorPos(win, f[0] / s, f[1] / s, vw, vh);
+                int scale = uiScale();
+                int vw = fbw.get(0) / scale;
+                int vh = fbh.get(0) / scale;
+                window.handleCursorPos(win, (int)(f[0] / scale), (int)(f[1] / scale), vw, vh);
             }
         });
 
-        GLFW.glfwSetFramebufferSizeCallback(window, (win, w, h) -> applyFrameProjection(win));
+        GLFW.glfwSetFramebufferSizeCallback(glWindow, (win, w, h) -> applyFrameProjection(win));
 
         int fontTex = loadTexture(pngFile);
-        GLFW.glfwSetWindowTitle(window, "Desktop — " + currentFontScale() + "x");
+        GLFW.glfwSetWindowTitle(glWindow, "Desktop — " + uiScale() + "x");
 
-        GLFW.glfwSetWindowRefreshCallback(window, win -> {
-            renderFrame(win, fontTex, panel);
+        GLFW.glfwSetWindowRefreshCallback(glWindow, win -> {
+            renderFrame(win, fontTex, window);
             GLFW.glfwSwapBuffers(win);
         });
 
-        while (!GLFW.glfwWindowShouldClose(window)) {
-            renderFrame(window, fontTex, panel);
-            GLFW.glfwSwapBuffers(window);
+        while (!GLFW.glfwWindowShouldClose(glWindow)) {
+            renderFrame(glWindow, fontTex, window);
+            GLFW.glfwSwapBuffers(glWindow);
             GLFW.glfwPollEvents();
         }
 
         GL11.glDeleteTextures(fontTex);
-        if (windowDecor != null) {
-            windowDecor.dispose();
-        }
-        GLFW.glfwSetCursor(window, 0);
-        SimpleUiWindow.destroyResizeCursors();
-        GLFW.glfwDestroyWindow(window);
+        GLFW.glfwSetCursor(glWindow, 0);
+        Window.destroyCursors();
+        GLFW.glfwDestroyWindow(glWindow);
         GLFW.glfwTerminate();
     }
 
@@ -185,32 +172,32 @@ public final class HelloWorld {
     }
 
     /** Viewport + ortho in framebuffer pixels (fixes 0.5x look on Retina until resize). */
-    static void applyFrameProjection(long window) {
+    static void applyFrameProjection(long glWindow) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             IntBuffer fbw = stack.mallocInt(1);
             IntBuffer fbh = stack.mallocInt(1);
-            GLFW.glfwGetFramebufferSize(window, fbw, fbh);
+            GLFW.glfwGetFramebufferSize(glWindow, fbw, fbh);
             int w = Math.max(1, fbw.get(0));
             int h = Math.max(1, fbh.get(0));
-            float s = uiScale();
+            int scale = uiScale();
             GL11.glViewport(0, 0, w, h);
             GL11.glMatrixMode(GL11.GL_PROJECTION);
             GL11.glLoadIdentity();
-            GL11.glOrtho(0, w / s, h / s, 0, -1, 1);
+            GL11.glOrtho(0, w / scale, h / scale, 0, -1, 1);
             GL11.glMatrixMode(GL11.GL_MODELVIEW);
             GL11.glLoadIdentity();
         }
     }
 
-    /** Map glfwGetCursorPos (window coords) to framebuffer pixel coords used by glOrtho. */
-    static double[] cursorToFramebuffer(long window, double cxWin, double cyWin) {
+    /** Map glfwGetCursorPos (glWindow coords) to framebuffer pixel coords used by glOrtho. */
+    static double[] cursorToFramebuffer(long glWindow, double cxWin, double cyWin) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             IntBuffer winW = stack.mallocInt(1);
             IntBuffer winH = stack.mallocInt(1);
-            IntBuffer fbw = stack.mallocInt(1);
-            IntBuffer fbh = stack.mallocInt(1);
-            GLFW.glfwGetWindowSize(window, winW, winH);
-            GLFW.glfwGetFramebufferSize(window, fbw, fbh);
+            IntBuffer fbw  = stack.mallocInt(1);
+            IntBuffer fbh  = stack.mallocInt(1);
+            GLFW.glfwGetWindowSize(glWindow, winW, winH);
+            GLFW.glfwGetFramebufferSize(glWindow, fbw, fbh);
             int ww = winW.get(0);
             int wh = winH.get(0);
             int fw = fbw.get(0);
@@ -218,7 +205,7 @@ public final class HelloWorld {
             if (ww <= 0 || wh <= 0) {
                 return new double[] {cxWin, cyWin};
             }
-            return new double[] {cxWin * fw / (double) ww, cyWin * fh / (double) wh};
+            return new double[] {cxWin * fw / ww, cyWin * fh / wh};
         }
     }
 
@@ -298,11 +285,11 @@ public final class HelloWorld {
     }
 
     /** Horizontal advance of the first line, in font pixels (same rules as {@link #drawText}). */
-    static float measureTextAdvancePx(String s) {
+    static int measureTextAdvancePx(String s) {
         if (s == null || s.isEmpty()) {
-            return 0f;
+            return 0;
         }
-        float relX = 0;
+        int relX = 0;
         int prevCp = -1;
         for (int off = 0; off < s.length();) {
             int cp = s.codePointAt(off);
@@ -324,12 +311,13 @@ public final class HelloWorld {
     }
 
     /**
-     * @param lineTop y of the first line’s top (window coords, origin top-left).
+     * @param y of the first line’s top (glWindow coords, origin top-left).
      * @param scale integer scale factor (font pixels → screen pixels).
      */
-    static void drawText(String s, float startX, float lineTop, float scale) {
-        float relX = 0;
-        float relLineY = 0;
+    static void drawText(int x, int y, String s) {
+        int scale = 1;
+        int relX = 0;
+        int relLineY = 0;
         int prevCp = -1;
         int lineSkip = font.face != null ? font.face.lineHeight : 16;
 
@@ -355,8 +343,8 @@ public final class HelloWorld {
 
             GlyphJson g = glyphById.getOrDefault(cp, spaceGlyph);
             if (g.w > 0 && g.h > 0) {
-                float sx = startX + (relX + g.xo) * scale;
-                float sy = lineTop + (relLineY + g.yo) * scale;
+                float sx = x + (relX + g.xo) * scale;
+                float sy = y + (relLineY + g.yo) * scale;
                 float x1 = sx + g.w * scale;
                 float y1 = sy + g.h * scale;
 
@@ -392,8 +380,7 @@ public final class HelloWorld {
     }
 
     static final class AtlasJson {
-        int width;
-        int height;
+        int width, height;
         String image;
     }
 
@@ -409,19 +396,10 @@ public final class HelloWorld {
     }
 
     static final class GlyphJson {
-        int id;
-        int x;
-        int y;
-        @SerializedName("w") int w;
-        @SerializedName("h") int h;
-        @SerializedName("xo") int xo;
-        @SerializedName("yo") int yo;
-        @SerializedName("xa") int xa;
+        int id, x, y, w, h, xo, yo, xa;
     }
 
     static final class KerningJson {
-        int first;
-        int second;
-        int amount;
+        int first, second, amount;
     }
 }

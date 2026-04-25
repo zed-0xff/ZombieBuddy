@@ -1,0 +1,15 @@
+{
+  "image": "button.png",
+  "atlas": { "width": 70, "height": 23 },
+  "tiles": {
+    "topLeft":      { "x":  0, "y":  0, "w":  4, "h":  4 },
+    "topCenter":    { "x":  4, "y":  0, "w":  1, "h":  4 },
+    "topRight":     { "x": 66, "y":  0, "w":  4, "h":  4 },
+    "middleLeft":   { "x":  0, "y":  4, "w":  4, "h":  1 },
+    "middleCenter": { "x":  4, "y":  4, "w":  1, "h":  1 },
+    "middleRight":  { "x": 66, "y":  4, "w":  4, "h":  1 },
+    "bottomLeft":   { "x":  0, "y": 19, "w":  4, "h":  4 },
+    "bottomCenter": { "x":  4, "y": 19, "w":  1, "h":  4 },
+    "bottomRight":  { "x": 66, "y": 19, "w":  4, "h":  4 }
+  }
+}
