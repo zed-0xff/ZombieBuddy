@@ -22,10 +22,10 @@ import javax.imageio.ImageIO;
  * Each entry: {@code x},{@code y},{@code w},{@code h}; omit {@code x}/{@code y} to pack left-to-right on one row.
  * Optional {@code hx}/{@code hy}; if omitted, arrow uses a small top-left hotspot, others use cell center.
  */
-public final class CursorLoader {
+public final class CursorMgr {
     public static final int CURSOR_COUNT = 8;
 
-    private CursorLoader() {
+    private CursorMgr() {
     }
 
     static final class CursorsJson {

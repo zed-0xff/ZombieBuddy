@@ -5,6 +5,8 @@ import org.lwjgl.opengl.GL11;
 abstract class Element {
     public int x, y, width, height;
 
+    static Font font = new Font();
+
     public Element(int x, int y, int w, int h) {
         this.x = x;
         this.y = y;

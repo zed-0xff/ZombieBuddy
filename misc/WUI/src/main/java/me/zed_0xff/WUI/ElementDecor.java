@@ -1,7 +1,6 @@
 package me.zed_0xff.WUI;
 
 import com.google.gson.Gson;
-
 import org.lwjgl.opengl.GL11;
 
 import java.awt.image.BufferedImage;
@@ -12,113 +11,207 @@ import java.nio.charset.StandardCharsets;
 import javax.imageio.ImageIO;
 
 /**
- * {@code window_deco.json} + image named by its {@code image} field (e.g. {@code window_deco.png}): nine-patch frame. Screen layout (fixed):
- * top strip 23px, bottom 26px, vertical sides 4px, top corners 23×23, bottom corners 23×26.
- * Atlas tile rects are read from json (must lie inside {@code atlas}); on-screen frame uses {@link #FRAME_TOP_H},
- * {@link #FRAME_BOTTOM_H}, {@link #FRAME_SIDE_W}, and corner widths in {@link #draw} — slice pixel sizes may differ.
+ * 9-slice decoration with "cap corners" layout:
+ * - Corner slices keep their own width/height (e.g. 23×23)
+ * - Vertical side thickness comes from middleLeft/middleRight width (e.g. 4px)
+ * - Top/bottom strip heights come from topCenter/bottomCenter height (e.g. 23px/27px)
+ *
+ * This matches {@code window.json} where corners are wider than the sides.
  */
-public final class ElementDecor {
-    static final int FRAME_TOP_H     = 23;
-    static final int FRAME_BOTTOM_H  = 27;
-    static final int FRAME_SIDE_W    = 4;
-    static final int TOP_CORNER      = 23;
-    static final int BOTTOM_CORNER_W = 23;
+final class ElementDecor {
+    private final String name;
+    private int texture;
+    private int atlasW;
+    private int atlasH;
 
-    public final int texture;
-    public final int atlasW;
-    public final int atlasH;
-    private final Tile topLeft;
-    private final Tile topCenter;
-    private final Tile topRight;
-    private final Tile middleLeft;
-    private final Tile middleCenter;
-    private final Tile middleRight;
-    private final Tile bottomLeft;
-    private final Tile bottomCenter;
-    private final Tile bottomRight;
+    private Tile topLeft, topCenter, topRight;
+    private Tile middleLeft, middleCenter, middleRight;
+    private Tile bottomLeft, bottomCenter, bottomRight;
 
-    private ElementDecor(
-        int texture,
-        int atlasW,
-        int atlasH,
-        Tile topLeft,
-        Tile topCenter,
-        Tile topRight,
-        Tile middleLeft,
-        Tile middleCenter,
-        Tile middleRight,
-        Tile bottomLeft,
-        Tile bottomCenter,
-        Tile bottomRight
-    ) {
-        this.texture      = texture;
-        this.atlasW       = atlasW;
-        this.atlasH       = atlasH;
-        this.topLeft      = topLeft;
-        this.topCenter    = topCenter;
-        this.topRight     = topRight;
-        this.middleLeft   = middleLeft;
-        this.middleCenter = middleCenter;
-        this.middleRight  = middleRight;
-        this.bottomLeft   = bottomLeft;
-        this.bottomCenter = bottomCenter;
-        this.bottomRight  = bottomRight;
+    /** Border thickness in screen px (from edge slices). */
+    private int leftW, rightW, topH, bottomH;
+
+    /** Corner cap sizes in screen px (from corner slices). */
+    private int topLeftW, topRightW, bottomLeftW, bottomRightW;
+
+    public ElementDecor(String name) {
+        this.name = name;
+        loadFromJson(name);
+    }
+
+    public boolean isLoaded() {
+        return texture != 0;
     }
 
     public void dispose() {
         if (texture != 0) {
             GL11.glDeleteTextures(texture);
+            texture = 0;
         }
     }
 
-    /** Inner client rect (inside frame), same coords as previous solid fill. */
-    public int contentX(int wx) {
-        return wx + FRAME_SIDE_W;
-    }
+    /** Content box inside the borders (uses edge thickness, not corner cap size). */
+    public int contentX(int x) { return x + leftW; }
+    public int contentY(int y) { return y + topH; }
+    public int contentW(int w) { return Math.max(0, w - leftW - rightW); }
+    public int contentH(int h) { return Math.max(0, h - topH - bottomH); }
 
-    public int contentY(int wy) {
-        return wy + FRAME_TOP_H;
-    }
+    public void draw(int x, int y, int w, int h) {
+        if (texture == 0) {
+            return;
+        }
 
-    public int contentW(int ww) {
-        return Math.max(0, ww - 2 * FRAME_SIDE_W);
-    }
+        int innerWBySides = Math.max(0, w - leftW - rightW);
+        int innerH = Math.max(0, h - topH - bottomH);
 
-    public int contentH(int wh) {
-        return Math.max(0, wh - FRAME_TOP_H - FRAME_BOTTOM_H);
-    }
-
-    public void draw(int wx, int wy, int ww, int wh) {
-        int c = TOP_CORNER;
-        int b = FRAME_BOTTOM_H;
-        int s = FRAME_SIDE_W;
-        int t = FRAME_TOP_H;
-        int innerH = Math.max(0, wh - t - b);
-        int topMidW = Math.max(0, ww - 2 * c);
-        int botMidW = topMidW;
+        int topMidW = Math.max(0, w - topLeftW - topRightW);
+        int botMidW = Math.max(0, w - bottomLeftW - bottomRightW);
 
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
         GL11.glColor3f(1f, 1f, 1f);
 
-        blit(topLeft, wx, wy, c, t);
-        blit(topCenter, wx + c, wy, topMidW, t);
-        blit(topRight, wx + ww - c, wy, c, t);
+        // Top strip uses corner cap widths
+        blit(topLeft, x, y, topLeftW, topH);
+        blit(topCenter, x + topLeftW, y, topMidW, topH);
+        blit(topRight, x + w - topRightW, y, topRightW, topH);
 
-        blit(middleLeft, wx, wy + t, s, innerH);
-        blit(middleCenter, wx + s, wy + t, Math.max(0, ww - 2 * s), innerH);
-        blit(middleRight, wx + ww - s, wy + t, s, innerH);
+        // Middle strip uses side thickness (can be thinner than the corners)
+        blit(middleLeft, x, y + topH, leftW, innerH);
+        blit(middleCenter, x + leftW, y + topH, innerWBySides, innerH);
+        blit(middleRight, x + w - rightW, y + topH, rightW, innerH);
 
-        blit(bottomLeft, wx, wy + wh - b, BOTTOM_CORNER_W, b);
-        blit(bottomCenter, wx + BOTTOM_CORNER_W, wy + wh - b, botMidW, b);
-        blit(bottomRight, wx + ww - BOTTOM_CORNER_W, wy + wh - b, BOTTOM_CORNER_W, b);
+        // Bottom strip uses corner cap widths
+        blit(bottomLeft, x, y + h - bottomH, bottomLeftW, bottomH);
+        blit(bottomCenter, x + bottomLeftW, y + h - bottomH, botMidW, bottomH);
+        blit(bottomRight, x + w - bottomRightW, y + h - bottomH, bottomRightW, bottomH);
 
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
         GL11.glDisable(GL11.GL_TEXTURE_2D);
     }
 
+    // --- loading ---
+
+    private void loadFromJson(String name) {
+        File json = resolveJsonFile(name);
+        DecorJson cfg = readJson(json);
+        if (cfg == null || cfg.image == null || cfg.atlas == null || cfg.tiles == null) {
+            warn("json missing image/atlas/tiles: " + (json != null ? json.getPath() : "<null>"));
+            return;
+        }
+        TilesJson t = cfg.tiles;
+        if (t.topLeft == null || t.topCenter == null || t.topRight == null
+            || t.middleLeft == null || t.middleCenter == null || t.middleRight == null
+            || t.bottomLeft == null || t.bottomCenter == null || t.bottomRight == null) {
+            warn("json tiles incomplete: " + json.getPath());
+            return;
+        }
+        if (!positiveTile(t.topLeft) || !positiveTile(t.topCenter) || !positiveTile(t.topRight)
+            || !positiveTile(t.middleLeft) || !positiveTile(t.middleCenter) || !positiveTile(t.middleRight)
+            || !positiveTile(t.bottomLeft) || !positiveTile(t.bottomCenter) || !positiveTile(t.bottomRight)) {
+            warn("each tile needs w>=1 and h>=1: " + json.getPath());
+            return;
+        }
+
+        File png = new File(json.getParentFile() != null ? json.getParentFile() : new File("."), cfg.image);
+        BufferedImage img;
+        try {
+            img = ImageIO.read(png);
+        } catch (IOException e) {
+            warn("failed reading image: " + png.getPath() + " (" + e.getMessage() + ")");
+            return;
+        }
+        if (img == null) {
+            warn("ImageIO returned null for " + png.getPath());
+            return;
+        }
+
+        atlasW = cfg.atlas.width;
+        atlasH = cfg.atlas.height;
+        if (atlasW < 1 || atlasH < 1) {
+            warn("atlas must be positive in " + json.getPath());
+            return;
+        }
+        if (img.getWidth() != atlasW || img.getHeight() != atlasH) {
+            warn("png " + img.getWidth() + "x" + img.getHeight() + " != atlas " + atlasW + "x" + atlasH + " in " + json.getPath());
+            return;
+        }
+
+        if (!fitsAtlas(t.topLeft) || !fitsAtlas(t.topCenter) || !fitsAtlas(t.topRight)
+            || !fitsAtlas(t.middleLeft) || !fitsAtlas(t.middleCenter) || !fitsAtlas(t.middleRight)
+            || !fitsAtlas(t.bottomLeft) || !fitsAtlas(t.bottomCenter) || !fitsAtlas(t.bottomRight)) {
+            warn("tile rect out of bounds for atlas " + atlasW + "x" + atlasH + " in " + json.getPath());
+            return;
+        }
+
+        texture = Utils.uploadRgbaTexture2d(img);
+        if (texture == 0) {
+            warn("failed to upload texture for " + png.getPath());
+            return;
+        }
+
+        topLeft = Tile.from(t.topLeft);
+        topCenter = Tile.from(t.topCenter);
+        topRight = Tile.from(t.topRight);
+        middleLeft = Tile.from(t.middleLeft);
+        middleCenter = Tile.from(t.middleCenter);
+        middleRight = Tile.from(t.middleRight);
+        bottomLeft = Tile.from(t.bottomLeft);
+        bottomCenter = Tile.from(t.bottomCenter);
+        bottomRight = Tile.from(t.bottomRight);
+
+        // Border thickness from edges.
+        leftW = middleLeft.w;
+        rightW = middleRight.w;
+        topH = topCenter.h;
+        bottomH = bottomCenter.h;
+
+        // Corner caps keep their own widths.
+        topLeftW = topLeft.w;
+        topRightW = topRight.w;
+        bottomLeftW = bottomLeft.w;
+        bottomRightW = bottomRight.w;
+    }
+
+    private static File resolveJsonFile(String name) {
+        File direct = new File(name + ".json");
+        if (direct.isFile()) {
+            return direct;
+        }
+        String snake = camelToSnake(name);
+        return new File(snake + ".json");
+    }
+
+    private static String camelToSnake(String s) {
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (Character.isUpperCase(c)) {
+                if (i > 0) out.append('_');
+                out.append(Character.toLowerCase(c));
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
+    }
+
+    private static DecorJson readJson(File jsonFile) {
+        if (jsonFile == null || !jsonFile.isFile()) {
+            return null;
+        }
+        try (InputStreamReader r = new InputStreamReader(
+            java.nio.file.Files.newInputStream(jsonFile.toPath()), StandardCharsets.UTF_8)) {
+            return new Gson().fromJson(r, DecorJson.class);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    // --- drawing helpers ---
+
     private void blit(Tile r, int sx, int sy, int sw, int sh) {
-        if (sw <= 0f || sh <= 0f) {
+        if (sw <= 0 || sh <= 0) {
             return;
         }
         float u0 = r.x / (float) atlasW;
@@ -138,7 +231,9 @@ public final class ElementDecor {
         GL11.glEnd();
     }
 
-    static final class ElementDecorJson {
+    // --- json model ---
+
+    static final class DecorJson {
         String image;
         AtlasJson atlas;
         TilesJson tiles;
@@ -150,15 +245,9 @@ public final class ElementDecor {
     }
 
     static final class TilesJson {
-        TileJson topLeft;
-        TileJson topCenter;
-        TileJson topRight;
-        TileJson middleLeft;
-        TileJson middleCenter;
-        TileJson middleRight;
-        TileJson bottomLeft;
-        TileJson bottomCenter;
-        TileJson bottomRight;
+        TileJson topLeft, topCenter, topRight;
+        TileJson middleLeft, middleCenter, middleRight;
+        TileJson bottomLeft, bottomCenter, bottomRight;
     }
 
     static final class TileJson {
@@ -167,109 +256,25 @@ public final class ElementDecor {
 
     private static final class Tile {
         final int x, y, w, h;
-
         Tile(int x, int y, int w, int h) {
             this.x = x;
             this.y = y;
             this.w = w;
             this.h = h;
         }
-
-        static Tile from(TileJson j) {
-            return new Tile(j.x, j.y, j.w, j.h);
-        }
-    }
-
-    public static ElementDecor load(File jsonFile, Gson gson) {
-        if (jsonFile == null || gson == null) {
-            warn("no json path or gson");
-            return null;
-        }
-        if (!jsonFile.isFile()) {
-            warn("json not found: " + jsonFile.getAbsolutePath());
-            return null;
-        }
-        ElementDecorJson cfg;
-        try (InputStreamReader r = new InputStreamReader(
-            java.nio.file.Files.newInputStream(jsonFile.toPath()), StandardCharsets.UTF_8)) {
-            cfg = gson.fromJson(r, ElementDecorJson.class);
-        } catch (IOException e) {
-            warn("failed reading json: " + e.getMessage());
-            return null;
-        }
-        if (cfg == null || cfg.image == null || cfg.atlas == null || cfg.tiles == null) {
-            warn("json missing image, atlas, or tiles");
-            return null;
-        }
-        TilesJson t = cfg.tiles;
-        if (t.topLeft == null || t.topCenter == null || t.topRight == null
-            || t.middleLeft == null || t.middleCenter == null || t.middleRight == null
-            || t.bottomLeft == null || t.bottomCenter == null || t.bottomRight == null) {
-            warn("json tiles section incomplete (need all nine keys)");
-            return null;
-        }
-        if (!positiveTile(t.topLeft) || !positiveTile(t.topCenter) || !positiveTile(t.topRight)
-            || !positiveTile(t.middleLeft) || !positiveTile(t.middleCenter) || !positiveTile(t.middleRight)
-            || !positiveTile(t.bottomLeft) || !positiveTile(t.bottomCenter) || !positiveTile(t.bottomRight)) {
-            warn("each tile needs w>=1 and h>=1 in json");
-            return null;
-        }
-        File png = new File(HelloWorld.assetDir(jsonFile), cfg.image);
-        if (!png.isFile()) {
-            warn("image not found (next to font json): " + png.getAbsolutePath());
-            return null;
-        }
-        BufferedImage img;
-        try {
-            img = ImageIO.read(png);
-        } catch (IOException e) {
-            warn("failed reading image: " + e.getMessage());
-            return null;
-        }
-        if (img == null) {
-            warn("ImageIO returned null for " + png.getAbsolutePath());
-            return null;
-        }
-        int aw = cfg.atlas.width;
-        int ah = cfg.atlas.height;
-        if (aw < 1 || ah < 1 || img.getWidth() != aw || img.getHeight() != ah) {
-            warn("png size " + img.getWidth() + "x" + img.getHeight() + " != atlas in json " + aw + "x" + ah
-                + " — update window_deco.json \"atlas\" or resize the png");
-            return null;
-        }
-        int tex = HelloWorld.uploadRgbaTexture2d(img);
-        if (!fitsAtlas(t.topLeft, aw, ah) || !fitsAtlas(t.topCenter, aw, ah) || !fitsAtlas(t.topRight, aw, ah)
-            || !fitsAtlas(t.middleLeft, aw, ah) || !fitsAtlas(t.middleCenter, aw, ah) || !fitsAtlas(t.middleRight, aw, ah)
-            || !fitsAtlas(t.bottomLeft, aw, ah) || !fitsAtlas(t.bottomCenter, aw, ah) || !fitsAtlas(t.bottomRight, aw, ah)) {
-            GL11.glDeleteTextures(tex);
-            warn("a tile rect extends outside atlas " + aw + "x" + ah);
-            return null;
-        }
-        return new ElementDecor(
-            tex,
-            aw,
-            ah,
-            Tile.from(t.topLeft),
-            Tile.from(t.topCenter),
-            Tile.from(t.topRight),
-            Tile.from(t.middleLeft),
-            Tile.from(t.middleCenter),
-            Tile.from(t.middleRight),
-            Tile.from(t.bottomLeft),
-            Tile.from(t.bottomCenter),
-            Tile.from(t.bottomRight)
-        );
+        static Tile from(TileJson j) { return new Tile(j.x, j.y, j.w, j.h); }
     }
 
     private static boolean positiveTile(TileJson r) {
         return r.w >= 1 && r.h >= 1;
     }
 
-    private static boolean fitsAtlas(TileJson r, int aw, int ah) {
-        return r.x >= 0 && r.y >= 0 && r.x + r.w <= aw && r.y + r.h <= ah;
+    private boolean fitsAtlas(TileJson r) {
+        return r.x >= 0 && r.y >= 0 && r.x + r.w <= atlasW && r.y + r.h <= atlasH;
     }
 
-    private static void warn(String msg) {
-        System.err.println("ElementDecor: " + msg);
+    private void warn(String msg) {
+        System.err.println("ElementDecor(" + name + "): " + msg);
     }
 }
+

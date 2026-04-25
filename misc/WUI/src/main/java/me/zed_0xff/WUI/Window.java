@@ -19,13 +19,13 @@ public class Window extends Element {
     List<Control> controls = new ArrayList<>();
 
     static final Color titleColor = Color.NAVY;
-    static final NinePatch _deco = new NinePatch("windowDeco");
+    static final ElementDecor _deco = new ElementDecor("window");
 
     static final int GRIP  = 8;
     static final int EDGE  = 6;
     static final int MIN_W = 120;
     static final int MIN_H = 80;
-    static final int titleBarHeight = 23; // equal to top*.height in window_deco.json
+    static final int titleBarHeight = 23; // equal to top*.height in window.json
 
     private enum ResizeGrip {
         NONE, N, S, E, W, NE, NW, SE, SW
@@ -48,8 +48,6 @@ public class Window extends Element {
     int resizeSnapW;
     int resizeSnapH;
 
-    private ElementDecor windowDecor;
-
     public Window(int x, int y, int width, int height, String title) {
         super(x, y, width, height);
         this.title  = title;
@@ -57,10 +55,6 @@ public class Window extends Element {
 
     public void addControl(Control control) {
         controls.add(control);
-    }
-
-    public void setElementDecor(ElementDecor decor) {
-        this.windowDecor = decor;
     }
 
     public void setTitle(String s) {
@@ -72,14 +66,14 @@ public class Window extends Element {
     }
 
     /**
-     * Loads {@code cursors.json} + image (see {@link CursorLoader}); falls back to GLFW standard cursors if missing/invalid.
+     * Loads {@code cursors.json} + image (see {@link CursorMgr}); falls back to GLFW standard cursors if missing/invalid.
      */
     public static void createCursors(File cursorsJson, Gson gson) {
         if (cursorsCreated) {
             return;
         }
         cursorsCreated = true;
-        long[] handles = CursorLoader.loadCursors(cursorsJson, gson);
+        long[] handles = CursorMgr.loadCursors(cursorsJson, gson);
         if (handles != null) {
             curArrow = handles[0];
             curH     = handles[1];
@@ -366,13 +360,13 @@ public class Window extends Element {
     public void render(int fontTex) {
         GL11.glDisable(GL11.GL_TEXTURE_2D);
 
-        if (windowDecor != null) {
-            windowDecor.draw(x, y, width, height);
+        if (_deco.isLoaded()) {
+            _deco.draw(x, y, width, height);
             fillRect(
-                windowDecor.contentX(x),
-                windowDecor.contentY(y),
-                windowDecor.contentW(width),
-                windowDecor.contentH(height),
+                _deco.contentX(x),
+                _deco.contentY(y),
+                _deco.contentW(width),
+                _deco.contentH(height),
                 backgroundColor
             );
         } else {
@@ -385,11 +379,11 @@ public class Window extends Element {
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, fontTex);
 
-        int lh = HelloWorld.font.face.lineHeight + 3;
+        int lh = font.face.lineHeight + 3;
         int ty = y + titleBarHeight - lh;
-        int titleW = HelloWorld.measureTextAdvancePx(title);
+        int titleW = font.measureTextAdvancePx(title);
         int titleX = x + (width - titleW) / 2;
-        HelloWorld.drawText(titleX, ty, title);
+        font.drawText(titleX, ty, title);
         GL11.glColor3f(1f, 1f, 1f);
     }
 

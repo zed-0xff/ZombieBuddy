@@ -3,6 +3,8 @@ plugins {
     id 'application'
 }
 
+java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
+
 def rawGameClasspath = project.findProperty('gameClasspath')?.toString()?.trim()
 if (!rawGameClasspath) {
     rawGameClasspath = System.getenv('PZ_CLASSPATH')?.trim()
