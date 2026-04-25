@@ -2,105 +2,62 @@ package me.zed_0xff.WUI;
 
 import com.google.gson.Gson;
 
-import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWImage;
 import org.lwjgl.system.MemoryStack;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.nio.ByteBuffer;
-import java.util.List;
-import javax.imageio.ImageIO;
 
 /**
- * Loads {@code cursors.json} + {@link CursorsJson#image} beside it (same pattern as {@code font.json} + atlas).
- * Cursors in order: arrow, horizontal resize, vertical resize, NW–SE, NE–SW.
- * Each entry: {@code x},{@code y},{@code w},{@code h}; omit {@code x}/{@code y} to pack left-to-right on one row.
- * Optional {@code hx}/{@code hy}; if omitted, arrow uses a small top-left hotspot, others use cell center.
+ * Loads {@code cursors.json} + its atlas image (same format as {@code window_deco.json}).
+ * Tile names: {@code arrow}, {@code resizeH}, {@code resizeW}, {@code resizeNWSE}, {@code resizeNESW},
+ * {@code text}, {@code hand}, {@code clock}.
+ * Optional per-tile {@code hx}/{@code hy} hotspot; arrow defaults to top-left, others to cell center.
  */
 public final class CursorMgr {
-    public static final int CURSOR_COUNT = 8;
+    private CursorMgr() {}
 
-    private CursorMgr() {
-    }
+    // --- public API ---
 
-    static final class CursorsJson {
-        String image;
-        List<CursorRectJson> cursors;
-    }
-
-    static final class CursorRectJson {
-        Integer x,y;
-        int w,h;
-        Integer hx,hy;
-    }
+    private static final String[] TILE_NAMES = {
+        "arrow", "resizeH", "resizeW", "resizeNWSE", "resizeNESW", "text", "hand", "clock"
+    };
 
     /**
-     * @return five GLFW cursor handles, or {@code null} if JSON/image missing or invalid
+     * @return GLFW cursor handles (one per named tile), or {@code null} if JSON/image missing or invalid.
      */
     public static long[] loadCursors(File cursorsJson, Gson gson) {
-        if (cursorsJson == null || !cursorsJson.isFile() || gson == null) {
+        Atlas.JsonBase cfg = Atlas.readJson(cursorsJson, gson, Atlas.JsonBase.class);
+        if (cfg == null || cfg.image == null || cfg.atlas == null || cfg.tiles == null) {
             return null;
         }
-        CursorsJson cfg;
-        try (InputStreamReader r = new InputStreamReader(
-            java.nio.file.Files.newInputStream(cursorsJson.toPath()), StandardCharsets.UTF_8)) {
-            cfg = gson.fromJson(r, CursorsJson.class);
-        } catch (IOException e) {
-            return null;
+        for (String key : TILE_NAMES) {
+            if (cfg.tiles.get(key) == null) {
+                return null;
+            }
         }
-        if (cfg == null || cfg.image == null || cfg.cursors == null || cfg.cursors.size() != CURSOR_COUNT) {
-            return null;
-        }
-        File png = new File(cursorsJson.getParentFile(), cfg.image);
-        if (!png.isFile()) {
-            return null;
-        }
-        BufferedImage sheet;
-        try {
-            sheet = ImageIO.read(png);
-        } catch (IOException e) {
-            return null;
-        }
-        if (sheet == null) {
-            return null;
-        }
-        int sw = sheet.getWidth();
-        int sh = sheet.getHeight();
 
-        long[] out = new long[CURSOR_COUNT];
-        int runX = 0;
-        for (int i = 0; i < CURSOR_COUNT; i++) {
-            CursorRectJson cr = cfg.cursors.get(i);
-            if (cr.w < 2 || cr.h < 2) {
+        Atlas atlas = Atlas.load(cursorsJson.getParentFile(), cfg.image, cfg.atlas.width, cfg.atlas.height);
+        if (atlas == null) {
+            return null;
+        }
+
+        long[] out = new long[TILE_NAMES.length];
+        for (int i = 0; i < TILE_NAMES.length; i++) {
+            Atlas.TileJson tile = cfg.tiles.get(TILE_NAMES[i]);
+            if (tile.w < 2 || tile.h < 2 || !atlas.fits(tile)) {
                 destroyCreated(out, i);
                 return null;
             }
-            int x0 = cr.x != null ? cr.x : runX;
-            int y0 = cr.y != null ? cr.y : 0;
-            if (x0 < 0 || y0 < 0 || x0 + cr.w > sw || y0 + cr.h > sh) {
+            int hx = metaInt(tile, "hx", defaultHotspotX(i, tile.w));
+            int hy = metaInt(tile, "hy", defaultHotspotY(i, tile.h));
+            if (hx < 0 || hy < 0 || hx >= tile.w || hy >= tile.h) {
                 destroyCreated(out, i);
                 return null;
             }
-            if (cr.x == null) {
-                runX = x0 + cr.w;
-            } else {
-                runX = Math.max(runX, x0 + cr.w);
-            }
-            int hx = cr.hx != null ? cr.hx : defaultHotspotX(i, cr.w);
-            int hy = cr.hy != null ? cr.hy : defaultHotspotY(i, cr.h);
-            if (hx < 0 || hy < 0 || hx >= cr.w || hy >= cr.h) {
-                destroyCreated(out, i);
-                return null;
-            }
-            ByteBuffer rgba = cellToRgba(sheet, x0, y0, cr.w, cr.h);
             try (MemoryStack stack = MemoryStack.stackPush()) {
                 GLFWImage img = GLFWImage.malloc(stack);
-                img.set(cr.w, cr.h, rgba);
+                img.set(tile.w, tile.h, atlas.cellToRgba(tile));
                 out[i] = GLFW.glfwCreateCursor(img, hx, hy);
             }
             if (out[i] == 0) {
@@ -111,18 +68,22 @@ public final class CursorMgr {
         return out;
     }
 
+    // --- helpers ---
+
+    /** Arrow (index 0) gets a small top-left hotspot; all others default to cell center. */
     private static int defaultHotspotX(int index, int w) {
-        if (index == 0) {
-            return Math.min(4, w / 4);
-        }
-        return w / 2;
+        return index == 0 ? Math.min(4, w / 4) : w / 2;
     }
 
     private static int defaultHotspotY(int index, int h) {
-        if (index == 0) {
-            return Math.min(4, h / 4);
-        }
-        return h / 2;
+        return index == 0 ? Math.min(4, h / 4) : h / 2;
+    }
+
+    private static int metaInt(Atlas.TileJson tile, String key, int fallback) {
+        if (tile.metadata == null) return fallback;
+        String v = tile.metadata.get(key);
+        if (v == null) return fallback;
+        try { return Integer.parseInt(v); } catch (NumberFormatException e) { return fallback; }
     }
 
     private static void destroyCreated(long[] cursors, int countExclusive) {
@@ -131,21 +92,5 @@ public final class CursorMgr {
                 GLFW.glfwDestroyCursor(cursors[j]);
             }
         }
-    }
-
-    /** RGBA8888, top row first (GLFW convention). */
-    private static ByteBuffer cellToRgba(BufferedImage src, int x0, int y0, int w, int h) {
-        ByteBuffer buf = BufferUtils.createByteBuffer(w * h * 4);
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                int argb = src.getRGB(x0 + x, y0 + y);
-                buf.put((byte) ((argb >> 16) & 0xff));
-                buf.put((byte) ((argb >> 8) & 0xff));
-                buf.put((byte) (argb & 0xff));
-                buf.put((byte) ((argb >> 24) & 0xff));
-            }
-        }
-        buf.flip();
-        return buf;
     }
 }

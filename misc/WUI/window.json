@@ -1,6 +1,6 @@
 {
   "image": "window.png",
-  "textY": 12,
+  "metadata": { "textY": "12" },
   "atlas": { "width": 47, "height": 51 },
   "tiles": {
     "topLeft":      { "x":  0, "y":  0, "w": 23, "h": 23 },

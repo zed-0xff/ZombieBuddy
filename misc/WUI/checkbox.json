@@ -1,6 +1,6 @@
 {
   "image": "checkbox.png",
-  "textX": 14,
+  "metadata": { "textX": "14" },
   "atlas": { "width": 52, "height": 13 },
   "tiles": {
     "default":        { "x":  0, "y": 0, "w": 13, "h": 13 },

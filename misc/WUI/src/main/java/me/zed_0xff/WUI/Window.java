@@ -222,6 +222,8 @@ public class Window extends Element {
         ResizeGrip g = hitTestResize(mx, my);
         if (g != ResizeGrip.NONE) {
             setCursor(window, cursorForGrip(g));
+        } else if (contains(mx, my)) {
+            setCursor(window, 0);
         } else {
             GLFW.glfwSetCursor(window, 0);
         }
@@ -336,7 +338,7 @@ public class Window extends Element {
             y = my - dragGrabDy;
             clampPositionInView(viewW, viewH);
             recalcContentRect();
-            GLFW.glfwSetCursor(window, 0);
+            setCursor(window, 0);
             return;
         }
         updateHoverCursor(window, mx, my);
