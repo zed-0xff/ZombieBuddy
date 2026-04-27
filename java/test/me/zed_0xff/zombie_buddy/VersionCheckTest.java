@@ -11,24 +11,24 @@ public class VersionCheckTest {
         assertEquals(-1, Utils.compareVersions("1.0.0", "1.1.0"));
         assertEquals(1, Utils.compareVersions("1.10.0", "1.2.0"));
         assertEquals(-1, Utils.compareVersions("1.2.0", "1.10.0"));
-        assertEquals(-1, Utils.compareVersions("1.0.0-beta", "1.0.0"));
+        assertEquals(0, Utils.compareVersions("1.0.0-beta", "1.0.0"));
         assertEquals(1, Utils.compareVersions("2.0", "1.9.9"));
         assertEquals(-1, Utils.compareVersions("unknown", "1.0.0"));
         assertEquals(1, Utils.compareVersions("1.0.0", "unknown"));
     }
 
     @Test
-    void compareVersions_ordersAlphaBetaAndReleaseVersions() {
-        assertEquals(1, Utils.compareVersions("1.2.3-beta", "1.2.3-alpha"));
-        assertEquals(1, Utils.compareVersions("1.2.3-beta1", "1.2.3-beta"));
-        assertEquals(1, Utils.compareVersions("1.2.3-beta1", "1.2.3-beta0"));
-        assertEquals(1, Utils.compareVersions("1.2.3-beta2", "1.2.3-beta"));
-        assertEquals(1, Utils.compareVersions("1.2.3", "1.2.3-alpha"));
-        assertEquals(1, Utils.compareVersions("1.2.3", "1.2.3-alpha1"));
-        assertEquals(1, Utils.compareVersions("1.2.3", "1.2.3-beta"));
-        assertEquals(1, Utils.compareVersions("1.2.3", "1.2.3-beta2"));
-        assertEquals(-1, Utils.compareVersions("1.2.3-alpha", "1.2.3"));
-        assertEquals(-1, Utils.compareVersions("1.2.3-beta2", "1.2.3"));
+    void compareVersionsForUpdate_ordersAlphaBetaAndReleaseVersions() {
+        assertEquals(1, Utils.compareVersionsForUpdate("1.2.3-beta", "1.2.3-alpha"));
+        assertEquals(1, Utils.compareVersionsForUpdate("1.2.3-beta1", "1.2.3-beta"));
+        assertEquals(1, Utils.compareVersionsForUpdate("1.2.3-beta1", "1.2.3-beta0"));
+        assertEquals(1, Utils.compareVersionsForUpdate("1.2.3-beta2", "1.2.3-beta"));
+        assertEquals(1, Utils.compareVersionsForUpdate("1.2.3", "1.2.3-alpha"));
+        assertEquals(1, Utils.compareVersionsForUpdate("1.2.3", "1.2.3-alpha1"));
+        assertEquals(1, Utils.compareVersionsForUpdate("1.2.3", "1.2.3-beta"));
+        assertEquals(1, Utils.compareVersionsForUpdate("1.2.3", "1.2.3-beta2"));
+        assertEquals(-1, Utils.compareVersionsForUpdate("1.2.3-alpha", "1.2.3"));
+        assertEquals(-1, Utils.compareVersionsForUpdate("1.2.3-beta2", "1.2.3"));
     }
 
     @Test
@@ -81,5 +81,8 @@ public class VersionCheckTest {
         assertTrue(JavaModInfo.isVersionInRange(current, "1.2.3", "1.2.3"));
         assertFalse(JavaModInfo.isVersionInRange(current, "1.2.4", "2.0.0"));
         assertFalse(JavaModInfo.isVersionInRange(current, "1.0.0", "1.2.2"));
+
+        // ZB version declarations use the same numeric-only comparator as Utils.compareVersions.
+        assertTrue(JavaModInfo.isVersionInRange("1.2.3-beta", "1.2.3", "1.2.3"));
     }
 }

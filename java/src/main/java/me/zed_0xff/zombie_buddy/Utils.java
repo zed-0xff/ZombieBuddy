@@ -39,17 +39,34 @@ public final class Utils {
         if (v1 == null || v1.equals("unknown")) return v2 == null || v2.equals("unknown") ? 0 : -1;
         if (v2 == null || v2.equals("unknown")) return 1;
 
-        ParsedVersion parsed1 = parseVersion(v1);
-        ParsedVersion parsed2 = parseVersion(v2);
-        String[] parts1 = parsed1.core.split("\\.");
-        String[] parts2 = parsed2.core.split("\\.");
+        String[] parts1 = v1.split("\\.");
+        String[] parts2 = v2.split("\\.");
         int length = Math.max(parts1.length, parts2.length);
         for (int i = 0; i < length; i++) {
-            int p1 = i < parts1.length ? leadingInt(parts1[i]) : 0;
-            int p2 = i < parts2.length ? leadingInt(parts2[i]) : 0;
+            int p1 = 0;
+            if (i < parts1.length) {
+                String s = parts1[i].replaceAll("[^0-9].*", "");
+                if (!s.isEmpty()) p1 = Integer.parseInt(s);
+            }
+            int p2 = 0;
+            if (i < parts2.length) {
+                String s = parts2[i].replaceAll("[^0-9].*", "");
+                if (!s.isEmpty()) p2 = Integer.parseInt(s);
+            }
             if (p1 < p2) return -1;
             if (p1 > p2) return 1;
         }
+        return 0;
+    }
+
+    public static int compareVersionsForUpdate(String v1, String v2) {
+        if (v1 == null || v1.equals("unknown")) return v2 == null || v2.equals("unknown") ? 0 : -1;
+        if (v2 == null || v2.equals("unknown")) return 1;
+
+        ParsedVersion parsed1 = parseVersion(v1);
+        ParsedVersion parsed2 = parseVersion(v2);
+        int core = compareVersions(parsed1.core, parsed2.core);
+        if (core != 0) return core;
         return comparePrerelease(parsed1.prerelease, parsed2.prerelease);
     }
 
@@ -57,11 +74,6 @@ public final class Utils {
         String[] parts = version.split("-", 2);
         String prerelease = parts.length > 1 ? parts[1] : "";
         return new ParsedVersion(parts[0], prerelease);
-    }
-
-    private static int leadingInt(String part) {
-        String s = part.replaceAll("[^0-9].*", "");
-        return s.isEmpty() ? 0 : Integer.parseInt(s);
     }
 
     private static int comparePrerelease(String p1, String p2) {
@@ -113,7 +125,7 @@ public final class Utils {
      * @return true if version1 is newer than version2, false otherwise
      */
     public static boolean isVersionNewer(String version1, String version2) {
-        return compareVersions(version1, version2) > 0;
+        return compareVersionsForUpdate(version1, version2) > 0;
     }
 
     /**
