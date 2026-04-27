@@ -2,6 +2,7 @@ package me.zed_0xff.zombie_buddy;
 
 import java.io.File;
 import java.lang.instrument.Instrumentation;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -151,6 +152,14 @@ public class Agent {
 
     public static boolean isExperimental() {
         return arguments.containsKey("experimental");
+    }
+
+    public static Path configDir() {
+        String configured = arguments.get("config_dir");
+        if (configured != null && !configured.trim().isEmpty()) {
+            return Path.of(configured.trim());
+        }
+        return Path.of(System.getProperty("user.home"), ".zombie_buddy");
     }
 
     /** Called from Callbacks when exit_after_game_init was requested. */

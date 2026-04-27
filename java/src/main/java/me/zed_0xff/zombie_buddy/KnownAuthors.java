@@ -47,7 +47,7 @@ public final class KnownAuthors {
     private KnownAuthors() {}
 
     public static Path cachePath() {
-        return ModApprovalsStore.directory().resolve(CACHE_FILE_NAME);
+        return Agent.configDir().resolve(CACHE_FILE_NAME);
     }
 
     /**
@@ -57,7 +57,7 @@ public final class KnownAuthors {
         String body = fetchRemoteBody();
         if (body != null) {
             try {
-                Files.createDirectories(ModApprovalsStore.directory());
+                Files.createDirectories(Agent.configDir());
                 Files.writeString(cachePath(), body, StandardCharsets.UTF_8);
             } catch (IOException e) {
                 Logger.warn("Could not write author names cache: " + e.getMessage());
@@ -82,7 +82,7 @@ public final class KnownAuthors {
         String body = fetchRemoteBody();
         if (body != null) {
             try {
-                Files.createDirectories(ModApprovalsStore.directory());
+                Files.createDirectories(Agent.configDir());
                 Files.writeString(cachePath(), body, StandardCharsets.UTF_8);
             } catch (IOException e) {
                 Logger.warn("Could not write author names cache: " + e.getMessage());

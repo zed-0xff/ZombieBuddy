@@ -3,8 +3,8 @@ package me.zed_0xff.zombie_buddy.frontend;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
-import java.nio.file.Path;
 
+import me.zed_0xff.zombie_buddy.Agent;
 import me.zed_0xff.zombie_buddy.JarApprovalOutcome;
 import me.zed_0xff.zombie_buddy.JarBatchApprovalProtocol;
 import me.zed_0xff.zombie_buddy.ModApprovalsStore;
@@ -513,7 +513,7 @@ final class ImguiApprovalDialog {
     }
 
     private static String approvalsFilePath() {
-        return Path.of(System.getProperty("user.home"), ".zombie_buddy", ModApprovalsStore.JSON_FILE_NAME).toString();
+        return Agent.configDir().resolve(ModApprovalsStore.JSON_FILE_NAME).toString();
     }
 
     private void applyTrustAuthor(int sourceIndex, boolean selected) {

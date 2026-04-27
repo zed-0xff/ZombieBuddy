@@ -150,16 +150,12 @@ public final class ModApprovalsStore {
         }
     }
 
-    static Path directory() {
-        return Path.of(System.getProperty("user.home"), ".zombie_buddy");
-    }
-
     static Path jsonPath() {
-        return directory().resolve(JSON_FILE_NAME);
+        return Agent.configDir().resolve(JSON_FILE_NAME);
     }
 
     static Path legacyTxtPath() {
-        return directory().resolve(LEGACY_TXT_FILE_NAME);
+        return Agent.configDir().resolve(LEGACY_TXT_FILE_NAME);
     }
 
     static FileData load() {
