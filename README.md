@@ -39,6 +39,8 @@ Previously, Java mods for Project Zomboid required bundling `.class` files and m
 
 📖 **[Full Installation Guide](doc/Installation.md)** - Security warnings, manual installation, policy modes
 
+📖 **[Uninstall Guide](doc/Uninstall.md)** - Remove launch options, installed files, and optional config data
+
 ### For Modders
 
 1. Add `require=\ZombieBuddy`, `javaJarFile`, and `javaPkgName` to your `mod.info`
@@ -52,6 +54,7 @@ Previously, Java mods for Project Zomboid required bundling `.class` files and m
 | Document | Description |
 |----------|-------------|
 | [Installation Guide](doc/Installation.md) | End-user installation, security, and policy configuration |
+| [Uninstall Guide](doc/Uninstall.md) | Removing ZombieBuddy and optional config data |
 | [Command-Line Parameters](doc/CommandLine.md) | All agent parameters: verbosity, policy, experimental, etc. |
 | [Modding Guide](doc/ModdingGuide.md) | Creating patches, Lua exposure, mod signing, examples |
 | [Lua API Reference](doc/LuaAPI.md) | Events, Watches, and Java mod status APIs |
