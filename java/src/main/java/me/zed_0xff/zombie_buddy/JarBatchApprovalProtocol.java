@@ -17,7 +17,7 @@ import com.google.gson.annotations.SerializedName;
 
 /**
  * JSON file protocol between {@link Loader} (game process) and
- * {@link me.zed_0xff.zombie_buddy.frontend.BatchJarApprovalMain} (non-headless child JVM with Swing UI).
+ * {@link me.zed_0xff.zombie_buddy.frontend.SwingApprovalMain} (non-headless child JVM with Swing UI).
  */
 public final class JarBatchApprovalProtocol {
 
@@ -33,6 +33,7 @@ public final class JarBatchApprovalProtocol {
     public static final class Entry {
         @SerializedName("modKey")
         public final String modKey;
+        /** Mod id from mod.info {@code id=}. */
         @SerializedName("modId")
         public final String modId;
         /** Nullable workshop item id for this row. */
@@ -42,6 +43,7 @@ public final class JarBatchApprovalProtocol {
         public final String jarAbsolutePath;
         @SerializedName("sha256")
         public final String sha256;
+        /** Human-friendly modified time from the file system */
         @SerializedName("modifiedHuman")
         public final String modifiedHuman;
         /** {@code yes} / {@code no} to pre-select that radio; empty = default (No). */
@@ -56,7 +58,7 @@ public final class JarBatchApprovalProtocol {
         /** Author's Steam id from {@code .zbs} when present. */
         @SerializedName("zbsSteamId")
         public final SteamID64 zbsSteamId;
-        /** Non-empty when {@link #zbsValid} is {@code no}. */
+        /** Author name when {@link #zbsValid} is {@code yes}; failure reason when {@code no}. */
         @SerializedName("zbsNotice")
         public final String zbsNotice;
         /** {@code yes} / {@code no} / {@code unknown}. */

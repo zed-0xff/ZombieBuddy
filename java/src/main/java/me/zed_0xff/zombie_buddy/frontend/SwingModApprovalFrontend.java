@@ -13,7 +13,7 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Runs a subprocess executing {@link BatchJarApprovalMain} (javax.swing). If the subprocess fails,
+ * Runs a subprocess executing {@link SwingApprovalMain} (javax.swing). If the subprocess fails,
  * no decisions are applied here; {@link me.zed_0xff.zombie_buddy.Loader} will treat still-unapproved mods according to policy.
  */
 public final class SwingModApprovalFrontend implements ModApprovalFrontend {
@@ -55,7 +55,7 @@ public final class SwingModApprovalFrontend implements ModApprovalFrontend {
                 "-Djava.awt.headless=false",
                 "-cp",
                 jarPath,
-                BatchJarApprovalMain.class.getName(),
+                SwingApprovalMain.class.getName(),
                 tmpIn.toAbsolutePath().toString(),
                 tmpOut.toAbsolutePath().toString()
             );

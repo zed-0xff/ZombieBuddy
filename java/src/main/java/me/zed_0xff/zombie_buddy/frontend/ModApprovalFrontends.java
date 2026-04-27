@@ -6,21 +6,23 @@ import me.zed_0xff.zombie_buddy.Accessor;
 import me.zed_0xff.zombie_buddy.Logger;
 
 /**
- * Resolves {@link ModApprovalFrontend} from the {@code approval_frontend} agent argument.
+ * Resolves {@link ModApprovalFrontend} from the {@code frontend} agent argument.
  *
  * <p>Values: {@code auto} (default), {@code swing} (javax.swing batch subprocess only),
- * {@code tinyfd} (LWJGL TinyFileDialogs only), {@code console} (stdin/stdout; for headless servers).
+ * {@code tinyfd} (LWJGL TinyFileDialogs only), {@code console} (stdin/stdout; for headless servers),
+ * {@code imgui} (in-game PZ ImGui PoC approval).
  */
 public final class ModApprovalFrontends {
 
-    public static final String ARG_AUTO = "auto";
-    public static final String ARG_SWING = "swing";
-    public static final String ARG_TINYFD = "tinyfd";
+    public static final String ARG_AUTO    = "auto";
+    public static final String ARG_SWING   = "swing";
+    public static final String ARG_TINYFD  = "tinyfd";
     public static final String ARG_CONSOLE = "console";
+    public static final String ARG_IMGUI   = "imgui";
 
-    private static final String TINYFD_CLASS = "org.lwjgl.util.tinyfd.TinyFileDialogs";
+    private static final String TINYFD_CLASS         = "org.lwjgl.util.tinyfd.TinyFileDialogs";
     private static final String LWJGLX_DISPLAY_CLASS = "org.lwjglx.opengl.Display";
-    private static final String GAME_SERVER_CLASS = "zombie.network.GameServer";
+    private static final String GAME_SERVER_CLASS    = "zombie.network.GameServer";
 
     private ModApprovalFrontends() {}
 
@@ -34,7 +36,7 @@ public final class ModApprovalFrontends {
         }
         if (ARG_TINYFD.equals(v)) {
             if (Accessor.findClass(TINYFD_CLASS) == null) {
-                Logger.warn("approval_frontend=tinyfd but " + TINYFD_CLASS + " not found; using auto");
+                Logger.warn("frontend=tinyfd but " + TINYFD_CLASS + " not found; using auto");
                 return resolveAuto();
             }
             return new TinyfdModApprovalFrontend();
@@ -42,7 +44,14 @@ public final class ModApprovalFrontends {
         if (ARG_CONSOLE.equals(v)) {
             return new ConsoleModApprovalFrontend();
         }
-        Logger.warn("Unknown approval_frontend '" + value + "'; using auto");
+        if (ARG_IMGUI.equals(v)) {
+            if (!lwjglxDisplayWindowReady()) {
+                Logger.warn("frontend=imgui but game window is not ready; using auto");
+                return resolveAuto();
+            }
+            return new ImguiModApprovalFrontend();
+        }
+        Logger.warn("Unknown frontend '" + value + "'; using auto");
         return resolveAuto();
     }
 
@@ -59,7 +68,7 @@ public final class ModApprovalFrontends {
      */
     public static ModApprovalFrontend resolveAuto() {
         if (lwjglxDisplayIsCreated()) {
-            return new SwingModApprovalFrontend();
+            return new ImguiModApprovalFrontend();
         }
         if (gameServerDedicatedFlag()) {
             return new ConsoleModApprovalFrontend();
@@ -80,6 +89,23 @@ public final class ModApprovalFrontends {
             }
             Object r = Accessor.callByName(displayClass, "isCreated");
             return Boolean.TRUE.equals(r);
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    private static boolean lwjglxDisplayWindowReady() {
+        try {
+            Class<?> displayClass = Accessor.findClass(LWJGLX_DISPLAY_CLASS);
+            if (displayClass == null) {
+                return false;
+            }
+            Object created = Accessor.callByName(displayClass, "isCreated");
+            if (!Boolean.TRUE.equals(created)) {
+                return false;
+            }
+            Object window = Accessor.callByName(displayClass, "getWindow");
+            return window instanceof Long && ((Long) window).longValue() != 0;
         } catch (Throwable t) {
             return false;
         }

@@ -12,11 +12,6 @@ task :chdir do
   Dir.chdir("java")
 end
 
-desc 'clean the project'
-task :clean => :chdir do
-  sh "gradle clean"
-end
-
 def run_game(zb_args = {}, pz_args = [])
   ENV['ZB_ARGS'].to_s.split(",").each do |arg|
     k, v = arg.split("=", 2)
@@ -32,10 +27,10 @@ end
 
 desc "run the game"
 task :run, :verbosity, :exit_after_game_init do |t, args|
-  args = {}
-  args[:exit_after_game_init] = true if args.exit_after_game_init
-  args[:verbosity] = args.verbosity if args.verbosity
-  run_game(args)
+  zb_args = {}
+  zb_args[:exit_after_game_init] = true if args.exit_after_game_init
+  zb_args[:verbosity] = args.verbosity if args.verbosity
+  run_game(zb_args)
 end
 
 namespace :run do

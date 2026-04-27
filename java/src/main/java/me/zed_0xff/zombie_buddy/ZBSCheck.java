@@ -55,6 +55,11 @@ public final class ZBSCheck {
         
         boolean valid = zbs instanceof ZBSVerifier.ValidSignature;
         String notice = noticeForUi(zbs);
+
+        Logger.info("ZBS verification for " + jarFile.getName() + ": " + (valid ? "valid" : "invalid") + 
+            ", uploaderID=" + (uploaderID != null ? uploaderID : "N/A") + 
+            ", shortMessage=" + (zbs.shortMessage != null ? zbs.shortMessage.trim() : "null") + 
+            ", detailedMessage=" + (zbs.detailedMessage != null ? zbs.detailedMessage.trim() : "null"));
         
         if (valid) {
             return new Result("yes", zbs.sid, notice, false, null, zbs);

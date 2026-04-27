@@ -1,24 +1,31 @@
 desc 'build'
-task :build => ["unstable:build", "clean", "42_12:build"]
+task :build => ["build:unstable", "clean", "build:42_12"]
 
-# runs first
-namespace "unstable" do
+desc 'clean the project'
+task :clean do
+  Dir.chdir("java") do
+    sh "gradle clean"
+  end
+end
+
+namespace :build do
+  # runs first
   desc 'build'
-  task :build => :chdir do
+  task :unstable do
     env = {
       "JAVA_HOME" => "/Library/Java/JavaVirtualMachines/openjdk-24.jdk/Contents/Home"
     }
     cp_root = File.join(PROJECT_ROOT, "versions/unstable/java")
     cp = [File.join(cp_root, "projectzomboid.jar")].join(",")
-
-    sh env, "gradle build --warning-mode all -PgameClasspath=#{cp}"
+ 
+    Dir.chdir("java") do
+      sh env, "gradle build --warning-mode all -PgameClasspath=#{cp}"
+    end
   end
-end
 
-# runs last, result is the final build
-namespace "42_12" do
+  # runs last, result is the final build
   desc 'build'
-  task :build => :chdir do
+  task "42_12" do
     env = {
       "JAVA_HOME" => "/Library/Java/JavaVirtualMachines/openjdk-17.jdk/Contents/Home"
     }
@@ -27,9 +34,12 @@ namespace "42_12" do
       cp_root,
       File.join(cp_root, "lwjgl.jar"),
       File.join(cp_root, "lwjgl-glfw.jar"),
+      File.join(cp_root, "lwjgl-opengl.jar"),
+      File.join(cp_root, "imgui-binding-1.86.11-8-g3e33dde.jar"),
     ].join(",")
 
-    sh env, "gradle build --warning-mode all -PgameClasspath=#{cp}"
+    Dir.chdir("java") do
+      sh env, "gradle build --warning-mode all -PgameClasspath=#{cp}"
+    end
   end
 end
-

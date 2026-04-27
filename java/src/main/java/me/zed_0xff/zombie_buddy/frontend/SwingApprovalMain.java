@@ -53,7 +53,7 @@ import java.util.Map;
  *
  * <p>Args: {@code <requestFile> <responseFile>}
  */
-public final class BatchJarApprovalMain {
+public final class SwingApprovalMain {
 
     private static final Color ZBS_ROW_OK = new Color(220, 255, 220);
     private static final Color ZBS_ROW_BAD = new Color(255, 210, 210);
@@ -77,11 +77,11 @@ public final class BatchJarApprovalMain {
     private static final double W_MOD_ROW = 0.26;
     private static final double W_AUTHOR_ROW = 0.30;
 
-    private BatchJarApprovalMain() {}
+    private SwingApprovalMain() {}
 
     public static void main(String[] args) {
         if (args == null || args.length != 2) {
-            System.err.println("Usage: BatchJarApprovalMain <requestFile> <responseFile>");
+            System.err.println("Usage: SwingApprovalMain <requestFile> <responseFile>");
             System.exit(2);
         }
         Path req = Paths.get(args[0]);

@@ -22,6 +22,8 @@ import com.google.gson.JsonPrimitive;
  * Steam Workshop API client for fetching mod details and ban status.
  */
 public final class SteamWorkshop {
+    public static final String PZ_APP_ID = "108600";
+
     /** Strongly-typed Steam account id. */
     public static record SteamID64(long value) {
         public SteamID64(String s) { this(Long.parseLong(s)); }

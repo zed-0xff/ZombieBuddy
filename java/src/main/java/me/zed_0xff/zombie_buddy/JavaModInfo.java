@@ -21,8 +21,7 @@ public record JavaModInfo(
     String displayName   // From {@code name=} in mod.info; may be null
 ) {
     /** Project Zomboid Steam app id used in Workshop paths: .../content/108600/<publishedfileid>/... */
-    private static final String PZ_APP_ID = "108600";
-    private static final Pattern WORKSHOP_ITEM_ID_IN_PATH = Pattern.compile("/content/" + PZ_APP_ID + "/([0-9]+)/");
+    private static final Pattern WORKSHOP_ITEM_ID_IN_PATH = Pattern.compile("/content/" + SteamWorkshop.PZ_APP_ID + "/([0-9]+)/");
     private static final Pattern WORKSHOP_ITEM_ID_IN_TXT  = Pattern.compile("^id=([0-9]+)$");
 
     public JavaModInfo(File modDir, File modInfoFile) {
