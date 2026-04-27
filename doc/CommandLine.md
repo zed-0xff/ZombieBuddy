@@ -119,6 +119,38 @@ Maximum time (in seconds) to wait for the batch Swing approval subprocess.
 
 ---
 
+### config_dir
+
+Directory used for ZombieBuddy configuration and cache files. Defaults to `~/.zombie_buddy`.
+
+**Example:**
+
+```
+-javaagent:ZombieBuddy.jar=config_dir=/path/to/zombie_buddy_config --
+```
+
+---
+
+### prop_prefix
+
+Import JVM system properties into ZombieBuddy agent arguments. When set, any system property whose name starts with this prefix plus `.` is read, the prefix and dot are stripped, and the remaining name becomes a ZombieBuddy argument.
+
+If `prop_prefix` is not specified, ZombieBuddy does not read system properties into agent arguments.
+
+**Example:**
+
+```
+-Dzb.verbosity=2 -Dzb.policy=deny-new -javaagent:ZombieBuddy.jar=prop_prefix=zb --
+```
+
+This is equivalent to:
+
+```
+-javaagent:ZombieBuddy.jar=verbosity=2,policy=deny-new --
+```
+
+---
+
 ### experimental
 
 Enables experimental patches. This is a flag parameter (no value needed).

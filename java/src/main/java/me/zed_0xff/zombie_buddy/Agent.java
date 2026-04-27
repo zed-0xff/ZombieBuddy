@@ -15,8 +15,6 @@ import me.zed_0xff.zombie_buddy.frontend.ModApprovalFrontends;
 public class Agent {
     public static final Map<String, String> arguments = new HashMap<>();
 
-    public static final String PROP_PREFIX = "zb.";
-
     public static void premain(String agentArgs, Instrumentation inst) {
         Logger.info("activating " + ZombieBuddy.getFullVersionString());
         Loader.g_instrumentation = inst;
@@ -32,15 +30,19 @@ public class Agent {
             }
         }
 
-        // Snapshot property names to avoid ConcurrentModificationException; null values skipped
-        System.getProperties().stringPropertyNames().stream()
-            .filter(key -> key.startsWith(PROP_PREFIX))
-            .forEach(key -> {
-                String value = System.getProperty(key);
-                if (value != null) {
-                    arguments.put(key.substring(PROP_PREFIX.length()), value);
-                }
-            });
+        String propPrefix = arguments.get("prop_prefix");
+        if (propPrefix != null && !propPrefix.isEmpty()) {
+            final String propertyPrefix = propPrefix.endsWith(".") ? propPrefix : propPrefix + ".";
+            // Snapshot property names to avoid ConcurrentModificationException; null values skipped.
+            System.getProperties().stringPropertyNames().stream()
+                .filter(key -> key.startsWith(propertyPrefix))
+                .forEach(key -> {
+                    String value = System.getProperty(key);
+                    if (value != null) {
+                        arguments.put(key.substring(propertyPrefix.length()), value);
+                    }
+                });
+        }
 
         if( arguments.containsKey("verbosity")) {
             try {
