@@ -77,7 +77,7 @@ public class Loader {
 
     /** ZBS verification applies for every policy except {@code allow-all}. */
     private static boolean zbsSignatureChecksEnabled() {
-        return SteamUtils.isSteamModeEnabled() && !POLICY_ALLOW_ALL.equals(g_jarPolicy);
+        return !POLICY_ALLOW_ALL.equals(g_jarPolicy);
     }
 
     static Set<String> g_known_classes = new HashSet<>();
@@ -332,6 +332,18 @@ public class Loader {
         return ae != null && ae.trust;
     }
 
+    private static String authorDisplayName(SteamID64 sid, Map<SteamID64, String> knownAuthorNames) {
+        if (sid == null) {
+            return "";
+        }
+        AuthorEntry stored = g_authors.get(sid);
+        if (stored != null && stored.name != null && !stored.name.isEmpty()) {
+            return stored.name;
+        }
+        String known = knownAuthorNames != null ? knownAuthorNames.get(sid) : null;
+        return known != null && !known.isEmpty() ? known : sid.toString();
+    }
+
     public static void loadJavaMods(ArrayList<String> mods) {
         ArrayList<JavaModInfo> jModInfos = new ArrayList<>();
         ArrayList<String> jModIds = new ArrayList<>();
@@ -412,19 +424,16 @@ public class Loader {
             }
             structuralOnlySkip.add(stSkip);
         }
-        boolean steamModeEnabled = SteamUtils.isSteamModeEnabled();
         Set<WorkshopItemID> workshopIdsToCheck = new HashSet<>();
-        if (steamModeEnabled) {
-            for (JavaModInfo jModInfo : jModInfos) {
-                WorkshopItemID workshopItemId = jModInfo.getWorkshopItemID();
-                if (workshopItemId != null) {
-                    workshopIdsToCheck.add(workshopItemId);
-                }
+        for (JavaModInfo jModInfo : jModInfos) {
+            WorkshopItemID workshopItemId = jModInfo.getWorkshopItemID();
+            if (workshopItemId != null) {
+                workshopIdsToCheck.add(workshopItemId);
             }
         }
-        Map<WorkshopItemID, SteamWorkshop.ItemDetails> workshopDetailsById = steamModeEnabled
-            ? SteamWorkshop.fetchItemDetails(workshopIdsToCheck)
-            : new HashMap<>();
+        Map<WorkshopItemID, SteamWorkshop.ItemDetails> workshopDetailsById =
+            SteamWorkshop.fetchItemDetails(workshopIdsToCheck);
+        Map<SteamID64, String> authorNamesBySteamId = KnownAuthors.loadSteamIdToDisplayName();
 
         // Pre-compute per-mod context to avoid duplicate work in prompt and load loops
         record ModCtx(String modId, File jarFile, String hash, WorkshopItemID workshopItemId,
@@ -436,12 +445,12 @@ public class Loader {
             File jarFile = jModInfo.getJarFileAsFile();
             String hash = Utils.sha256Hex(jarFile);
             WorkshopItemID workshopItemId = jModInfo.getWorkshopItemID();
-            SteamWorkshop.ItemDetails workshopDetails = steamModeEnabled && workshopItemId != null
+            SteamWorkshop.ItemDetails workshopDetails = workshopItemId != null
                 ? workshopDetailsById.get(workshopItemId) : null;
             SteamWorkshop.BanInfo banInfo = workshopItemId == null
                 ? new SteamWorkshop.BanInfo(SteamWorkshop.BAN_STATUS_UNKNOWN, "Workshop id not found in mod path.")
                 : (workshopDetails != null ? workshopDetails.ban : null);
-            boolean steamBanned = steamModeEnabled && banInfo != null && SteamWorkshop.BAN_STATUS_YES.equals(banInfo.status);
+            boolean steamBanned = banInfo != null && SteamWorkshop.BAN_STATUS_YES.equals(banInfo.status);
             modContexts.add(new ModCtx(modId, jarFile, hash, workshopItemId, workshopDetails, banInfo, steamBanned));
         }
 
@@ -452,7 +461,6 @@ public class Loader {
                 ModCtx ctx = modContexts.get(i);
                 if (ctx.hash == null) continue;
                 JavaModInfo jModInfo = jModInfos.get(i);
-                String workshopIdStr = SteamWorkshop.idToString(ctx.workshopItemId);
                 String modified = (ctx.jarFile != null && ctx.jarFile.exists())
                     ? java.time.Instant.ofEpochMilli(ctx.jarFile.lastModified())
                         .atZone(java.time.ZoneId.systemDefault())
@@ -462,13 +470,11 @@ public class Loader {
                 if (modDisplay == null || modDisplay.trim().isEmpty()) {
                     modDisplay = ctx.modId != null ? ctx.modId : "";
                 }
-                File zbsFile = ctx.jarFile != null ? new File(ctx.jarFile.getAbsolutePath() + ".zbs") : null;
-                WorkshopItemID workshopItemId = steamModeEnabled ? ctx.workshopItemId : null;
                 String steamBanStatus = ctx.banInfo != null ? ctx.banInfo.status : SteamWorkshop.BAN_STATUS_NO;
                 String steamBanReason = ctx.banInfo != null ? ctx.banInfo.reason : "";
-                ZBSCheck.Result zbsResult = steamModeEnabled
+                ZBSCheck.Result zbsResult = zbsSignatureChecksEnabled()
                     ? ZBSCheck.check(ctx.jarFile, ctx.hash, ctx.workshopItemId, 
-                        steamModeEnabled, g_allowUnsignedMods, workshopDetailsById)
+                        ctx.workshopItemId != null, g_allowUnsignedMods, workshopDetailsById)
                     : ZBSCheck.Result.DISABLED;
                 if (zbsResult.verification() != null) {
                     mergeAuthorKeysFromVerification(g_authors, zbsResult.verification());
@@ -476,6 +482,9 @@ public class Loader {
                 String zbsValid = zbsResult.valid();
                 SteamID64 zbsSID = zbsResult.sid();
                 String zbsNotice = zbsResult.notice();
+                if ("yes".equals(zbsValid)) {
+                    zbsNotice = authorDisplayName(zbsSID, authorNamesBySteamId);
+                }
                 if (!ctx.steamBanned && "yes".equals(zbsValid) && isAuthorTrusted(zbsSID)) {
                     // Auto-approve signed mods from trusted authors
                     approvals.put(ctx.hash, DECISION_YES);
@@ -537,7 +546,7 @@ public class Loader {
             // ZBS: skipped entirely for policy=allow-all; invalid signatures always block when checks apply.
             if (!shouldSkip && zbsSignatureChecksEnabled() && ctx.jarFile != null && ctx.hash != null) {
                 ZBSCheck.Result zbsResult = ZBSCheck.check(ctx.jarFile, ctx.hash, 
-                    ctx.workshopItemId, steamModeEnabled, g_allowUnsignedMods, workshopDetailsById);
+                    ctx.workshopItemId, ctx.workshopItemId != null, g_allowUnsignedMods, workshopDetailsById);
                 if (zbsResult.verification() != null) {
                     mergeAuthorKeysFromVerification(g_authors, zbsResult.verification());
                 }
