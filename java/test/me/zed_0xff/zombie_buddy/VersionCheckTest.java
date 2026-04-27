@@ -11,10 +11,24 @@ public class VersionCheckTest {
         assertEquals(-1, Utils.compareVersions("1.0.0", "1.1.0"));
         assertEquals(1, Utils.compareVersions("1.10.0", "1.2.0"));
         assertEquals(-1, Utils.compareVersions("1.2.0", "1.10.0"));
-        assertEquals(0, Utils.compareVersions("1.0.0-beta", "1.0.0"));
+        assertEquals(-1, Utils.compareVersions("1.0.0-beta", "1.0.0"));
         assertEquals(1, Utils.compareVersions("2.0", "1.9.9"));
         assertEquals(-1, Utils.compareVersions("unknown", "1.0.0"));
         assertEquals(1, Utils.compareVersions("1.0.0", "unknown"));
+    }
+
+    @Test
+    void compareVersions_ordersAlphaBetaAndReleaseVersions() {
+        assertEquals(1, Utils.compareVersions("1.2.3-beta", "1.2.3-alpha"));
+        assertEquals(1, Utils.compareVersions("1.2.3-beta1", "1.2.3-beta"));
+        assertEquals(1, Utils.compareVersions("1.2.3-beta1", "1.2.3-beta0"));
+        assertEquals(1, Utils.compareVersions("1.2.3-beta2", "1.2.3-beta"));
+        assertEquals(1, Utils.compareVersions("1.2.3", "1.2.3-alpha"));
+        assertEquals(1, Utils.compareVersions("1.2.3", "1.2.3-alpha1"));
+        assertEquals(1, Utils.compareVersions("1.2.3", "1.2.3-beta"));
+        assertEquals(1, Utils.compareVersions("1.2.3", "1.2.3-beta2"));
+        assertEquals(-1, Utils.compareVersions("1.2.3-alpha", "1.2.3"));
+        assertEquals(-1, Utils.compareVersions("1.2.3-beta2", "1.2.3"));
     }
 
     @Test
@@ -29,6 +43,9 @@ public class VersionCheckTest {
         assertTrue(Utils.isVersionNewer("1.10.0", "1.2.0"));
         assertTrue(Utils.isVersionNewer("2.0", "1.9.9"));
         assertTrue(Utils.isVersionNewer("1.0.0", "unknown"));
+        assertTrue(Utils.isVersionNewer("1.2.3-beta", "1.2.3-alpha"));
+        assertTrue(Utils.isVersionNewer("1.2.3-beta1", "1.2.3-beta"));
+        assertTrue(Utils.isVersionNewer("1.2.3", "1.2.3-beta2"));
     }
 
     @Test

@@ -7,12 +7,17 @@ import java.lang.reflect.Method;
 import java.security.MessageDigest;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
 
 public final class Utils {
     private Utils() {}
+
+    private static final Pattern PRERELEASE_PATTERN = Pattern.compile("^([a-z]+)(\\d*)");
 
     public static boolean isClient() {
         return LuaManager.GlobalObject.isClient();
@@ -34,25 +39,70 @@ public final class Utils {
         if (v1 == null || v1.equals("unknown")) return v2 == null || v2.equals("unknown") ? 0 : -1;
         if (v2 == null || v2.equals("unknown")) return 1;
 
-        String[] parts1 = v1.split("\\.");
-        String[] parts2 = v2.split("\\.");
+        ParsedVersion parsed1 = parseVersion(v1);
+        ParsedVersion parsed2 = parseVersion(v2);
+        String[] parts1 = parsed1.core.split("\\.");
+        String[] parts2 = parsed2.core.split("\\.");
         int length = Math.max(parts1.length, parts2.length);
         for (int i = 0; i < length; i++) {
-            int p1 = 0;
-            if (i < parts1.length) {
-                String s = parts1[i].replaceAll("[^0-9].*", "");
-                if (!s.isEmpty()) p1 = Integer.parseInt(s);
-            }
-            int p2 = 0;
-            if (i < parts2.length) {
-                String s = parts2[i].replaceAll("[^0-9].*", "");
-                if (!s.isEmpty()) p2 = Integer.parseInt(s);
-            }
+            int p1 = i < parts1.length ? leadingInt(parts1[i]) : 0;
+            int p2 = i < parts2.length ? leadingInt(parts2[i]) : 0;
             if (p1 < p2) return -1;
             if (p1 > p2) return 1;
         }
+        return comparePrerelease(parsed1.prerelease, parsed2.prerelease);
+    }
+
+    private static ParsedVersion parseVersion(String version) {
+        String[] parts = version.split("-", 2);
+        String prerelease = parts.length > 1 ? parts[1] : "";
+        return new ParsedVersion(parts[0], prerelease);
+    }
+
+    private static int leadingInt(String part) {
+        String s = part.replaceAll("[^0-9].*", "");
+        return s.isEmpty() ? 0 : Integer.parseInt(s);
+    }
+
+    private static int comparePrerelease(String p1, String p2) {
+        boolean release1 = p1 == null || p1.isEmpty();
+        boolean release2 = p2 == null || p2.isEmpty();
+        if (release1 || release2) {
+            if (release1 == release2) return 0;
+            return release1 ? 1 : -1;
+        }
+
+        ParsedPrerelease parsed1 = parsePrerelease(p1);
+        ParsedPrerelease parsed2 = parsePrerelease(p2);
+        if (parsed1.rank != parsed2.rank) {
+            return Integer.compare(parsed1.rank, parsed2.rank);
+        }
+        if (!parsed1.name.equals(parsed2.name)) {
+            return parsed1.name.compareTo(parsed2.name);
+        }
+        return Integer.compare(parsed1.number, parsed2.number);
+    }
+
+    private static ParsedPrerelease parsePrerelease(String prerelease) {
+        String normalized = prerelease.toLowerCase(Locale.ROOT);
+        Matcher m = PRERELEASE_PATTERN.matcher(normalized);
+        if (!m.find()) {
+            return new ParsedPrerelease(normalized, 0, -1);
+        }
+        String name = m.group(1);
+        String number = m.group(2);
+        return new ParsedPrerelease(name, prereleaseRank(name), number.isEmpty() ? -1 : Integer.parseInt(number));
+    }
+
+    private static int prereleaseRank(String name) {
+        if ("alpha".equals(name)) return 1;
+        if ("beta".equals(name)) return 2;
         return 0;
     }
+
+    private record ParsedVersion(String core, String prerelease) {}
+
+    private record ParsedPrerelease(String name, int rank, int number) {}
 
     /**
      * Compares two semantic version strings to determine if version1 is newer than version2.
