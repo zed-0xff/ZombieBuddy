@@ -1,0 +1,29 @@
+{
+	"mainClass": "zombie/gameStates/MainScreenState",
+	"classpath": [
+		".",
+		"commons-compress-1.18.jar",
+		"sqlite-jdbc-3.27.2.1.jar"
+	],
+	"vmArgs": [
+		"-Djava.awt.headless=true",
+		"-Xmx3072m",
+		"-Dzomboid.steam=1",
+		"-Dzomboid.znetlog=1",
+		"-Djava.library.path=win64/;.",
+		"-XX:-CreateCoredumpOnCrash",
+		"-XX:-OmitStackTraceInFastThrow"
+	],
+	"windows": {
+		"10.0.17134": {
+			"vmArgs": [
+				"-XX:+UseZGC"
+			]
+		},
+		"6.1": {
+			"vmArgs": [
+				"-XX:+UseG1GC"
+			]
+		}
+	}
+}

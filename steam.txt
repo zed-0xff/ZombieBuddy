@@ -13,10 +13,16 @@ ZombieBuddy is required by some mods to work. If a mod tells you to install Zomb
 
 [u]Option A: Automated Installer (Recommended)[/u]
 [list]
-[*] Close Steam completely (right-click Steam in system tray → Exit)
 [*] Download the latest ZombieBuddyInstaller.exe from [url=https://github.com/zed-0xff/ZombieBuddy/releases/]GitHub Releases[/url]
-[*] Run the installer - it will automatically detect your game folder, copy the files, and set up Steam launch options.
-[*] Start Steam.
+[*] Run the installer and choose [b]Install or update ZombieBuddy[/b].
+[*] Choose what launch mode to patch:
+[list]
+[*] [b]Both[/b] (recommended): patches Normal Launch and Alternate Launch.
+[*] [b]Normal Launch[/b]: then choose ProjectZomboid64.json, Steam launch options, or both.
+[*] [b]Alternate Launch[/b]: patches ProjectZomboid64.bat.
+[/list]
+[*] The installer shows every system change first and asks for confirmation before applying it.
+[*] If Steam launch options need to be changed, the installer will ask you to close Steam at that point.
 [/list]
 
 [u]Option B: Manual Installation[/u]
@@ -28,6 +34,7 @@ to your Project Zomboid folder:
 [*] Open Project Zomboid's launch options in Steam
 [*] Add this launch option: [code]-agentlib:zbNative --[/code]
 [*] [b]⚠️ IMPORTANT:[/b] The -- at the end is mandatory - do not omit it!
+[*] If you use the game's Alternate Launch option on Windows, set the ProjectZomboid64.bat _JAVA_OPTIONS line to: [code]SET _JAVA_OPTIONS=-agentlib:zbNative[/code]
 [/list]
 
 [b]🍎 macOS / 🐧 Linux:[/b]
@@ -87,7 +94,8 @@ Examples (block form, these go into Steam launch options):
     [/code]
 
     [*][b]Do I need to repeat manual installation after I upgrade/downgrade/validate game?[/b]
-    No.
+    No, if you use the default launcher and have agentlib in Steam launch options.
+    Yes, if ZombieBuddy stops loading.
 
     [*][b]Works on MP?[/b]
     Yes.

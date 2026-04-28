@@ -62,14 +62,25 @@ For all available command-line parameters, see [CommandLine.md](CommandLine.md).
 The easiest way to install ZombieBuddy on Windows is using the automated installer:
 
 1. **Download the latest `ZombieBuddyInstaller.exe`** from the [GitHub Releases](https://github.com/zed-0xff/ZombieBuddy/releases/) page.
-2. **Run the installer**. It will automatically:
-   - Detect your Steam and Project Zomboid installation folders.
-   - Find the ZombieBuddy Workshop content (ensure you are [subscribed on Steam](https://steamcommunity.com/sharedfiles/filedetails/?id=3619862853)).
-   - Copy `zbNative.dll` and `ZombieBuddy.jar` to your game directory.
-   - Update your Steam launch options to include `-agentlib:zbNative --`.
-3. **Restart Steam** for the changes to take effect.
+2. **Run the installer** and choose **Install or update ZombieBuddy**.
+3. **Choose what launch mode to patch**:
+   - **Both** (recommended): patches Normal Launch and Alternate Launch.
+   - **Normal Launch**: then choose `ProjectZomboid64.json`, Steam launch options, or both.
+   - **Alternate Launch**: patches `ProjectZomboid64.bat`.
+4. **Review the confirmation preview**. The installer lists every system change before applying it.
+5. **Confirm the changes** if they look correct.
 
-> **Note**: The installer handles everything for you. You don't need to manually copy files or edit launch options.
+The installer will:
+
+- Detect your Steam and Project Zomboid installation folders.
+- Find the ZombieBuddy Workshop content (ensure you are [subscribed on Steam](https://steamcommunity.com/sharedfiles/filedetails/?id=3619862853)).
+- Copy `zbNative.dll` and `ZombieBuddy.jar` to your game directory.
+- Patch the selected launcher locations:
+  - `ProjectZomboid64.json` for Normal Launch.
+  - Steam launch options with `-agentlib:zbNative --`, if selected.
+  - `ProjectZomboid64.bat` for Alternate Launch.
+
+If Steam launch options need to be changed, the installer asks you to close Steam at that point. It does not require Steam to be closed for launcher JSON/BAT edits or file copies.
 
 ---
 
@@ -167,7 +178,8 @@ Or with maximum verbosity:
 
 **Important notes:**
 - **⚠️ The `--` at the end is mandatory** - do not omit it!
-- **Windows users**: Only `-agentlib:zbNative --` is required (it automatically loads `ZombieBuddy.jar`)
+- **Windows Normal Launch via Steam launch options**: Use `-agentlib:zbNative --` (it automatically loads `ZombieBuddy.jar`).
+- **Windows Alternate Launch**: Steam launch options are passed to `ProjectZomboid64.bat` as game arguments, so `-agentlib:zbNative --` there is not enough. Add `-agentlib:zbNative` to the `SET _JAVA_OPTIONS=` line in `ProjectZomboid64.bat`, or use the installer and choose Alternate Launch / Both.
 - **Verbosity levels**:
   - `verbosity=0` (default): Errors only
   - `verbosity=1`: Shows patch transformations
