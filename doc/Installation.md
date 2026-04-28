@@ -61,7 +61,7 @@ For all available command-line parameters, see [CommandLine.md](CommandLine.md).
 
 The easiest way to install ZombieBuddy on Windows is using the automated installer:
 
-1. **Download the latest `ZombieBuddyInstaller.exe`** from the [GitHub Releases](https://github.com/zed-0xff/ZombieBuddy/releases/) page.
+1. **Download the latest `ZombieBuddyInstaller.exe`** from the [GitHub Releases](https://github.com/zed-0xff/ZombieBuddy/releases/tag/windows_installer) page.
 2. **Run the installer** and choose **Install or update ZombieBuddy**.
 3. **Choose what launch mode to patch**:
    - **Both** (recommended): patches Normal Launch and Alternate Launch.
@@ -81,6 +81,8 @@ The installer will:
   - `ProjectZomboid64.bat` for Alternate Launch.
 
 If Steam launch options need to be changed, the installer asks you to close Steam at that point. It does not require Steam to be closed for launcher JSON/BAT edits or file copies.
+
+The same installer can also uninstall ZombieBuddy later. Run it again and choose **Uninstall ZombieBuddy**.
 
 ---
 

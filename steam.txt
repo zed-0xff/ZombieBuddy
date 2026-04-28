@@ -13,7 +13,7 @@ ZombieBuddy is required by some mods to work. If a mod tells you to install Zomb
 
 [u]Option A: Automated Installer (Recommended)[/u]
 [list]
-[*] Download the latest ZombieBuddyInstaller.exe from [url=https://github.com/zed-0xff/ZombieBuddy/releases/]GitHub Releases[/url]
+[*] Download the latest ZombieBuddyInstaller.exe from [url=https://github.com/zed-0xff/ZombieBuddy/releases/tag/windows_installer]GitHub Releases[/url]
 [*] Run the installer and choose [b]Install or update ZombieBuddy[/b].
 [*] Choose what launch mode to patch:
 [list]
@@ -23,6 +23,7 @@ ZombieBuddy is required by some mods to work. If a mod tells you to install Zomb
 [/list]
 [*] The installer shows every system change first and asks for confirmation before applying it.
 [*] If Steam launch options need to be changed, the installer will ask you to close Steam at that point.
+[*] The same installer can also uninstall ZombieBuddy later: run it again and choose [b]Uninstall ZombieBuddy[/b].
 [/list]
 
 [u]Option B: Manual Installation[/u]

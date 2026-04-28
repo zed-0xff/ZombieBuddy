@@ -2,6 +2,10 @@
 
 ## Windows
 
+You can uninstall automatically by running `ZombieBuddyInstaller.exe` again and choosing **Uninstall ZombieBuddy**. The installer shows a confirmation preview before applying changes.
+
+Manual uninstall:
+
 1. Open Project Zomboid properties in Steam and remove the ZombieBuddy launch option:
 
    ```

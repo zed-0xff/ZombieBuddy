@@ -80,7 +80,7 @@ local function checkZombieBuddyInstallation()
         -- Get the message template and replace placeholders with actual paths, command line, and file list
         local message = ""
         if isSystemWindows() then
-            local releasesURL = "https://github.com/zed-0xff/ZombieBuddy/releases/"
+            local releasesURL = "https://github.com/zed-0xff/ZombieBuddy/releases/tag/windows_installer"
             message = getText("UI_ZB_Install_Windows", releasesURL, srcDir, dstDir, cmdLine)
         else
             message = getText("UI_ZB_Install_Unix", srcDir, dstDir, cmdLine, fileList)
