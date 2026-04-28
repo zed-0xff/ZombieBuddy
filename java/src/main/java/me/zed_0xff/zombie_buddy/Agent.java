@@ -8,14 +8,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.jar.JarFile;
+import java.util.concurrent.atomic.AtomicBoolean;
 import zombie.core.Core;
 
 import me.zed_0xff.zombie_buddy.frontend.ModApprovalFrontends;
 
 public class Agent {
     public static final Map<String, String> arguments = new HashMap<>();
+    private static final AtomicBoolean initialized = new AtomicBoolean(false);
 
     public static void premain(String agentArgs, Instrumentation inst) {
+        if (!initialized.compareAndSet(false, true)) {
+            Logger.warn("ZombieBuddy agent already installed; ignoring duplicate -javaagent entry.");
+            return;
+        }
+
         Logger.info("activating " + ZombieBuddy.getFullVersionString());
         Loader.g_instrumentation = inst;
 
