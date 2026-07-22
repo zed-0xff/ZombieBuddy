@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/zed-0xff/zombie_buddy/installer/i18n"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -16,7 +17,7 @@ func detectSteamPath() (string, error) {
 		if err != nil {
 			k, err = registry.OpenKey(registry.LOCAL_MACHINE, `Software\WOW6432Node\Valve\Steam`, registry.QUERY_VALUE)
 			if err != nil {
-				return "", fmt.Errorf("could not find Steam registry key")
+				return "", fmt.Errorf("%s", i18n.Tr("steam.registry_error"))
 			}
 		}
 	}
