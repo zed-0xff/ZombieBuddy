@@ -39,7 +39,7 @@ var languageNativeNames = map[Lang]string{
 	AR: "العربية",
 }
 
-// languageEnglishName returns the English name of a language.
+// languageEnglishName returns the English name for the given language code.
 func languageEnglishName(lang Lang) string {
 	if name, ok := languageEnglishNames[lang]; ok {
 		return name
@@ -56,17 +56,31 @@ var languageEnglishNames = map[Lang]string{
 	AR: "Arabic",
 }
 
-// selectPrompt returns the multi-line "choose language" prompt message.
-func selectPrompt() string {
-	// One line per language with its own prompt text.
-	return "Choose or press Enter for auto-detected:\n" +
-		"  按回车键使用自动检测的语言\n" +
-		"  Press Enter for auto-detected language\n" +
-		"  Appuyez sur Entrée pour la détection automatique\n" +
-		"  Presione Enter para el idioma detectado\n" +
-		"  Нажмите Enter для автоопределения языка\n" +
-		"  اضغط Enter للغة المكتشفة تلقائياً"
+// autoDetectedLabel returns the "(auto-detected)" suffix in the given language.
+func autoDetectedLabel(lang Lang) string {
+	labels := map[Lang]string{
+		EN: " (auto-detected)",
+		ZH: "（自动检测）",
+		FR: " (détecté automatiquement)",
+		ES: " (detectado automáticamente)",
+		RU: " (определён автоматически)",
+		AR: " (مكتشف تلقائياً)",
+	}
+	if lbl, ok := labels[lang]; ok {
+		return lbl
+	}
+	return labels[EN]
 }
+
+// multiLineChoosePrompt is the "choose or press Enter" text shown below the
+// language list, with one line per supported language for maximum reach.
+var multiLineChoosePrompt = "" +
+	"Please choose a language, or press Enter for the auto-detected language.\n" +
+	"请选择一种语言，或按回车使用自动检测的语言。\n" +
+	"Choisissez une langue, ou appuyez sur Entrée pour la langue détectée automatiquement.\n" +
+	"Seleccione un idioma, o presione Enter para el idioma detectado automáticamente.\n" +
+	"Выберите язык или нажмите Enter для автоматически определённого языка.\n" +
+	"اختر لغة، أو اضغط Enter لاستخدام اللغة المكتشفة تلقائياً."
 
 // current holds the active language. Defaults to English.
 var current Lang = EN
@@ -103,7 +117,7 @@ func PromptLanguage() {
 	detected := detectSystemLanguage()
 	current = detected
 
-	fmt.Println("Please select language / 请选择语言 / Choisir la langue / Seleccionar idioma / Выберите язык / اختر اللغة")
+	fmt.Println("Please select language / 请选择语言 / Choisir la langue / Seleccionar idioma / Выберите язык / اختر اللغة:")
 
 	// Build ordered list: detected first, then remaining in canonical order.
 	order := make([]Lang, 0, len(allLanguages))
@@ -117,13 +131,20 @@ func PromptLanguage() {
 	for i, lang := range order {
 		tag := ""
 		if lang == detected {
-			tag = " (auto-detected)"
+			tag = autoDetectedLabel(detected)
 		}
-		fmt.Printf("  %d) %s / %s%s\n", i+1, languageNativeName(lang), languageEnglishName(lang), tag)
+		native := languageNativeName(lang)
+		english := languageEnglishName(lang)
+		if native == english {
+			fmt.Printf("  %d) %s%s\n", i+1, native, tag)
+		} else {
+			fmt.Printf("  %d) %s (%s)%s\n", i+1, native, english, tag)
+		}
 	}
 
 	fmt.Println()
-	fmt.Println(selectPrompt())
+	fmt.Print(multiLineChoosePrompt)
+	fmt.Println()
 	fmt.Print("> ")
 
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
