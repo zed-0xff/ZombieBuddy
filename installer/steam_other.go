@@ -9,5 +9,5 @@ import (
 )
 
 func detectSteamPath() (string, error) {
-	return "", fmt.Errorf("%s", i18n.Tr("steam.registry_windows_only"))
+	return "", fmt.Errorf("%s", i18n.Translate("steam.registry_windows_only"))
 }

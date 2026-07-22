@@ -19,15 +19,35 @@ const (
 	AR Lang = "ar"
 )
 
+// allLanguages lists the supported languages in canonical display order.
+var allLanguages = []Lang{EN, ZH, FR, ES, RU, AR}
+
+// languageNativeName returns the native name of a language for the menu.
+func languageNativeName(lang Lang) string {
+	if name, ok := languageNativeNames[lang]; ok {
+		return name
+	}
+	return string(lang)
+}
+
+var languageNativeNames = map[Lang]string{
+	EN: "English",
+	ZH: "中文",
+	FR: "Français",
+	ES: "Español",
+	RU: "Русский",
+	AR: "العربية",
+}
+
 // current holds the active language. Defaults to English.
 var current Lang = EN
 
 // Current returns the active language code.
 func Current() Lang { return current }
 
-// Tr returns the translation for key in the current language.
+// Translate returns the translation for key in the current language.
 // Falls back to English if the key is missing.
-func Tr(key string) string {
+func Translate(key string) string {
 	if msg, ok := messages[current][key]; ok {
 		return msg
 	}
@@ -55,26 +75,39 @@ func PromptLanguage() {
 	current = detected
 
 	fmt.Println("Please select language / 请选择语言 / Choisir la langue / Seleccionar idioma / Выберите язык / اختر اللغة:")
-	fmt.Println("  1) English    2) 中文      3) Français")
-	fmt.Println("  4) Español    5) Русский   6) العربية")
-	fmt.Printf("Choose or press Enter for auto-detected [%s]: ", detected)
+
+	// Build ordered list: detected first, then remaining in canonical order.
+	order := make([]Lang, 0, len(allLanguages))
+	order = append(order, detected)
+	for _, lang := range allLanguages {
+		if lang != detected {
+			order = append(order, lang)
+		}
+	}
+
+	for i, lang := range order {
+		tag := ""
+		if lang == detected {
+			tag = " (auto-detected)"
+		}
+		fmt.Printf("  %d) %s%s\n", i+1, languageNativeName(lang), tag)
+	}
+
+	fmt.Println()
+	fmt.Print("Choose or press Enter for auto-detected: ")
 
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil {
 		return
 	}
-	switch strings.TrimSpace(line) {
-	case "1":
-		current = EN
-	case "2":
-		current = ZH
-	case "3":
-		current = FR
-	case "4":
-		current = ES
-	case "5":
-		current = RU
-	case "6":
-		current = AR
+	choice := strings.TrimSpace(line)
+	if choice == "" {
+		return // keep detected
 	}
+
+	var idx int
+	if _, parseErr := fmt.Sscanf(choice, "%d", &idx); parseErr != nil || idx < 1 || idx > len(order) {
+		return // keep detected
+	}
+	current = order[idx-1]
 }

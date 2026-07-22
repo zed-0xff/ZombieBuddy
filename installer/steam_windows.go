@@ -17,7 +17,7 @@ func detectSteamPath() (string, error) {
 		if err != nil {
 			k, err = registry.OpenKey(registry.LOCAL_MACHINE, `Software\WOW6432Node\Valve\Steam`, registry.QUERY_VALUE)
 			if err != nil {
-				return "", fmt.Errorf("%s", i18n.Tr("steam.registry_error"))
+				return "", fmt.Errorf("%s", i18n.Translate("steam.registry_error"))
 			}
 		}
 	}
