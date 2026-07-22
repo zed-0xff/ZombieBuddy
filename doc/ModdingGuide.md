@@ -146,10 +146,10 @@ Use `PreMain` only for work that truly needs early hooks. Put normal initializat
 ```java
 package com.yourname.yourmod.patches;
 
-import me.zed_0xff.zombie_buddy.annotations.Patch;
+import me.zed_0xff.zombie_buddy.Patch;
 
 @Patch(className = "zombie.SomeGameClass", methodName = "someMethod", warmUp = true)
-public static class MyPatch {
+public class MyPatch {
     @Patch.OnEnter
     public static void enter() {
         System.out.println("[YourMod] Intercepted method call!");
