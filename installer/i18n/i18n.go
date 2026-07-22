@@ -39,6 +39,35 @@ var languageNativeNames = map[Lang]string{
 	AR: "العربية",
 }
 
+// languageEnglishName returns the English name of a language.
+func languageEnglishName(lang Lang) string {
+	if name, ok := languageEnglishNames[lang]; ok {
+		return name
+	}
+	return string(lang)
+}
+
+var languageEnglishNames = map[Lang]string{
+	EN: "English",
+	ZH: "Chinese",
+	FR: "French",
+	ES: "Spanish",
+	RU: "Russian",
+	AR: "Arabic",
+}
+
+// selectPrompt returns the multi-line "choose language" prompt message.
+func selectPrompt() string {
+	// One line per language with its own prompt text.
+	return "Choose or press Enter for auto-detected:\n" +
+		"  按回车键使用自动检测的语言\n" +
+		"  Press Enter for auto-detected language\n" +
+		"  Appuyez sur Entrée pour la détection automatique\n" +
+		"  Presione Enter para el idioma detectado\n" +
+		"  Нажмите Enter для автоопределения языка\n" +
+		"  اضغط Enter للغة المكتشفة تلقائياً"
+}
+
 // current holds the active language. Defaults to English.
 var current Lang = EN
 
@@ -74,7 +103,7 @@ func PromptLanguage() {
 	detected := detectSystemLanguage()
 	current = detected
 
-	fmt.Println("Please select language / 请选择语言 / Choisir la langue / Seleccionar idioma / Выберите язык / اختر اللغة:")
+	fmt.Println("Please select language / 请选择语言 / Choisir la langue / Seleccionar idioma / Выберите язык / اختر اللغة")
 
 	// Build ordered list: detected first, then remaining in canonical order.
 	order := make([]Lang, 0, len(allLanguages))
@@ -90,11 +119,12 @@ func PromptLanguage() {
 		if lang == detected {
 			tag = " (auto-detected)"
 		}
-		fmt.Printf("  %d) %s%s\n", i+1, languageNativeName(lang), tag)
+		fmt.Printf("  %d) %s / %s%s\n", i+1, languageNativeName(lang), languageEnglishName(lang), tag)
 	}
 
 	fmt.Println()
-	fmt.Print("Choose or press Enter for auto-detected: ")
+	fmt.Println(selectPrompt())
+	fmt.Print("> ")
 
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil {
