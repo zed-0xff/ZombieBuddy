@@ -67,7 +67,7 @@ func TestStripZombieBuddyLaunchOptions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, changed := stripZombieBuddyLaunchOptions(tt.input)
+			got, changed := stripZombieBuddyLaunchOptions(tt.input, anyZombieBuddyLaunchOptionPattern)
 			if got != tt.want {
 				t.Fatalf("stripZombieBuddyLaunchOptions(%q) = %q, want %q", tt.input, got, tt.want)
 			}
@@ -83,7 +83,7 @@ func TestPatchJSONLauncherFixtures(t *testing.T) {
 		t.Run(version, func(t *testing.T) {
 			pzPath := copyLauncherFixture(t, version, "ProjectZomboid64.json", "vanilla")
 
-			changed, err := patchJSONLauncher(pzPath)
+			changed, err := patchJSONLauncher(pzPath, arch64)
 			if err != nil {
 				t.Fatalf("patchJSONLauncher() error = %v", err)
 			}
@@ -92,7 +92,7 @@ func TestPatchJSONLauncherFixtures(t *testing.T) {
 			}
 			assertFileMatchesFixture(t, filepath.Join(pzPath, "ProjectZomboid64.json"), version, "ProjectZomboid64.json", "patched")
 
-			changed, err = unpatchJSONLauncher(pzPath)
+			changed, err = unpatchJSONLauncher(pzPath, arch64)
 			if err != nil {
 				t.Fatalf("unpatchJSONLauncher() error = %v", err)
 			}
@@ -109,7 +109,7 @@ func TestPatchBatchLauncherFixtures(t *testing.T) {
 		t.Run(version, func(t *testing.T) {
 			pzPath := copyLauncherFixture(t, version, "ProjectZomboid64.bat", "vanilla")
 
-			changed, err := patchBatchFile(pzPath)
+			changed, err := patchBatchFile(pzPath, arch64)
 			if err != nil {
 				t.Fatalf("patchBatchFile() error = %v", err)
 			}
@@ -118,7 +118,7 @@ func TestPatchBatchLauncherFixtures(t *testing.T) {
 			}
 			assertFileMatchesFixture(t, filepath.Join(pzPath, "ProjectZomboid64.bat"), version, "ProjectZomboid64.bat", "patched")
 
-			changed, err = unpatchBatchFile(pzPath)
+			changed, err = unpatchBatchFile(pzPath, arch64)
 			if err != nil {
 				t.Fatalf("unpatchBatchFile() error = %v", err)
 			}

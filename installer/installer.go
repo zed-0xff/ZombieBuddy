@@ -20,17 +20,64 @@ import (
 const (
 	PZ_APP_ID         = "108600"
 	ZB_MOD_ID         = "3619862853"
-	INSTALLER_VERSION = "4.1"
+	INSTALLER_VERSION = "4.2"
 	ZB_LAUNCH_ARG     = "-agentlib:zbNative"
 	ZB_LAUNCH_OPTIONS = ZB_LAUNCH_ARG + " --"
 )
 
-var steamZombieBuddyLaunchOptionPattern = regexp.MustCompile(`(^|\s)-agentlib:zbNative(?:=\S*)?[ ]*[-]*`)
+// archTarget groups everything that differs between the 32-bit and 64-bit
+// game builds, so the rest of the installer can stay arch-agnostic instead
+// of hardcoding "ProjectZomboid64.json" etc. everywhere.
+type archTarget struct {
+	label      string // shown to the user, e.g. "64-bit"
+	jsonFile   string // e.g. "ProjectZomboid64.json"
+	batchFile  string // e.g. "ProjectZomboid64.bat"
+	dllName    string // e.g. "zbNative.dll"
+	launchArg  string // e.g. "-agentlib:zbNative"
+	launchOpts string // launchArg + " --"
+	// required: if the source DLL for this arch isn't found in the ZB mod
+	// folder, should installation fail (64-bit, shipped upstream) or just
+	// be skipped (32-bit, until it ships upstream too)?
+	dllRequired bool
+}
+
+var arch64 = archTarget{
+	label:       "64-bit",
+	jsonFile:    "ProjectZomboid64.json",
+	batchFile:   "ProjectZomboid64.bat",
+	dllName:     "zbNative.dll",
+	launchArg:   ZB_LAUNCH_ARG,
+	launchOpts:  ZB_LAUNCH_OPTIONS,
+	dllRequired: true,
+}
+
+var arch32 = archTarget{
+	label:       "32-bit",
+	jsonFile:    "ProjectZomboid32.json",
+	batchFile:   "ProjectZomboid32.bat",
+	dllName:     "zbNative32.dll",
+	launchArg:   "-agentlib:zbNative32",
+	launchOpts:  "-agentlib:zbNative32 --",
+	dllRequired: false,
+}
+
+var allArchTargets = []archTarget{arch64, arch32}
+
+func launchOptionPattern(launchArg string) *regexp.Regexp {
+	return regexp.MustCompile(`(^|\s)` + regexp.QuoteMeta(launchArg) + `(?:=\S*)?[ ]*[-]*`)
+}
+
+// Matches either the 32-bit or 64-bit agent flag. Steam only has a single
+// "Launch Options" field, so only one of the two agents can live there at
+// a time; this pattern is used to detect/remove "whichever one is there"
+// without needing to know in advance which arch was installed.
+var anyZombieBuddyLaunchOptionPattern = regexp.MustCompile(`(^|\s)-agentlib:zbNative(?:32)?(?:=\S*)?[ ]*[-]*`)
 
 type patchTargets struct {
 	normalJSON         bool
 	steamLaunchOptions bool
 	alternateBatch     bool
+	archs              []archTarget // which game builds (32-bit / 64-bit) to patch
 }
 
 type promptOption struct {
@@ -39,10 +86,10 @@ type promptOption struct {
 }
 
 type uninstallPlan struct {
-	jsonLauncherPath string
-	batchFilePath    string
-	steamConfigPaths []string
-	coreFilePaths    []string
+	jsonLauncherPaths []string
+	batchFilePaths    []string
+	steamConfigPaths  []string
+	coreFilePaths     []string
 }
 
 type installPaths struct {
@@ -142,8 +189,43 @@ func promptAction() (string, error) {
 	})
 }
 
+func promptArchTargets(reader *bufio.Reader) ([]archTarget, error) {
+	value, err := promptChoice(reader, promptChoiceConfig{
+		title:   "Which game build(s) do you want to patch?",
+		lines:   []string{"  1) 64-bit only (default)", "  2) 32-bit only", "  3) Both"},
+		prompt:  "Choose 1, 2, or 3: ",
+		eofErr:  "no build selected",
+		invalid: "Please choose 1, 2, or 3.",
+		options: []promptOption{
+			{value: "64", keys: []string{"1", "64", "64-bit", ""}},
+			{value: "32", keys: []string{"2", "32", "32-bit"}},
+			{value: "both", keys: []string{"3", "b", "both"}},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	switch value {
+	case "64":
+		return []archTarget{arch64}, nil
+	case "32":
+		return []archTarget{arch32}, nil
+	case "both":
+		return []archTarget{arch64, arch32}, nil
+	default:
+		return nil, fmt.Errorf("unknown build selection %q", value)
+	}
+}
+
 func promptInstallTargets() (patchTargets, error) {
 	reader := bufio.NewReader(os.Stdin)
+
+	archs, err := promptArchTargets(reader)
+	if err != nil {
+		return patchTargets{}, err
+	}
+
 	value, err := promptChoice(reader, promptChoiceConfig{
 		title:   "What launch mode should ZombieBuddy patch?",
 		lines:   []string{"  1) Both", "  2) Normal Launch", "  3) Alternate Launch"},
@@ -162,20 +244,20 @@ func promptInstallTargets() (patchTargets, error) {
 
 	switch value {
 	case "normal":
-		return promptNormalInstallTargets(reader)
+		return promptNormalInstallTargets(reader, archs)
 	case "alternate":
-		return patchTargets{alternateBatch: true}, nil
+		return patchTargets{alternateBatch: true, archs: archs}, nil
 	case "both":
-		return patchTargets{normalJSON: true, steamLaunchOptions: true, alternateBatch: true}, nil
+		return patchTargets{normalJSON: true, steamLaunchOptions: true, alternateBatch: true, archs: archs}, nil
 	default:
 		return patchTargets{}, fmt.Errorf("unknown launch mode %q", value)
 	}
 }
 
-func promptNormalInstallTargets(reader *bufio.Reader) (patchTargets, error) {
+func promptNormalInstallTargets(reader *bufio.Reader, archs []archTarget) (patchTargets, error) {
 	value, err := promptChoice(reader, promptChoiceConfig{
 		title:   "How should Normal Launch be patched?",
-		lines:   []string{"  1) Both", "  2) ProjectZomboid64.json", "  3) Steam launch options"},
+		lines:   []string{"  1) Both", "  2) ProjectZomboidXX.json", "  3) Steam launch options"},
 		prompt:  "Choose 1, 2, or 3: ",
 		eofErr:  "no normal launch patch selected",
 		invalid: "Please choose 1, 2, or 3.",
@@ -191,11 +273,11 @@ func promptNormalInstallTargets(reader *bufio.Reader) (patchTargets, error) {
 
 	switch value {
 	case "json":
-		return patchTargets{normalJSON: true}, nil
+		return patchTargets{normalJSON: true, archs: archs}, nil
 	case "steam":
-		return patchTargets{steamLaunchOptions: true}, nil
+		return patchTargets{steamLaunchOptions: true, archs: archs}, nil
 	case "both":
-		return patchTargets{normalJSON: true, steamLaunchOptions: true}, nil
+		return patchTargets{normalJSON: true, steamLaunchOptions: true, archs: archs}, nil
 	default:
 		return patchTargets{}, fmt.Errorf("unknown normal launch target %q", value)
 	}
@@ -310,34 +392,52 @@ func install() operationResult {
 		return resultCancelled
 	}
 
-	err = copyCoreFiles(paths.pz, paths.zb)
+	archs := targets.archs
+	if len(archs) == 0 {
+		archs = []archTarget{arch64} // preserves old default behavior if archs was never set
+	}
+
+	err = copyCoreFiles(paths.pz, paths.zb, archs)
 	if err != nil {
 		fmt.Printf("[!] Error copying core files: %v\n", err)
 		return resultFailed
-	} else {
-		fmt.Println("[.] Successfully installed zbNative.dll and ZombieBuddy.jar")
 	}
 
-	if targets.normalJSON {
-		updatedJSON, err := patchJSONLauncher(paths.pz)
-		if err != nil {
-			fmt.Printf("[!] Error updating ProjectZomboid64.json: %v\n", err)
-			return resultFailed
+	for _, arch := range archs {
+		if targets.normalJSON {
+			updatedJSON, err := patchJSONLauncher(paths.pz, arch)
+			if err != nil {
+				fmt.Printf("[!] Error updating %s: %v\n", arch.jsonFile, err)
+				return resultFailed
+			}
+			reportChange(updatedJSON,
+				fmt.Sprintf("Updated %s for normal launcher mode", arch.jsonFile),
+				fmt.Sprintf("%s already contains ZombieBuddy agent.", arch.jsonFile))
 		}
-		reportChange(updatedJSON, "Updated ProjectZomboid64.json for normal launcher mode", "ProjectZomboid64.json already contains ZombieBuddy agent.")
-	}
 
-	if targets.alternateBatch {
-		updatedBatch, err := patchBatchFile(paths.pz)
-		if err != nil {
-			fmt.Printf("[!] Error updating ProjectZomboid64.bat: %v\n", err)
-			return resultFailed
+		if targets.alternateBatch {
+			updatedBatch, err := patchBatchFile(paths.pz, arch)
+			if err != nil {
+				fmt.Printf("[!] Error updating %s: %v\n", arch.batchFile, err)
+				return resultFailed
+			}
+			reportChange(updatedBatch,
+				fmt.Sprintf("Updated %s for alternative launcher mode", arch.batchFile),
+				fmt.Sprintf("%s already contains ZombieBuddy agent.", arch.batchFile))
 		}
-		reportChange(updatedBatch, "Updated ProjectZomboid64.bat for alternative launcher mode", "ProjectZomboid64.bat already contains ZombieBuddy agent.")
 	}
 
 	if targets.steamLaunchOptions {
-		err = updateLaunchOptions(paths.steam)
+		// Steam only has one "Launch Options" field, so it can only carry
+		// one agent flag at a time. If both builds were selected, the first
+		// one (64-bit, unless only 32-bit was chosen) wins here; the other
+		// build is still fully usable via its Normal Launch JSON / Alternate
+		// Launch batch file, just not through this particular field.
+		primary := archs[0]
+		if len(archs) > 1 {
+			fmt.Printf("[i] Steam Launch Options can only target one build; using %s here.\n", primary.label)
+		}
+		err = updateLaunchOptions(paths.steam, primary.launchOpts)
 		if err != nil {
 			fmt.Printf("[!] Error updating Steam launch options: %v\n", err)
 			return resultFailed
@@ -415,25 +515,29 @@ func buildUninstallPlan(pzPath string, steamPath string) (uninstallPlan, error) 
 		coreFilePaths: coreFileDeletionPlan(pzPath),
 	}
 
-	jsonPath := filepath.Join(pzPath, "ProjectZomboid64.json")
-	hasJSON, err := jsonLauncherHasZombieBuddy(jsonPath)
-	if err != nil {
-		return uninstallPlan{}, fmt.Errorf("checking ProjectZomboid64.json: %v", err)
-	}
-	if hasJSON {
-		plan.jsonLauncherPath = jsonPath
+	// Check both builds - uninstall cleans up whichever one(s) were
+	// actually patched, regardless of what's selected this time around.
+	for _, arch := range allArchTargets {
+		jsonPath := filepath.Join(pzPath, arch.jsonFile)
+		hasJSON, err := jsonLauncherHasZombieBuddy(jsonPath)
+		if err != nil {
+			return uninstallPlan{}, fmt.Errorf("checking %s: %v", arch.jsonFile, err)
+		}
+		if hasJSON {
+			plan.jsonLauncherPaths = append(plan.jsonLauncherPaths, jsonPath)
+		}
+
+		batchPath := filepath.Join(pzPath, arch.batchFile)
+		hasBatch, err := batchFileHasZombieBuddy(batchPath)
+		if err != nil {
+			return uninstallPlan{}, fmt.Errorf("checking %s: %v", arch.batchFile, err)
+		}
+		if hasBatch {
+			plan.batchFilePaths = append(plan.batchFilePaths, batchPath)
+		}
 	}
 
-	batchPath := filepath.Join(pzPath, "ProjectZomboid64.bat")
-	hasBatch, err := batchFileHasZombieBuddy(batchPath)
-	if err != nil {
-		return uninstallPlan{}, fmt.Errorf("checking ProjectZomboid64.bat: %v", err)
-	}
-	if hasBatch {
-		plan.batchFilePath = batchPath
-	}
-
-	steamConfigPaths, err := steamLaunchOptionRemovalPlan(steamPath)
+	steamConfigPaths, err := steamLaunchOptionRemovalPlan(steamPath, anyZombieBuddyLaunchOptionPattern)
 	if err != nil {
 		return uninstallPlan{}, err
 	}
@@ -443,27 +547,27 @@ func buildUninstallPlan(pzPath string, steamPath string) (uninstallPlan, error) 
 }
 
 func applyUninstallPlan(plan uninstallPlan) error {
-	if plan.jsonLauncherPath != "" {
-		updated, err := updateJSONLauncherVMArgs(plan.jsonLauncherPath, false)
+	for _, jsonPath := range plan.jsonLauncherPaths {
+		updated, err := updateJSONLauncherVMArgs(jsonPath, false, "")
 		if err != nil {
-			return fmt.Errorf("updating ProjectZomboid64.json: %v", err)
+			return fmt.Errorf("updating %s: %v", jsonPath, err)
 		}
-		reportChange(updated, fmt.Sprintf("Removed \"%s\" from ProjectZomboid64.json", ZB_LAUNCH_ARG), "")
+		reportChange(updated, fmt.Sprintf("Removed ZombieBuddy agent from %s", jsonPath), "")
 	}
 
-	if plan.batchFilePath != "" {
-		updated, err := updateBatchJavaOptions(plan.batchFilePath, false)
+	for _, batchPath := range plan.batchFilePaths {
+		updated, err := updateBatchJavaOptions(batchPath, false, "")
 		if err != nil {
-			return fmt.Errorf("updating ProjectZomboid64.bat: %v", err)
+			return fmt.Errorf("updating %s: %v", batchPath, err)
 		}
-		reportChange(updated, fmt.Sprintf("Removed \"%s\" from ProjectZomboid64.bat", ZB_LAUNCH_ARG), "")
+		reportChange(updated, fmt.Sprintf("Removed ZombieBuddy agent from %s", batchPath), "")
 	}
 
 	if err := removeCoreFiles(plan.coreFilePaths); err != nil {
 		return fmt.Errorf("removing core files: %v", err)
 	}
 
-	if err := removeLaunchOptions(plan.steamConfigPaths); err != nil {
+	if err := removeLaunchOptions(plan.steamConfigPaths, anyZombieBuddyLaunchOptionPattern); err != nil {
 		return fmt.Errorf("removing Steam launch options: %v", err)
 	}
 
@@ -480,31 +584,45 @@ func reportChange(changed bool, changedMessage string, unchangedMessage string) 
 
 func installPreview(pzPath string, steamPath string, zbPath string, targets patchTargets) []string {
 	lines := []string{
-		fmt.Sprintf("copy \"%s\\zbNative.dll\"    to \"%s\\\"", "ZB", "PZ"),
 		fmt.Sprintf("copy \"%s\\ZombieBuddy.jar\" to \"%s\\\"", "ZB", "PZ"),
 	}
-	if targets.normalJSON {
-		lines = append(lines, fmt.Sprintf("add \"%s\" to \"%s\"", ZB_LAUNCH_ARG, "ProjectZomboid64.json"))
+
+	archs := targets.archs
+	if len(archs) == 0 {
+		archs = []archTarget{arch64}
 	}
-	if targets.alternateBatch {
-		lines = append(lines, fmt.Sprintf("add \"%s\" to \"%s\"", ZB_LAUNCH_ARG, "ProjectZomboid64.bat"))
+
+	seenDLL := map[string]bool{}
+	for _, arch := range archs {
+		if !seenDLL[arch.dllName] {
+			seenDLL[arch.dllName] = true
+			lines = append(lines, fmt.Sprintf("copy \"%s\\%s\" to \"%s\\\" (if available)", "ZB", arch.dllName, "PZ"))
+		}
+		if targets.normalJSON {
+			lines = append(lines, fmt.Sprintf("add \"%s\" to \"%s\"", arch.launchArg, arch.jsonFile))
+		}
+		if targets.alternateBatch {
+			lines = append(lines, fmt.Sprintf("add \"%s\" to \"%s\"", arch.launchArg, arch.batchFile))
+		}
 	}
+
 	if targets.steamLaunchOptions {
-		lines = append(lines, fmt.Sprintf("add \"%s\" to PZ Steam launch options", ZB_LAUNCH_OPTIONS))
+		primary := archs[0]
+		lines = append(lines, fmt.Sprintf("add \"%s\" to PZ Steam launch options", primary.launchOpts))
 	}
 	return lines
 }
 
 func uninstallPreview(plan uninstallPlan) []string {
 	var lines []string
-	if plan.jsonLauncherPath != "" {
-		lines = append(lines, fmt.Sprintf("remove \"%s\" from \"%s\"", ZB_LAUNCH_ARG, plan.jsonLauncherPath))
+	for _, path := range plan.jsonLauncherPaths {
+		lines = append(lines, fmt.Sprintf("remove ZombieBuddy agent from \"%s\"", path))
 	}
-	if plan.batchFilePath != "" {
-		lines = append(lines, fmt.Sprintf("remove \"%s\" from \"%s\"", ZB_LAUNCH_ARG, plan.batchFilePath))
+	for _, path := range plan.batchFilePaths {
+		lines = append(lines, fmt.Sprintf("remove ZombieBuddy agent from \"%s\"", path))
 	}
 	if plan.steamConfigPaths != nil {
-		lines = append(lines, fmt.Sprintf("remove \"%s\" from PZ Steam launch options", ZB_LAUNCH_ARG))
+		lines = append(lines, "remove ZombieBuddy agent from PZ Steam launch options")
 	}
 	for _, path := range plan.coreFilePaths {
 		lines = append(lines, fmt.Sprintf("delete \"%s\"", path))
@@ -598,35 +716,54 @@ func findAppInLibraries(libraryVDFPath string, subPath ...string) (string, error
 	return "", fmt.Errorf("app not found in any Steam library")
 }
 
-func copyCoreFiles(pzPath string, zbPath string) error {
-	files := []string{"zbNative.dll", "ZombieBuddy.jar"}
+func findCoreFileSource(zbPath string, filename string) string {
+	if zbPath == "" {
+		return ""
+	}
+	s := filepath.Join(zbPath, "mods", "ZombieBuddy", "libs", filename)
+	if _, err := os.Stat(s); err == nil {
+		return s
+	}
+	return ""
+}
 
-	for _, filename := range files {
-		var sources []string
-		if zbPath != "" {
-			sources = append(sources, filepath.Join(zbPath, "mods", "ZombieBuddy", "libs", filename))
+func copyCoreFile(pzPath string, zbPath string, filename string, required bool) error {
+	srcPath := findCoreFileSource(zbPath, filename)
+
+	if srcPath == "" {
+		if !required {
+			fmt.Printf("[?] %s not found next to the mod, skipping (copy it into the game folder yourself if you built it separately)\n", filename)
+			return nil
 		}
+		return fmt.Errorf("could not find %s source", filename)
+	}
 
-		var srcPath string
-		for _, s := range sources {
-			if _, err := os.Stat(s); err == nil {
-				srcPath = s
-				break
-			}
+	dstPath := filepath.Join(pzPath, filename)
+	fmt.Printf("[.] copying \"%s\" to \"%s\"\n", srcPath, dstPath)
+	if err := copyFile(srcPath, dstPath); err != nil {
+		return fmt.Errorf("failed to copy %s: %v", filename, err)
+	}
+	return nil
+}
+
+func copyCoreFiles(pzPath string, zbPath string, archs []archTarget) error {
+	// ZombieBuddy.jar is pure JVM bytecode, shared by both builds.
+	if err := copyCoreFile(pzPath, zbPath, "ZombieBuddy.jar", true); err != nil {
+		return err
+	}
+
+	seen := map[string]bool{}
+	for _, arch := range archs {
+		if seen[arch.dllName] {
+			continue
 		}
-
-		if srcPath == "" {
-			return fmt.Errorf("could not find %s source", filename)
-		}
-
-		dstPath := filepath.Join(pzPath, filename)
-		fmt.Printf("[.] copying \"%s\" to \"%s\"\n", srcPath, dstPath)
-		err := copyFile(srcPath, dstPath)
-		if err != nil {
-			return fmt.Errorf("failed to copy %s: %v", filename, err)
+		seen[arch.dllName] = true
+		if err := copyCoreFile(pzPath, zbPath, arch.dllName, arch.dllRequired); err != nil {
+			return err
 		}
 	}
 
+	fmt.Println("[.] Successfully installed core files")
 	return nil
 }
 
@@ -657,22 +794,22 @@ func coreFileDeletionPlan(pzPath string) []string {
 }
 
 func coreFilesForRemoval() []string {
-	return []string{"zbNative.dll", "ZombieBuddy.jar", "ZombieBuddy.jar.new"}
+	return []string{"zbNative.dll", "zbNative32.dll", "ZombieBuddy.jar", "ZombieBuddy.jar.new"}
 }
 
-func patchJSONLauncher(pzPath string) (bool, error) {
-	return updateJSONLauncherVMArgs(filepath.Join(pzPath, "ProjectZomboid64.json"), true)
+func patchJSONLauncher(pzPath string, arch archTarget) (bool, error) {
+	return updateJSONLauncherVMArgs(filepath.Join(pzPath, arch.jsonFile), true, arch.launchArg)
 }
 
-func unpatchJSONLauncher(pzPath string) (bool, error) {
-	return updateJSONLauncherVMArgs(filepath.Join(pzPath, "ProjectZomboid64.json"), false)
+func unpatchJSONLauncher(pzPath string, arch archTarget) (bool, error) {
+	return updateJSONLauncherVMArgs(filepath.Join(pzPath, arch.jsonFile), false, arch.launchArg)
 }
 
-func updateJSONLauncherVMArgs(path string, install bool) (bool, error) {
+func updateJSONLauncherVMArgs(path string, install bool, launchArg string) (bool, error) {
 	var changed bool
 	return updateJSONLauncher(path, func(cfg *launcherConfig) bool {
 		if install {
-			cfg.VMArgs, changed = addZombieBuddyVMArg(cfg.VMArgs)
+			cfg.VMArgs, changed = addZombieBuddyVMArg(cfg.VMArgs, launchArg)
 		} else {
 			cfg.VMArgs, changed = removeZombieBuddyVMArg(cfg.VMArgs)
 		}
@@ -720,11 +857,11 @@ func readJSONLauncher(path string) (launcherConfig, bool, error) {
 	return cfg, true, nil
 }
 
-func addZombieBuddyVMArg(args []string) ([]string, bool) {
+func addZombieBuddyVMArg(args []string, launchArg string) ([]string, bool) {
 	if hasZombieBuddyVMArg(args) {
 		return args, false
 	}
-	return append([]string{ZB_LAUNCH_ARG}, args...), true
+	return append([]string{launchArg}, args...), true
 }
 
 func hasZombieBuddyVMArg(args []string) bool {
@@ -752,24 +889,24 @@ func removeZombieBuddyVMArg(args []string) ([]string, bool) {
 	return filtered, true
 }
 
-func patchBatchFile(pzPath string) (bool, error) {
-	return updateBatchJavaOptions(filepath.Join(pzPath, "ProjectZomboid64.bat"), true)
+func patchBatchFile(pzPath string, arch archTarget) (bool, error) {
+	return updateBatchJavaOptions(filepath.Join(pzPath, arch.batchFile), true, arch.launchArg)
 }
 
-func unpatchBatchFile(pzPath string) (bool, error) {
-	return updateBatchJavaOptions(filepath.Join(pzPath, "ProjectZomboid64.bat"), false)
+func unpatchBatchFile(pzPath string, arch archTarget) (bool, error) {
+	return updateBatchJavaOptions(filepath.Join(pzPath, arch.batchFile), false, arch.launchArg)
 }
 
-func updateBatchJavaOptions(path string, install bool) (bool, error) {
+func updateBatchJavaOptions(path string, install bool, launchArg string) (bool, error) {
 	return updateBatchJavaOptionsValue(path, func(currentValue string) (string, bool) {
 		if install {
-			return addZombieBuddyJavaOption(currentValue)
+			return addZombieBuddyJavaOption(currentValue, launchArg)
 		}
 		return removeZombieBuddyJavaOption(currentValue)
-	}, install)
+	}, install, launchArg)
 }
 
-func updateBatchJavaOptionsValue(path string, mutate func(string) (string, bool), addIfMissing bool) (bool, error) {
+func updateBatchJavaOptionsValue(path string, mutate func(string) (string, bool), addIfMissing bool, launchArg string) (bool, error) {
 	input, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -808,7 +945,7 @@ func updateBatchJavaOptionsValue(path string, mutate func(string) (string, bool)
 	}
 
 	if addIfMissing && !foundJavaOptions {
-		lines = append([]string{"SET _JAVA_OPTIONS=" + ZB_LAUNCH_ARG}, lines...)
+		lines = append([]string{"SET _JAVA_OPTIONS=" + launchArg}, lines...)
 		updated = true
 	}
 
@@ -857,14 +994,14 @@ func javaOptionsAssignment(line string) (int, int, bool) {
 	return keyStart, keyStart + len(prefix), true
 }
 
-func addZombieBuddyJavaOption(options string) (string, bool) {
+func addZombieBuddyJavaOption(options string, launchArg string) (string, bool) {
 	if containsZombieBuddyJavaOption(options) {
 		return options, false
 	}
 	if strings.TrimSpace(options) == "" {
-		return ZB_LAUNCH_ARG, true
+		return launchArg, true
 	}
-	return ZB_LAUNCH_ARG + " " + options, true
+	return launchArg + " " + options, true
 }
 
 func removeZombieBuddyJavaOption(options string) (string, bool) {
@@ -893,8 +1030,15 @@ func containsZombieBuddyJavaOption(options string) bool {
 	return false
 }
 
+// Recognizes "-agentlib:zbNative" and "-agentlib:zbNative32", with or
+// without a "=..." options tail. Used for detection/removal in both the
+// JSON launcher's vmArgs and the .bat file's SET _JAVA_OPTIONS line, so
+// leftover flags from either build get cleaned up regardless of which one
+// this particular file/arch is for.
+var anyZombieBuddyAgentLibPattern = regexp.MustCompile(`^-agentlib:zbNative(32)?(=.*)?$`)
+
 func isZombieBuddyJavaOption(value string) bool {
-	return value == ZB_LAUNCH_ARG || strings.HasPrefix(value, ZB_LAUNCH_ARG+"=")
+	return anyZombieBuddyAgentLibPattern.MatchString(value)
 }
 
 func copyFile(src, dst string) error {
@@ -914,7 +1058,7 @@ func copyFile(src, dst string) error {
 	return err
 }
 
-func updateLaunchOptions(steamPath string) error {
+func updateLaunchOptions(steamPath string, launchOpts string) error {
 	userdataPath := filepath.Join(steamPath, "userdata")
 	entries, err := os.ReadDir(userdataPath)
 	if err != nil {
@@ -926,7 +1070,7 @@ func updateLaunchOptions(steamPath string) error {
 		if entry.IsDir() {
 			localConfigPath := filepath.Join(userdataPath, entry.Name(), "config", "localconfig.vdf")
 			if _, err := os.Stat(localConfigPath); err == nil {
-				updated, err := patchVDF(localConfigPath)
+				updated, err := patchVDF(localConfigPath, launchOpts)
 				if err == nil {
 					if updated {
 						fmt.Printf("[.] Updated launch options for user %s\n", entry.Name())
@@ -945,14 +1089,14 @@ func updateLaunchOptions(steamPath string) error {
 	return nil
 }
 
-func removeLaunchOptions(localConfigPaths []string) error {
+func removeLaunchOptions(localConfigPaths []string, pattern *regexp.Regexp) error {
 	if len(localConfigPaths) == 0 {
 		return nil
 	}
 
 	waitForSteamToClose("launch option update")
 	for _, localConfigPath := range localConfigPaths {
-		updated, err := unpatchVDF(localConfigPath, false)
+		updated, err := unpatchVDF(localConfigPath, false, pattern)
 		if err != nil {
 			return fmt.Errorf("failed to remove launch options from %s: %v", localConfigPath, err)
 		}
@@ -963,7 +1107,7 @@ func removeLaunchOptions(localConfigPaths []string) error {
 	return nil
 }
 
-func steamLaunchOptionRemovalPlan(steamPath string) ([]string, error) {
+func steamLaunchOptionRemovalPlan(steamPath string, pattern *regexp.Regexp) ([]string, error) {
 	userdataPath := filepath.Join(steamPath, "userdata")
 	entries, err := os.ReadDir(userdataPath)
 	if err != nil {
@@ -975,7 +1119,7 @@ func steamLaunchOptionRemovalPlan(steamPath string) ([]string, error) {
 		if entry.IsDir() {
 			localConfigPath := filepath.Join(userdataPath, entry.Name(), "config", "localconfig.vdf")
 			if _, err := os.Stat(localConfigPath); err == nil {
-				has, err := vdfHasZombieBuddyLaunchOptions(localConfigPath)
+				has, err := vdfHasZombieBuddyLaunchOptions(localConfigPath, pattern)
 				if err != nil {
 					fmt.Printf("[?] skipping Steam launch options for user %s: %v\n", entry.Name(), err)
 					continue
@@ -989,7 +1133,7 @@ func steamLaunchOptionRemovalPlan(steamPath string) ([]string, error) {
 	return localConfigPaths, nil
 }
 
-func patchVDF(path string) (bool, error) {
+func patchVDF(path string, launchOpts string) (bool, error) {
 	pz, err := findPZLaunchConfig(path, true)
 	if err != nil {
 		return false, err
@@ -1001,9 +1145,10 @@ func patchVDF(path string) (bool, error) {
 
 	currentOptions := launchOptionsFromConfig(pz)
 
-	newOptions := ZB_LAUNCH_OPTIONS
-	if hasZombieBuddyLaunchOptions(currentOptions) {
-		fmt.Println("[-] Launch options already contain ZombieBuddy agent.")
+	newOptions := launchOpts
+	if hasZombieBuddyLaunchOptions(currentOptions, anyZombieBuddyLaunchOptionPattern) {
+		fmt.Println("[-] Launch options already contain a ZombieBuddy agent (32-bit or 64-bit).")
+		fmt.Println("    Uninstall first if you want to switch which build's agent is used here.")
 		return false, nil
 	}
 
@@ -1011,13 +1156,13 @@ func patchVDF(path string) (bool, error) {
 	return true, manualPatchVDF(path, currentOptions, newOptions)
 }
 
-func unpatchVDF(path string, waitForSteam bool) (bool, error) {
+func unpatchVDF(path string, waitForSteam bool, pattern *regexp.Regexp) (bool, error) {
 	currentOptions, err := readPZLaunchOptions(path)
 	if err != nil {
 		return false, err
 	}
 
-	newOptions, changed := stripZombieBuddyLaunchOptions(currentOptions)
+	newOptions, changed := stripZombieBuddyLaunchOptions(currentOptions, pattern)
 	if !changed {
 		return false, nil
 	}
@@ -1028,12 +1173,12 @@ func unpatchVDF(path string, waitForSteam bool) (bool, error) {
 	return true, manualPatchVDF(path, currentOptions, newOptions)
 }
 
-func vdfHasZombieBuddyLaunchOptions(path string) (bool, error) {
+func vdfHasZombieBuddyLaunchOptions(path string, pattern *regexp.Regexp) (bool, error) {
 	currentOptions, err := readPZLaunchOptions(path)
 	if err != nil {
 		return false, err
 	}
-	return hasZombieBuddyLaunchOptions(currentOptions), nil
+	return hasZombieBuddyLaunchOptions(currentOptions, pattern), nil
 }
 
 func readPZLaunchOptions(path string) (string, error) {
@@ -1095,13 +1240,13 @@ func formatMapKeys(m map[string]interface{}) string {
 	return strings.Join(keys, ", ")
 }
 
-func hasZombieBuddyLaunchOptions(options string) bool {
-	_, changed := stripZombieBuddyLaunchOptions(options)
+func hasZombieBuddyLaunchOptions(options string, pattern *regexp.Regexp) bool {
+	_, changed := stripZombieBuddyLaunchOptions(options, pattern)
 	return changed
 }
 
-func stripZombieBuddyLaunchOptions(options string) (string, bool) {
-	newOptions := strings.Join(strings.Fields(steamZombieBuddyLaunchOptionPattern.ReplaceAllString(options, " ")), " ")
+func stripZombieBuddyLaunchOptions(options string, pattern *regexp.Regexp) (string, bool) {
+	newOptions := strings.Join(strings.Fields(pattern.ReplaceAllString(options, " ")), " ")
 	if newOptions == strings.TrimSpace(options) {
 		return options, false
 	}
