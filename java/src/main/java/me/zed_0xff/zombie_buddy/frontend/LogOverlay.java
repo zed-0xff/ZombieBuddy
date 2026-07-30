@@ -3,11 +3,13 @@ package me.zed_0xff.zombie_buddy.frontend;
 import me.zed_0xff.zombie_buddy.*;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.HashSet;
 
 import org.lwjgl.glfw.GLFW;
 
+import zombie.core.fonts.AngelCodeFont;
 import zombie.core.Core;
 import zombie.GameTime;
 import zombie.ui.TextManager;
@@ -157,6 +159,8 @@ public class LogOverlay {
         lines.clear();
     }
     
+    private static Method M_isEmpty = null;
+
     public static void draw() {
         if (!enabled || lines.isEmpty()) return;
         
@@ -176,8 +180,25 @@ public class LogOverlay {
         if (f_renderThisFrame != null && Accessor.tryGet(Core.getInstance(), f_renderThisFrame, true) == false) {
             return;
         }
+
+        boolean isEmpty = true;
+
+        if (M_isEmpty == null) {
+            M_isEmpty = Accessor.findNoArgMethod(AngelCodeFont.class, "isLoading"); // 42.20
+            if (M_isEmpty == null) {
+                M_isEmpty = Accessor.findNoArgMethod(AngelCodeFont.class, "isEmpty");
+            }
+        }
+
+        if (M_isEmpty != null) {
+            try {
+                isEmpty = (boolean) M_isEmpty.invoke(textMgr.font);
+            } catch (Throwable t) {
+                t.printStackTrace();
+            }
+        }
         
-        var font = textMgr.font.isEmpty() ? UIFont.Small : UIFont.CodeSmall;
+        var font = isEmpty ? UIFont.Small : UIFont.CodeSmall;
         var lineHeight = (int) textMgr.MeasureStringY(font, "Ay") + 2;
         var scrH = Core.getInstance().getScreenHeight();
         int topLimit = Utils.isHiRes() ? 128 : 64;
