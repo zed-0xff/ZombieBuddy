@@ -8,8 +8,10 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
@@ -18,6 +20,7 @@ import me.zed_0xff.zombie_buddy.annotations.Internal;
 import me.zed_0xff.zombie_buddy.annotations.Patch;
 import me.zed_0xff.zombie_buddy.transformers.JarContext;
 import me.zed_0xff.zombie_buddy.transformers.Pipeline;
+import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.dynamic.loading.ByteArrayClassLoader;
 
@@ -89,16 +92,21 @@ final class PatchTransformer {
     private static byte[] readClassFile(Class<?> patchClass) {
         String resourceName = patchClass.getName().replace('.', '/') + ".class";
         try (InputStream in = patchClass.getClassLoader().getResourceAsStream(resourceName)) {
-            if (in == null) {
-                Logger.error("Could not read class file for " + patchClass.getName());
-                return null;
+            if (in != null) {
+                return in.readAllBytes();
             }
-
-            return in.readAllBytes();
         } catch (IOException e) {
             Logger.error("Could not read class file for " + patchClass.getName() + ": " + e.getMessage());
             return null;
         }
+
+        byte[] bytes = Loader.getTransformedClassBytes(patchClass.getName());
+        if (bytes != null) {
+            return bytes;
+        }
+
+        Logger.error("Could not read class file for " + patchClass.getName());
+        return null;
     }
 
     private static Class<?> ensureTransformed(Class<?> patchClass) {
@@ -167,8 +175,20 @@ final class PatchTransformer {
         String defaultTargetCls = (patchAnn != null) ? patchAnn.className() : "";
         Map<String, IMemberHandle> memberHandles = new HashMap<>();
         Map<String, IMemberHandle> paramHandleInfos = new HashMap<>();
+        Map<String, String> nameMap = null;
 
         for (Field f : patchClass.getDeclaredFields()) {
+            Patch.NameMap nm = f.getAnnotation(Patch.NameMap.class);
+            if (nm != null) {
+                if (nameMap == null) {
+                    nameMap = buildNameMap(patchClass);
+                }
+                if (!setNameMapField(patchClass, f, nameMap)) {
+                    return null;
+                }
+                continue;
+            }
+
             Patch.MethodHandle mh = f.getAnnotation(Patch.MethodHandle.class);
             if (mh != null) {
                 memberHandles.put(f.getName(), methodHandleInfo(mh, defaultTargetCls, f.getName()));
@@ -211,6 +231,51 @@ final class PatchTransformer {
         }
 
         return patchClass;
+    }
+
+    private static Map<String, String> buildNameMap(Class<?> patchClass) {
+        Map<String, String> out = new LinkedHashMap<>();
+        for (Method method : patchClass.getDeclaredMethods()) {
+            Parameter[] params = method.getParameters();
+            for (int i = 0; i < params.length; i++) {
+                Advice.FieldValue fv = params[i].getAnnotation(Advice.FieldValue.class);
+                if (fv == null || Utils.isBlank(fv.value())) {
+                    continue;
+                }
+
+                Patch.Field field = params[i].getAnnotation(Patch.Field.class);
+                String logicalName = field != null && !Utils.isBlank(field.logicalName())
+                        ? field.logicalName()
+                        : params[i].isNamePresent() ? params[i].getName() : fv.value();
+                out.put(logicalName, fv.value());
+            }
+        }
+
+        return Map.copyOf(out);
+    }
+
+    private static boolean setNameMapField(Class<?> patchClass, Field field, Map<String, String> nameMap) {
+        if (!Map.class.isAssignableFrom(field.getType())) {
+            Logger.error("@Patch.NameMap field must be assignable from Map: " + patchClass.getName() + "#" + field.getName());
+            return false;
+        }
+
+        try {
+            field.setAccessible(true);
+            Object value = field.get(null);
+            if (value instanceof Map<?, ?> existing) {
+                @SuppressWarnings("unchecked")
+                Map<String, String> target = (Map<String, String>) existing;
+                target.clear();
+                target.putAll(nameMap);
+            } else {
+                field.set(null, new LinkedHashMap<>(nameMap));
+            }
+            return true;
+        } catch (Exception e) {
+            Logger.error("Failed to set @Patch.NameMap field " + patchClass.getName() + "#" + field.getName() + ": " + e.getMessage());
+            return false;
+        }
     }
 
     private static IMethodHandle methodHandleInfo(Patch.MethodHandle mh, String defaultTargetCls, String fallbackName) {

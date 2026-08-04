@@ -4,6 +4,7 @@ import static me.zed_0xff.zombie_buddy.ModFlags.*;
 
 import java.io.BufferedInputStream;
 import java.io.InputStream;
+import java.lang.invoke.VarHandle;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -13,6 +14,9 @@ import zombie.GameWindow;
 import zombie.core.Core;
 import zombie.core.SpriteRenderer;
 import zombie.core.textures.Texture;
+import zombie.gameStates.GameState;
+import zombie.gameStates.GameStateMachine;
+import zombie.gameStates.IngameState;
 import zombie.ui.TextManager;
 import zombie.ui.UIFont;
 import zombie.ui.UIManager;
@@ -60,7 +64,7 @@ public final class Watermark {
         if (isEnabled()) {
             draw();
         } else if (_ttl > 0) {
-            if (_ttl > FADE_DURATION && GameWindow.isIngameState()) {
+            if (_ttl > FADE_DURATION && isIngameState()) {
                 // fade immediately on game start
                 _ttl = FADE_DURATION;
             }
@@ -79,8 +83,32 @@ public final class Watermark {
 
     private static boolean isEnabled() {
         return _in_init
-                || !GameWindow.isIngameState();
+                || !isIngameState();
                 // || GameTime.isGamePaused() && !UIManager.isShowPausedMessage();
+    }
+
+    private static boolean _isIngameState_available = true;
+    private static boolean isIngameState() {
+        if (!_isIngameState_available) {
+            return isIngameState_B41();
+        }
+
+        try {
+            return GameWindow.isIngameState();
+        } catch (NoSuchMethodError e) { // B41: java.lang.NoSuchMethodError: 'boolean zombie.GameWindow.isIngameState()'
+            _isIngameState_available = false;
+            return isIngameState_B41();
+        }
+    }
+
+    private static VarHandle vh_states = null;
+    private static boolean isIngameState_B41() {
+        if (vh_states == null) {
+            vh_states = Reflect.on(GameStateMachine.class).getVarHandle(ArrayList.class, "states", "States");
+            if (vh_states == null) return false;
+        }
+        return (IngameState.instance != null && (GameWindow.states.current == IngameState.instance || 
+                    ((ArrayList<GameState>)(vh_states.get(GameWindow.states))).contains(IngameState.instance)));
     }
 
     private static void draw() {

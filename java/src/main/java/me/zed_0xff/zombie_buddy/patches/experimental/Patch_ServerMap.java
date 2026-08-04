@@ -6,7 +6,7 @@ import me.zed_0xff.zombie_buddy.annotations.Patch;
 @Patch(className = "zombie.network.ServerMap", methodName = "preupdate")
 public class Patch_ServerMap {
     @Patch.OnEnter
-    static void enter() {
+    public static void enter() {
         HttpServer.maybeRunLuaTasks();
     }
 }

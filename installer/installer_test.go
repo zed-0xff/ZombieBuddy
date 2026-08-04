@@ -8,6 +8,62 @@ import (
 	"testing"
 )
 
+func TestFindAppInLibraries(t *testing.T) {
+	tests := []struct {
+		name    string
+		inLib   int // which library gets the target subpath (0 or 1); -1 = neither
+		wantErr bool
+	}{
+		{"found in first library", 0, false},
+		{"found in second library only", 1, false},
+		{"not found in any library", -1, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			libs := []string{filepath.Join(tmpDir, "lib0"), filepath.Join(tmpDir, "lib1")}
+			for _, lib := range libs {
+				if err := os.MkdirAll(lib, 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			if tt.inLib >= 0 {
+				if err := os.MkdirAll(filepath.Join(libs[tt.inLib], "steamapps", "common", "ProjectZomboid"), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			// Backslashes must be escaped in VDF ("\\"), otherwise the parser
+			// treats them as escape sequences and corrupts Windows paths.
+			vdfContent := "\"libraryfolders\"\n{\n" +
+				"\t\"0\"\n\t{\n\t\t\"path\"\t\t\"" + strings.ReplaceAll(libs[0], "\\", "\\\\") + "\"\n\t}\n" +
+				"\t\"1\"\n\t{\n\t\t\"path\"\t\t\"" + strings.ReplaceAll(libs[1], "\\", "\\\\") + "\"\n\t}\n" +
+				"}\n"
+			vdfPath := filepath.Join(tmpDir, "libraryfolders.vdf")
+			if err := os.WriteFile(vdfPath, []byte(vdfContent), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			got, err := findAppInLibraries(vdfPath, "common", "ProjectZomboid")
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got path %q", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			want := filepath.Join(libs[tt.inLib], "steamapps", "common", "ProjectZomboid")
+			if got != want {
+				t.Errorf("got %q, want %q", got, want)
+			}
+		})
+	}
+}
+
 func TestStripZombieBuddyLaunchOptions(t *testing.T) {
 	tests := []struct {
 		name    string

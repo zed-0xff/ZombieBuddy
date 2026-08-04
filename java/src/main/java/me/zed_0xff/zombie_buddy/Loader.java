@@ -136,6 +136,17 @@ public class Loader {
     static final Map<Path, ClassLoader> g_mod_loaders = new ConcurrentHashMap<>();
     static final Map<Path, TransformedJar> g_transformed_jars = new ConcurrentHashMap<>();
 
+    static byte[] getTransformedClassBytes(String className) {
+        for (TransformedJar jar : g_transformed_jars.values()) {
+            byte[] bytes = jar.classes().get(className);
+            if (bytes != null) {
+                return bytes;
+            }
+        }
+
+        return null;
+    }
+
     static final String BUNDLED_PATCHES_JAR = "patches.jar";
     static final String BUNDLED_EXPERIMENTAL_JAR = "experimental.jar";
 
@@ -524,6 +535,7 @@ public class Loader {
 
     /** Load a patch jar bundled as a classpath resource inside {@code ZombieBuddy.jar}. */
     static boolean loadResourceJar(String resourceName, String packageName, Phase phase) {
+        Logger.debug("Loader.loadResourceJar", resourceName, packageName, phase);
         if (Utils.isBlank(resourceName)) {
             Logger.error("Invalid embedded jar resource name");
             return false;
@@ -553,13 +565,16 @@ public class Loader {
 
     /** Transform a patch jar and define its classes on a mod {@link ClassLoader}. Cached per {@code cacheKey}. */
     static boolean transformAndLoadJar(Path cacheKey, String packageName, Phase phase, byte[] jarBytes) {
+        Logger.debug("Loader.transformAndLoadJar", packageName, phase);
         ClassLoader modLoader = g_mod_loaders.get(cacheKey);
         if (modLoader == null) {
             try {
                 TransformedJar transformed = jarBytes != null
                         ? Pipeline.transformPatchJar(jarBytes, packageName)
                         : Pipeline.transformPatchJar(cacheKey, packageName);
-                modLoader = ModJarInjector.inject(transformed);
+                modLoader = shouldMergePatchJar(cacheKey, jarBytes)
+                        ? ModJarInjector.injectMerged(transformed)
+                        : ModJarInjector.inject(transformed);
                 g_mod_loaders.put(cacheKey, modLoader);
                 g_transformed_jars.put(cacheKey, transformed);
                 Logger.info("loaded transformed mod jar", cacheKey);
@@ -570,6 +585,15 @@ public class Loader {
         }
 
         return ApplyPatchesFromPackage(packageName, cacheKey, phase);
+    }
+
+    private static boolean shouldMergePatchJar(Path cacheKey, byte[] jarBytes) {
+        if (jarBytes != null) {
+            return true;
+        }
+
+        Path fileName = cacheKey.getFileName();
+        return fileName == null || !"testpatches.jar".equals(fileName.toString());
     }
 
     /** Transform {@code jarPath} and define its classes on a mod {@link ClassLoader}. Cached per canonical jar path. */
@@ -1048,6 +1072,7 @@ public class Loader {
 
     // called by Agent and Loader
     static boolean ApplyPatchesFromPackage(String packageName, Path jarPath, Phase phase) {
+        Logger.debug("Loader.ApplyPatchesFromPackage", packageName, jarPath.getFileName(), phase);
         ClassLoader modLoader = g_mod_loaders.get(jarPath);
         TransformedJar transformed = g_transformed_jars.get(jarPath);
         if (modLoader == null || transformed == null) {

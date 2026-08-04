@@ -12,8 +12,8 @@ public class PreMain {
         WatchesAPI.init();
 
         // Configure HTTP server host, port and timeout from Agent.arguments (if provided)
-        String hostValue = Agent.arguments.get("lua_server_host");
-        String portValue = Agent.arguments.get("lua_server_port");
+        String hostValue    = Agent.arguments.get("lua_server_host");
+        String portValue    = Agent.arguments.get("lua_server_port");
         String timeoutValue = Agent.arguments.get("lua_task_timeout");
 
         if (!Utils.isBlank(portValue)) {
@@ -31,6 +31,8 @@ public class PreMain {
                         Logger.info("Using random port for HTTP server");
                     }
                 }
+
+                HttpServer.g_verbosity = Logger.getLevel();
                 String bindHost = (!Utils.isBlank(hostValue)) ? hostValue : "127.0.0.1";
                 HttpServer httpServer = new HttpServer(bindHost, serverPort, isRandomPort);
                 httpServer.start();

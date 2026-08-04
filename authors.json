@@ -7,7 +7,35 @@
                 "c0fe7daaa1fbd1ee54096d96669a7bbb10cd0a2ad08949d664d4804c50e34db1"
             ],
             "name": "Zed"
+        },
+        {
+            "id": 76561198063443193,
+            "keys": [
+                "f121bcb87764ccc56466f74b68295e04b69ebfedee0b73b67813346f16f43e67"
+            ],
+            "name": "enry of alitz"
+        },
+        {
+            "id": 76561198138070597,
+            "keys": [
+                "be6633706dcd21475cf4e74ed47e2c7621d69da78213d164272a80016a6a45e3"
+            ],
+            "name": "gm.outside"
+        },
+        {
+            "id": 76561199150528543,
+            "keys": [
+                "ce7e3614b929c28f22d38bada9de999f7253b1b1c3554434d67e8e41e574cace"
+            ],
+            "name": "Koji"
+        },
+        {
+            "id": 76561198146270079,
+            "keys": [
+                "1987f95772831b20215bbef4481cd8e42140e17c30869b7bf87d9773f51f3c89"
+            ],
+            "name": "ILC233"
         }
     ],
-    "signature": "a0228c1f04b820170ae5890196561162fdc98f2bd877d437aa4b2c4f8b243cceb05226cc90d65a50d3ce2c84b2003448142b5bcda3e3e14d38fe386078db5b0f"
+    "signature": "8f5fe50e12c372a7f05e4adf48730e1616ee79b6b330c5771cfb4382e1c030c9ff18909c3ceb5e5fbec88f05f122e151b2c0249bc9dcbd506d28585c9d3a3406"
 }

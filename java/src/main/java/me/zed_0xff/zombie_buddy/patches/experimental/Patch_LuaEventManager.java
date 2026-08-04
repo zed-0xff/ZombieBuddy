@@ -10,6 +10,7 @@ public class Patch_LuaEventManager {
     public static class Patch_triggerEvent {
         @Patch.OnEnter
         public static void enter(@Patch.AllArguments Object[] args) {
+            HttpServer.maybeRunLuaTasks();
             String eventName = (String) args[0];
             if (ZBEventLog.shouldLog(eventName)) {
                 if (args.length > 1) {
@@ -26,7 +27,15 @@ public class Patch_LuaEventManager {
     public static class Patch_checkEvent {
         @Patch.OnEnter
         public static void enter(String eventName) {
-            HttpServer.runLuaTasks();
+            HttpServer.maybeRunLuaTasks();
+        }
+    }
+
+    @Patch(className = "zombie.Lua.LuaEventManager", methodName = "RunQueuedEvents")
+    public static class Patch_RunQueuedEvents {
+        @Patch.OnEnter
+        public static void enter() {
+            HttpServer.maybeRunLuaTasks();
         }
     }
 }

@@ -107,6 +107,22 @@ class Shadow_Test extends AbstractTest {
         static int getResult() { return new ShadowMethod2().call(); }
     }
 
+    @TestCase(field = "privateField", fieldName = "privateField", patchClass = PatchCast.class)
+    @Shadow(className = TARGET)
+    static class ShadowCast {
+        @Shadow.Field int privateField;
+
+        @Shadow.Cast
+        static ShadowCast cast(Object o) { return (ShadowCast) o; }
+    }
+    static class PatchCast {
+        static int getResult() {
+            Object o = new ShadowCast();
+            ShadowCast shadow = ShadowCast.cast(o);
+            return shadow.privateField;
+        }
+    }
+
     protected static Stream<Arguments> provideClasses() {
         return Stream.of(Shadow_Test.class.getDeclaredClasses())
             .filter(c -> c.isAnnotationPresent(TestCase.class))

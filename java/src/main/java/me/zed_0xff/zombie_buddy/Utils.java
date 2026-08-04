@@ -50,7 +50,7 @@ public final class Utils {
         if (_cacheDir == null) {
             try {
                 _cacheDir = (String) Reflect
-                    .fastcall(() -> Reflect.on("zombie.ZomboidFileSystem").getInstanceFoldedMethodHandle(String.class, "getCacheDir"))
+                    .fastcall(() -> Reflect.on("zombie.ZomboidFileSystem").getInstanceBoundMethodHandle(String.class, "getCacheDir"))
                     .invokeExact();
             } catch (Throwable t) {
                 Logger.printStackTrace(t);
@@ -109,7 +109,7 @@ public final class Utils {
     public static boolean isHiRes() {
         try {
             int width = (int) Reflect
-                .fastcall(() -> Reflect.on("zombie.core.Core").getInstanceFoldedMethodHandle(int.class, "getScreenWidth"))
+                .fastcall(() -> Reflect.on("zombie.core.Core").getInstanceBoundMethodHandle(int.class, "getScreenWidth"))
                 .invokeExact();
 
             return width > 2000;

@@ -29,7 +29,7 @@ public @interface Patch {
     String methodName();
     boolean isAdvice() default true;     // false => MethodDelegation
                                          // warning! advices can be chained, delegations can't, so only one delegation per method EVER
-    boolean warmUp() default false;      // mandatory for some internal classes like LuaManager$Exposer or the patch will not be applied
+    boolean warmUp() default false;      // unused; kept for source compatibility
                                          // boolean IKnowWhatIAmDoing() default false; // if true, the patch will be applied even if it is risky
     boolean strictMatch() default false; // if true, advice methods without arguments match only methods with no arguments
                                          // if false (default), advice methods without arguments match any method
@@ -62,6 +62,11 @@ public @interface Patch {
     public @interface OnExit {
         Class<? extends Throwable> onThrowable() default NoException.class;
         Class<? extends Throwable> suppress() default NoException.class;
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.FIELD)
+    public @interface NameMap {
     }
 
     public static final String NO_EXCEPTION_DESC = "Lnet/bytebuddy/asm/Advice$NoExceptionHandler;"; // private class
@@ -177,6 +182,7 @@ public @interface Patch {
     public @interface Field {
         @Internal.Flags(inferFromTargetName = true, probeField = true)
         String[] value() default {};                 // field name(s): empty = infer from parameter name; multiple = try in order
+        String logicalName() default "";             // internal: original/inferred name used by @Patch.NameMap
         Class<?> declaringType() default void.class; // the class that declares the field; void.class = infer from target class
         boolean readOnly() default false;
         boolean optional() default false;

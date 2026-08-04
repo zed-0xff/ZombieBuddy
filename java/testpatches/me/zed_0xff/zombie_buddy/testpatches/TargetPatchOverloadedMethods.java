@@ -48,18 +48,20 @@ public class TargetPatchOverloadedMethods {
         }
     }
 
-    // Scenario 5: Patch both methods with different advice methods in a single class
-    // XXX: won't work due to ByteBuddy IllegalStateException: Duplicate advice for Delegate ...
+    // Scenario 5: Patch both overloads with separate @Patch classes (ByteBuddy cannot bind multiple @OnExit in one class)
     @Patch(className = "testjar.OverloadedMethodsE", methodName = "calculate")
-    public class TargetPatchOverloadedMethodsE {
+    public class TargetPatchOverloadedMethodsEa {
         @Patch.OnExit
         public static void exitSingle(int x) {
-            testjar.OverloadedMethodsE.patchCalled = "both_separate2_singgle";
+            testjar.OverloadedMethodsE.patchCalled = "both_separate_single";
         }
+    }
 
+    @Patch(className = "testjar.OverloadedMethodsE", methodName = "calculate")
+    public class TargetPatchOverloadedMethodsEb {
         @Patch.OnExit
         public static void exitDouble(int x, int y) {
-            testjar.OverloadedMethodsE.patchCalled = "both_separate2_double";
+            testjar.OverloadedMethodsE.patchCalled = "both_separate_double";
         }
     }
 

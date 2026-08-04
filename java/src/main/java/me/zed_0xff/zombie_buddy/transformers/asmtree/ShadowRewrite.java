@@ -25,6 +25,7 @@ import me.zed_0xff.zombie_buddy.ShadowHandles;
 import me.zed_0xff.zombie_buddy.annotations.Shadow;
 import me.zed_0xff.zombie_buddy.transformers.ClassContext;
 import me.zed_0xff.zombie_buddy.transformers.ShadowContext;
+import me.zed_0xff.zombie_buddy.transformers.ShadowContext.TargetCastInfo;
 import me.zed_0xff.zombie_buddy.transformers.ShadowContext.TargetFieldInfo;
 import me.zed_0xff.zombie_buddy.transformers.ShadowContext.TargetMethodInfo;
 import me.zed_0xff.zombie_buddy.transformers.Transformer;
@@ -163,6 +164,12 @@ public class ShadowRewrite extends Transformer {
         ShadowContext ctx = state.m_contexts.get(min.owner);
         if (ctx == null) {
             return false;
+        }
+
+        TargetCastInfo cast = ctx.targetCasts().get(min.name + min.desc);
+        if (cast != null && min.getOpcode() == Opcodes.INVOKESTATIC) {
+            mn.instructions.remove(min);
+            return true;
         }
 
         TargetMethodInfo method = ctx.targetMethods().get(min.name + min.desc);

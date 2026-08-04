@@ -59,6 +59,15 @@ public class Unshadow extends AbstractTransformer {
             }
 
             for (MethodDescription.InDefinedShape method : shadowTd.getDeclaredMethods()) {
+                var castAnn = method.getDeclaredAnnotations().ofType(Shadow.Cast.class);
+                if (castAnn != null) {
+                    if (isValidCastMethod(method)) {
+                        accessCtx.addShadowCast(method, remapDescriptor(method.getDescriptor(), shadowInternal, targetTd.getInternalName()));
+                    }
+
+                    continue;
+                }
+
                 var methodAnn = method.getDeclaredAnnotations().ofType(Shadow.Method.class);
                 if (methodAnn == null) {
                     continue;
@@ -74,6 +83,19 @@ public class Unshadow extends AbstractTransformer {
 
             jctx.putShadowContext(targetBin, accessCtx);
         }
+    }
+
+    private static boolean isValidCastMethod(MethodDescription.InDefinedShape method) {
+        if (!method.isStatic() || method.getParameters().size() != 1 || method.getDescriptor().endsWith(")V")) {
+            Logger.once.warn("@Shadow.Cast method must be static, take one argument, and return a value", method.getDeclaringType().asErasure().getName() + "#" + method.getName() + method.getDescriptor());
+            return false;
+        }
+
+        return true;
+    }
+
+    private static String remapDescriptor(String descriptor, String shadowInternal, String targetInternal) {
+        return descriptor.replace("L" + shadowInternal + ";", "L" + targetInternal + ";");
     }
 
     private static String resolveTargetFieldName(FieldDescription field, Shadow.Field ann, TypeDescription targetTd) {

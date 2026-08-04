@@ -10,7 +10,7 @@ import me.zed_0xff.zombie_buddy.annotations.Patch;
 @Patch(className = "zombie.gameStates.IngameState", methodName = "UpdateStuff")
 public class Patch_IngameState {
     @Patch.OnEnter
-    static void enter() {
+    public static void enter() {
         HttpServer.maybeRunLuaTasks();
     }
 }

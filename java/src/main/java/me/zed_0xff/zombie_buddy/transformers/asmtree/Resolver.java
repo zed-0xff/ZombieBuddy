@@ -14,6 +14,7 @@ import me.zed_0xff.zombie_buddy.Logger;
 import me.zed_0xff.zombie_buddy.Utils;
 import me.zed_0xff.zombie_buddy.annotations.Internal.AnnConverterBase;
 import me.zed_0xff.zombie_buddy.annotations.Internal.Flags;
+import me.zed_0xff.zombie_buddy.annotations.Patch;
 import me.zed_0xff.zombie_buddy.transformers.AnnCache;
 import me.zed_0xff.zombie_buddy.transformers.AnnElements;
 import net.bytebuddy.description.type.TypeDescription;
@@ -23,6 +24,7 @@ import net.bytebuddy.description.type.TypeDescription;
  */
 public class Resolver extends AbstractTransformer {
     private static final Logger.Instance _logger = Logger.get("Resolver");
+    private static final String PATCH_FIELD_DESC = Type.getDescriptor(Patch.Field.class);
 
     @Override
     protected boolean transformNode(ClassNode cn) {
@@ -167,6 +169,7 @@ public class Resolver extends AbstractTransformer {
         AnnElements els = AnnElements.fromValues(ann.values);
         boolean changed = false;
         boolean hasList[] = new boolean[1];
+        changed |= preserveLogicalFieldName(ann, elemName, flags, targetName, els);
 
         if (flags.probeField())
             changed |= probeField(ann, elemName, els, hasList);
@@ -179,6 +182,26 @@ public class Resolver extends AbstractTransformer {
         }
 
         return changed;
+    }
+
+    private boolean preserveLogicalFieldName(AnnotationNode ann, String elemName, Flags flags, String targetName, AnnElements els) {
+        if (!PATCH_FIELD_DESC.equals(ann.desc) || !"value".equals(elemName) || !flags.probeField() || !Utils.isBlank(els.get("logicalName"))) {
+            return false;
+        }
+
+        String logicalName = null;
+        List<String> names = els.getListStr(elemName);
+        if (!Utils.isBlank(names)) {
+            logicalName = names.get(0);
+        } else if (flags.inferFromTargetName()) {
+            logicalName = targetName;
+        }
+        if (Utils.isBlank(logicalName)) {
+            return false;
+        }
+
+        ann.visit("logicalName", logicalName);
+        return true;
     }
 
     private static Object inferredValue(String elemDesc, String targetName) {

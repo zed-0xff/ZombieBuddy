@@ -2,6 +2,7 @@ package me.zed_0xff.zombie_buddy.patches.experimental;
 
 import me.zed_0xff.zombie_buddy.*;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.VarHandle;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.HashSet;
@@ -151,6 +152,39 @@ public class LogOverlay {
         lines.clear();
     }
     
+    private static boolean _codeSmallFontExists = true;
+    private static MethodHandle mh_isLoading = null;
+
+    private static UIFont getFont(TextManager textMgr) {
+        boolean isEmpty = true;
+
+        if (textMgr.font != null) {
+            if (mh_isLoading == null) {
+                mh_isLoading = Reflect.on("zombie.core.fonts.AngelCodeFont").getMethodHandle(boolean.class, "isLoading", "isEmpty"); // 'isLoading' since 42.20
+            }
+            if (mh_isLoading != null) {
+                try {
+                    isEmpty = (boolean) mh_isLoading.invokeExact(textMgr.font);
+                } catch (Throwable t) {
+                    Logger.printStackTrace(t);
+                }
+            } else {
+                 Logger.warn("LogOverlay: Could not find method isLoading/isEmpty on AngelCodeFont");
+            }
+        }
+
+        if (isEmpty) return UIFont.Small;
+
+        if (!_codeSmallFontExists) return UIFont.Code;
+
+        try {
+            return UIFont.CodeSmall;
+        } catch (Throwable t) { // B41: java.lang.NoSuchFieldError: CodeSmall
+            _codeSmallFontExists = false;
+            return UIFont.Code;
+        }
+    }
+    
     public static void draw() {
         if (!enabled || lines.isEmpty()) return;
         
@@ -171,7 +205,7 @@ public class LogOverlay {
             return;
         }
         
-        var font = textMgr.font.isEmpty() ? UIFont.Small : UIFont.CodeSmall;
+        var font = getFont(textMgr);
         var lineHeight = (int) textMgr.MeasureStringY(font, "Ay") + 2;
         var scrH = Core.getInstance().getScreenHeight();
         int topLimit = Utils.isHiRes() ? 128 : 64;

@@ -9,6 +9,8 @@ public final class Callbacks {
     public static final Callback onDisplayCreate    = new Callback("onDisplayCreate",    CBType.MANY);
     public static final Callback afterExposeAll     = new Callback("afterExposeAll",     CBType.MANY);
     public static final Callback onEndFrameUI       = new Callback("onEndFrameUI",       CBType.FREQUENT);
+    public static final Callback beforeLuaInit      = new Callback("beforeLuaInit",      CBType.MANY);
+    public static final Callback afterLuaInit       = new Callback("afterLuaInit",       CBType.MANY);
 
     private Callbacks() {}
 

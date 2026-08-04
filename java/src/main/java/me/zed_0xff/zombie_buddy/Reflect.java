@@ -424,8 +424,8 @@ public class Reflect {
         return null;
     }
 
-    // "folded" is like "bound", but getInstance() is also called automatically
-    public MethodHandle getInstanceFoldedMethodHandle(Class<?> returnType, String... names) {
+    // XXX implicit getInstance() call or 'instance' static variable read
+    public MethodHandle getInstanceBoundMethodHandle(Class<?> returnType, String... names) {
         MethodHandle mhTarget = getMethodHandle(returnType, names);
         if (mhTarget == null) return null;
 

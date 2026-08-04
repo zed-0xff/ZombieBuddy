@@ -26,10 +26,10 @@ public @interface Shadow {
     }
 
     /*
-     * drop method body and short-circuit argument to return value
+     * cast shadow to target type
      */
     @Retention(RetentionPolicy.RUNTIME)
     @Target(ElementType.METHOD)
-    public @interface Intrinsic {
+    public @interface Cast {
     }
 }

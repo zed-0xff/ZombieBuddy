@@ -16,6 +16,8 @@ public final class ShadowContext {
 
     public record TargetMethodInfo(String name, String descriptor, boolean isStatic) {}
 
+    public record TargetCastInfo(String name, String descriptor) {}
+
     private final String  m_targetBinaryName;
     private final String  m_targetInternalName;
     private final boolean m_targetClassPublic;
@@ -24,6 +26,7 @@ public final class ShadowContext {
     private final Map<String, Map<String, String>> m_shadowMethodMappings = new HashMap<>(); // shadow internal → shadow method → target method
     private final Map<String, TargetFieldInfo>  m_targetFields  = new HashMap<>();
     private final Map<String, TargetMethodInfo> m_targetMethods = new HashMap<>();
+    private final Map<String, TargetCastInfo>   m_targetCasts   = new HashMap<>();
 
     private ShadowContext(String targetBinaryName, String targetInternalName, boolean targetClassPublic) {
         m_targetBinaryName = targetBinaryName;
@@ -89,6 +92,10 @@ public final class ShadowContext {
         return m_targetMethods.isEmpty() ? Map.of() : Map.copyOf(m_targetMethods);
     }
 
+    public Map<String, TargetCastInfo> targetCasts() {
+        return m_targetCasts.isEmpty() ? Map.of() : Map.copyOf(m_targetCasts);
+    }
+
     public void addShadowField(String shadowInternalName, FieldDescription.InDefinedShape shadowField, TypeDescription targetTd, String targetFieldName) {
         if (shadowInternalName == null || shadowField == null || targetFieldName == null) {
             return;
@@ -129,6 +136,14 @@ public final class ShadowContext {
         m_targetMethods.put(targetMethodName + descriptor, new TargetMethodInfo(targetMethodName, descriptor, isStatic));
     }
 
+    public void addShadowCast(MethodDescription.InDefinedShape shadowMethod, String descriptor) {
+        if (shadowMethod == null || descriptor == null) {
+            return;
+        }
+
+        m_targetCasts.put(shadowMethod.getName() + descriptor, new TargetCastInfo(shadowMethod.getName(), descriptor));
+    }
+
     public void mergeFrom(ShadowContext other) {
         if (other == null || !m_targetBinaryName.equals(other.m_targetBinaryName)) {
             return;
@@ -146,6 +161,7 @@ public final class ShadowContext {
 
         m_targetFields.putAll(other.m_targetFields);
         m_targetMethods.putAll(other.m_targetMethods);
+        m_targetCasts.putAll(other.m_targetCasts);
     }
 
     private static boolean hasPublicNoArgConstructor(TypeDescription targetTd) {

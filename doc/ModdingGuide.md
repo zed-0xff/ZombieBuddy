@@ -56,6 +56,7 @@ Use a path that does not contain `client/` or `server/` (e.g. `media/java/YourMo
 - The Main class is **optional** - patches will be applied even if Main class doesn't exist
 - The JAR file must contain the package specified in `javaPkgName`
 - Only one `javaJarFile` and one `javaPkgName` entry per mod
+- [test isolation requires PZ restart, not just save reload](#13)
 
 ---
 
@@ -149,7 +150,7 @@ package com.yourname.yourmod.patches;
 import me.zed_0xff.zombie_buddy.annotations.Patch;
 
 @Patch(className = "zombie.SomeGameClass", methodName = "someMethod", warmUp = true)
-public static class MyPatch {
+public class MyPatch {
     @Patch.OnEnter
     public static void enter() {
         System.out.println("[YourMod] Intercepted method call!");
@@ -168,7 +169,7 @@ Use `skipOn = true` in `@Patch.OnEnter`. The advice method must return a `boolea
 
 ```java
 @Patch(className = "zombie.SomeClass", methodName = "someMethod")
-public static class SkipExample {
+public class SkipExample {
     @Patch.OnEnter(skipOn = true)
     public static boolean enter() {
         if (shouldSkip) {

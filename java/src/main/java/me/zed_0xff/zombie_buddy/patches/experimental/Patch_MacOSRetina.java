@@ -1,6 +1,8 @@
 package me.zed_0xff.zombie_buddy.patches.experimental;
 
 import me.zed_0xff.zombie_buddy.annotations.Patch;
+import me.zed_0xff.zombie_buddy.Agent;
+import me.zed_0xff.zombie_buddy.Logger;
 import org.lwjgl.glfw.GLFW;
 
 public class Patch_MacOSRetina {
@@ -13,7 +15,8 @@ public class Patch_MacOSRetina {
     public static boolean isPatchNeeded() {
         if (cachedPatchNeeded == null) {
             // Only apply on macOS
-            cachedPatchNeeded = System.getProperty("os.name").contains("OS X");
+            cachedPatchNeeded = System.getProperty("os.name").contains("OS X")
+              && Agent.arguments.containsKey("retina");
         }
         return cachedPatchNeeded;
     }
@@ -50,7 +53,7 @@ public class Patch_MacOSRetina {
     public static class Patch_nglfwCreateWindow {
         @Patch.OnEnter
         public static void enter(int width, int height, long title, long monitor, long share) {
-            if (Patch_MacOSRetina.isPatchNeeded() && monitor == 0) { // monitor == 0 means windowed mode
+            if (isPatchNeeded() && monitor == 0) { // monitor == 0 means windowed mode
                 // Set retina framebuffer hint right before window creation
                 GLFW.glfwWindowHint(GLFW.GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW.GLFW_TRUE);
             }
@@ -62,8 +65,8 @@ public class Patch_MacOSRetina {
     public static class Patch_DisplayGetWidth {
         @Patch.OnExit
         public static void exit(@Patch.Return(readOnly = false) int originalWidth) {
-            if (Patch_MacOSRetina.isPatchNeeded() && org.lwjglx.opengl.Display.isCreated()) {
-                int fbWidth = Patch_MacOSRetina.getFramebufferWidth();
+            if (isPatchNeeded() && org.lwjglx.opengl.Display.isCreated()) {
+                int fbWidth = getFramebufferWidth();
                 if (fbWidth > 0) {
                     originalWidth = fbWidth;
                 }
@@ -77,8 +80,8 @@ public class Patch_MacOSRetina {
     public static class Patch_DisplayGetHeight {
         @Patch.OnExit
         public static void exit(@Patch.Return(readOnly = false) int originalHeight) {
-            if (Patch_MacOSRetina.isPatchNeeded() && org.lwjglx.opengl.Display.isCreated()) {
-                int fbHeight = Patch_MacOSRetina.getFramebufferHeight();
+            if (isPatchNeeded() && org.lwjglx.opengl.Display.isCreated()) {
+                int fbHeight = getFramebufferHeight();
                 if (fbHeight > 0) {
                     originalHeight = fbHeight;
                 }
@@ -94,9 +97,9 @@ public class Patch_MacOSRetina {
     public static class Patch_DisplayGetDesktopDisplayMode {
         @Patch.OnExit
         public static void exit(@Patch.Return(readOnly = false) org.lwjglx.opengl.DisplayMode result) {
-            if (Patch_MacOSRetina.isPatchNeeded() && org.lwjglx.opengl.Display.isCreated()) {
-                int fbWidth = Patch_MacOSRetina.getFramebufferWidth();
-                int fbHeight = Patch_MacOSRetina.getFramebufferHeight();
+            if (isPatchNeeded() && org.lwjglx.opengl.Display.isCreated()) {
+                int fbWidth = getFramebufferWidth();
+                int fbHeight = getFramebufferHeight();
                 if (fbWidth > 0 && fbHeight > 0) {
                     result = new org.lwjglx.opengl.DisplayMode(fbWidth, fbHeight);
                 }
@@ -112,7 +115,7 @@ public class Patch_MacOSRetina {
         @Patch.OnEnter
         public static void enter(@Patch.Argument(value = 0, readOnly = false) double mouseX, 
                                  @Patch.Argument(value = 1, readOnly = false) double mouseY) {
-            if (Patch_MacOSRetina.isPatchNeeded() && org.lwjglx.opengl.Display.isCreated()) {
+            if (isPatchNeeded() && org.lwjglx.opengl.Display.isCreated()) {
                 long window = org.lwjglx.opengl.Display.getWindow();
                 float[] xscale = new float[1];
                 float[] yscale = new float[1];

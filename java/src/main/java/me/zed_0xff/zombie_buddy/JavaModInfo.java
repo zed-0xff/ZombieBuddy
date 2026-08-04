@@ -284,11 +284,20 @@ record JavaModInfo(
             return null;
         }
 
+        // common/mod.info
+        // 42.13/media/java/ZBBetterFPS.jar
         Path commonModInfoFile = commonDir.resolve("mod.info");
         ParsedValues commonParsed = parseModInfoFile(commonModInfoFile);
 
         if (commonParsed == null) {
-            return null;
+            // 42/mod.info
+            // common/media/java/shared/ZBSpec.jar
+            Path verModInfoFile = versionDir.resolve("mod.info");
+            ParsedValues verParsed = parseModInfoFile(verModInfoFile);
+            if (verParsed == null) {
+                return null;
+            }
+            return validateAndCreate(verParsed, verModInfoFile, versionDir, commonDir, true);
         }
         return validateAndCreate(commonParsed, commonModInfoFile, commonDir, versionDir, true);
     }

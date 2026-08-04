@@ -220,4 +220,21 @@ public class Patch_KahluaThread {
             }
         }
     }
+
+    @Patch(className = "se.krka.kahlua.vm.Coroutine", methodName = "getStackTrace")
+    public static class Patch_Coroutine_getStackTrace {
+        @Patch.OnExit(onThrowable = NullPointerException.class)
+        public static void exit(@Patch.Argument(0) LuaCallFrame frame, @Patch.Return(readOnly = false) String returnValue, @Patch.Thrown(readOnly = false) Throwable thrown) {
+            if (thrown == null || frame == null || frame.closure != null) {
+                return;
+            }
+
+            if (frame.javaFunction != null) {
+                returnValue = "at " + frame.javaFunction + "\n";
+            } else {
+                returnValue = "";
+            }
+            thrown = null;
+        }
+    }
 }

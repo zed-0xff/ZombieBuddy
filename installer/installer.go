@@ -21,7 +21,7 @@ import (
 const (
 	PZ_APP_ID         = "108600"
 	ZB_MOD_ID         = "3619862853"
-	INSTALLER_VERSION = "4.1"
+	INSTALLER_VERSION = "4.2"
 	ZB_LAUNCH_ARG     = "-agentlib:zbNative"
 	ZB_LAUNCH_OPTIONS = ZB_LAUNCH_ARG + " --"
 
@@ -586,17 +586,10 @@ func findAppInLibraries(libraryVDFPath string, subPath ...string) (string, error
 			continue
 		}
 
-		apps, ok := folderMap["apps"].(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		if _, found := apps[PZ_APP_ID]; found {
-			fullSubPath := append([]string{"steamapps"}, subPath...)
-			fullPath := filepath.Join(path, filepath.Join(fullSubPath...))
-			if _, err := os.Stat(fullPath); err == nil {
-				return fullPath, nil
-			}
+		fullSubPath := append([]string{"steamapps"}, subPath...)
+		fullPath := filepath.Join(path, filepath.Join(fullSubPath...))
+		if _, err := os.Stat(fullPath); err == nil {
+			return fullPath, nil
 		}
 	}
 

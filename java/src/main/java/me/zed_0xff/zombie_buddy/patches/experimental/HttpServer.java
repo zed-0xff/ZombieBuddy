@@ -12,10 +12,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import se.krka.kahlua.vm.KahluaThread;
 import zombie.Lua.LuaManager;
+import zombie.gameStates.GameLoadingState;
 
 import me.zed_0xff.zombie_buddy.Logger;
 import me.zed_0xff.zombie_buddy.Reflect;
@@ -30,78 +35,142 @@ public class HttpServer {
     private static HttpServer instance;
     
     // Timeout for waiting for Lua task execution (in milliseconds)
-    public static long luaTaskTimeoutMs = 1000;
+    public static long luaTaskTimeoutMs = 5000;
     public static int g_verbosity = 0;
     
     // Queue for Lua tasks to be executed on the main thread (for dedicated servers)
     private static final ConcurrentLinkedQueue<LuaTask> luaTaskQueue = new ConcurrentLinkedQueue<>();
-
-    private enum CheckResult {
-        UNKNOWN,
-        PRESENT,
-        ABSENT
-    }
-
-    /** Cached result of one-time check for debugOwnerThread field on Lua thread class. 0 = not inited, 1 = present, -1 = absent. */
-    private static CheckResult hasDebugOwnerThreadField = CheckResult.UNKNOWN;
+    private static final long LOADING_LUA_TASK_TIMEOUT_MS = 30_000L;
+    private static VarHandle vh_gameThread = null;
     private static VarHandle vh_debugOwnerThread = null;
+    private static boolean didResolveDebugOwnerThread = false;
 
     /** Request header: comma-separated global variable names to capture on error; their values are added to JSON as errorGlobals. The Lua code (e.g. ZBSpec.lua) sets those globals; we only read them when an error occurs. */
     private static final String HEADER_ERROR_GLOBALS = "X-ZombieBuddy-Error-Globals";
 
-    private static void ensureDebugOwnerThreadCache() {
-        if (hasDebugOwnerThreadField != CheckResult.UNKNOWN) return;
-
-        Object thread = LuaManager.thread;
-        if (thread == null) return;
-        synchronized (HttpServer.class) {
-            if (hasDebugOwnerThreadField != CheckResult.UNKNOWN) return;
-
-            // field is on KahluaThread (B42+); search hierarchy in case runtime class is a subclass
-            vh_debugOwnerThread = Reflect.on(thread).getVarHandle(Thread.class, "debugOwnerThread");
-            if (vh_debugOwnerThread != null) {
-                hasDebugOwnerThreadField = CheckResult.PRESENT;
-            } else {
-                hasDebugOwnerThreadField = CheckResult.ABSENT; // B41 or field absent
-            }
-        }
-    }
-
     private static class LuaTask {
         final Runnable task;
         final CountDownLatch latch = new CountDownLatch(1);
-        
+        volatile Throwable failure;
+
         LuaTask(Runnable task) {
             this.task = task;
         }
-        
+
         void execute() {
             try {
                 task.run();
+            } catch (Throwable t) {
+                failure = t;
             } finally {
                 latch.countDown();
             }
         }
-        
+
         boolean await(long timeout, TimeUnit unit) throws InterruptedException {
             return latch.await(timeout, unit);
         }
     }
     
+    private static Thread luaOwnerThread() {
+        KahluaThread kt = LuaManager.thread;
+        if (kt == null) {
+            return null;
+        }
+
+        ensureDebugOwnerThreadCache();
+        if (vh_debugOwnerThread == null) {
+            return null;
+        }
+
+        return (Thread) vh_debugOwnerThread.get(kt);
+    }
+
+    private static void ensureDebugOwnerThreadCache() {
+        if (didResolveDebugOwnerThread) {
+            return;
+        }
+
+        synchronized (HttpServer.class) {
+            if (didResolveDebugOwnerThread) {
+                return;
+            }
+
+            vh_debugOwnerThread = Reflect.on(KahluaThread.class).getVarHandle(Thread.class, "debugOwnerThread");
+            didResolveDebugOwnerThread = true;
+        }
+    }
+
+    private static void ensureGameThreadCache() {
+        if (vh_gameThread != null) {
+            return;
+        }
+
+        synchronized (HttpServer.class) {
+            if (vh_gameThread != null) {
+                return;
+            }
+
+            vh_gameThread = Reflect.on("zombie.GameWindow").getVarHandle(Thread.class, "gameThread", "GameThread");
+            if (vh_gameThread == null) {
+                Logger.once.error("failed to get GameWindow.gameThread/GameThread");
+            }
+        }
+    }
+
+    private static Thread gameThread() {
+        ensureGameThreadCache();
+        if (vh_gameThread == null) {
+            return null;
+        }
+
+        return (Thread) vh_gameThread.get();
+    }
+
+    private static Thread activeLoadingThread() {
+        Thread loader = GameLoadingState.loader;
+        return loader != null && loader.isAlive() ? loader : null;
+    }
+
+    /** True when the current thread may run queued HTTP Lua work. */
+    private static boolean canDrainLuaQueue() {
+        if (LuaManager.thread == null) {
+            return false;
+        }
+
+        Thread current = Thread.currentThread();
+        Thread owner = luaOwnerThread();
+        if (owner != null && owner == current) {
+            return true;
+        }
+
+        Thread loader = activeLoadingThread();
+        if (loader != null) {
+            return loader == current;
+        }
+
+        Thread game = gameThread();
+        if (game != null && game == current && (owner == null || owner == game)) {
+            return true;
+        }
+
+        // Dedicated server / no GameWindow: drain only on the recorded Lua owner thread.
+        return owner != null && owner == current;
+    }
+
     /**
      * Called from the game's main thread (client or server) to process queued Lua tasks.
      * Should be called from OnTick or similar.
-     * 
-     * Only executes tasks if we're on the correct Lua thread (debugOwnerThread).
-     * This handles the case where the Lua thread owner changes during loading.
      */
     public static void maybeRunLuaTasks() {
-        // Only poll if we're on the correct Lua thread
-        // During client loading, debugOwnerThread is the loader thread, not gameThread
-        if (!isOnLuaThread()) {
+        if (luaTaskQueue.isEmpty()) {
             return;
         }
-        
+
+        if (!canDrainLuaQueue()) {
+            return;
+        }
+
         runLuaTasks();
     }
 
@@ -117,19 +186,7 @@ public class HttpServer {
     }
     
     private static boolean isOnLuaThread() {
-        Object thread = LuaManager.thread;
-        if (thread == null) return false;
-
-        ensureDebugOwnerThreadCache();
-        if (hasDebugOwnerThreadField == CheckResult.ABSENT) {
-            // B41 has no debugOwnerThread field, so we don't know if we're on the correct thread
-            return false;
-        }
-        if (hasDebugOwnerThreadField == CheckResult.PRESENT && vh_debugOwnerThread != null) {
-            Thread owner = (Thread) vh_debugOwnerThread.get(thread);
-            return owner == Thread.currentThread();
-        }
-        return false;
+        return canDrainLuaQueue();
     }
     
     public static void runOnLuaThread(Runnable task) throws Exception {
@@ -141,10 +198,28 @@ public class HttpServer {
             // This works for both client (IngameState.UpdateStuff) and server (ServerMap.preupdate)
             LuaTask luaTask = new LuaTask(task);
             luaTaskQueue.add(luaTask);
-            if (!luaTask.await(luaTaskTimeoutMs, TimeUnit.MILLISECONDS)) {
-                throw new RuntimeException("Timeout waiting for Lua task execution (" + luaTaskTimeoutMs + "ms)");
+            long timeoutMs = effectiveLuaTaskTimeoutMs();
+            if (!luaTask.await(timeoutMs, TimeUnit.MILLISECONDS)) {
+                throw new RuntimeException("Timeout waiting for Lua task execution (" + timeoutMs + "ms). ");
+            }
+
+            if (luaTask.failure != null) {
+                Throwable f = luaTask.failure;
+                if (f instanceof Exception e) {
+                    throw e;
+                }
+
+                throw new RuntimeException(f);
             }
         }
+    }
+
+    private static long effectiveLuaTaskTimeoutMs() {
+        if (activeLoadingThread() != null) {
+            return Math.max(luaTaskTimeoutMs, LOADING_LUA_TASK_TIMEOUT_MS);
+        }
+
+        return luaTaskTimeoutMs;
     }
 
     public HttpServer(int port, boolean isRandomPort) {
@@ -158,20 +233,41 @@ public class HttpServer {
     }
 
     public void start() throws IOException {
-        server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress(host, port), 0);
+        InetSocketAddress bindAddress = resolveBindAddress(host, port);
+        server = com.sun.net.httpserver.HttpServer.create(bindAddress, 0);
         // Get the actual port that was bound (important for port 0 = random)
         port = server.getAddress().getPort();
-        
+
         server.createContext("/", new RootHandler());
         server.createContext("/status", new StatusHandler());
         server.createContext("/version", new VersionHandler());
         server.createContext("/lua", new LuaHandler());
         server.createContext("/log", new LogHandler());
-        server.setExecutor(null);
+        // Default executor runs handlers on the dispatcher thread (blocks accept). Use a thread pool.
+        server.setExecutor(httpExecutor());
         server.start();
-        
+
         instance = this;
-        Logger.info("HTTP server started at http://" + host + ":" + port);
+        Logger.info("HTTP server started at http://" + server.getAddress().getHostString() + ":" + port);
+    }
+
+    private static InetSocketAddress resolveBindAddress(String host, int port) {
+        if ("0.0.0.0".equals(host) || "*".equals(host)) {
+            return new InetSocketAddress(port);
+        }
+
+        return new InetSocketAddress(host, port);
+    }
+
+    private static ExecutorService httpExecutor() {
+        AtomicInteger seq = new AtomicInteger();
+        ThreadFactory factory = r -> {
+            Thread t = new Thread(r, "ZB-HTTP-" + seq.incrementAndGet());
+            t.setDaemon(true);
+            return t;
+        };
+
+        return Executors.newCachedThreadPool(factory);
     }
 
     public int getPort() {
