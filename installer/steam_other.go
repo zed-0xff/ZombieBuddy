@@ -5,7 +5,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/zed-0xff/zombie_buddy/installer/i18n"
+	"github.com/zed-0xff/ZombieBuddy/installer/i18n"
 )
 
 func detectSteamPath() (string, error) {

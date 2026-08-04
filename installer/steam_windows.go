@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/zed-0xff/zombie_buddy/installer/i18n"
+	"github.com/zed-0xff/ZombieBuddy/installer/i18n"
 	"golang.org/x/sys/windows/registry"
 )
 

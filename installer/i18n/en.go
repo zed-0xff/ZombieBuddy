@@ -13,9 +13,7 @@ var messagesEN = map[string]string{
 
 	// ── Prompt: main action ──
 	"prompt.action.title":   "What can I do you for?",
-	"prompt.action.line1":   "  1) Install ZombieBuddy",
-	"prompt.action.line2":   "  2) Uninstall ZombieBuddy",
-	"prompt.action.line3":   "  3) Nothing, thanks!",
+	"prompt.action.lines":   "  1) Install ZombieBuddy\n  2) Uninstall ZombieBuddy\n  3) Nothing, thanks!",
 	"prompt.action.hint":    "Any system changes will be shown for confirmation before they are applied.",
 	"prompt.action.prompt":  "Choose 1, 2, or 3: ",
 	"prompt.action.eof_err": "no action selected",
@@ -23,18 +21,14 @@ var messagesEN = map[string]string{
 
 	// ── Prompt: install targets ──
 	"prompt.targets.title":   "What launch mode should ZombieBuddy patch?",
-	"prompt.targets.line1":   "  1) Both",
-	"prompt.targets.line2":   "  2) Normal Launch",
-	"prompt.targets.line3":   "  3) Alternate Launch",
+	"prompt.targets.lines":   "  1) Both\n  2) Normal Launch\n  3) Alternate Launch",
 	"prompt.targets.prompt":  "Choose 1, 2, or 3: ",
 	"prompt.targets.eof_err": "no launch mode selected",
 	"prompt.targets.invalid": "Please choose 1, 2, or 3.",
 
 	// ── Prompt: normal install targets ──
 	"prompt.normal.title":   "How should Normal Launch be patched?",
-	"prompt.normal.line1":   "  1) Both",
-	"prompt.normal.line2":   "  2) ProjectZomboid64.json",
-	"prompt.normal.line3":   "  3) Steam launch options",
+	"prompt.normal.lines":   "  1) Both\n  2) ProjectZomboid64.json\n  3) Steam launch options",
 	"prompt.normal.prompt":  "Choose 1, 2, or 3: ",
 	"prompt.normal.eof_err": "no normal launch patch selected",
 	"prompt.normal.invalid": "Please choose 1, 2, or 3.",
@@ -75,15 +69,6 @@ var messagesEN = map[string]string{
 	"uninstall.batch_removed": `Removed "%s" from ProjectZomboid64.bat`,
 	"uninstall.err_rm_core":   "removing core files: %v",
 	"uninstall.err_rm_steam":  "removing Steam launch options: %v",
-
-	// ── Path detection ──
-	"detect.err_steam":   "Error detecting Steam: %v",
-	"detect.path_format": "[.] %-*s is at %s",
-	"detect.err_pz":      "Error detecting Project Zomboid: %v",
-	"detect.err_zb":      "Error detecting ZombieBuddy mod: %v",
-	"detect.steam_label": "Steam",
-	"detect.pz_label":    "PZ",
-	"detect.zb_label":    "ZB",
 
 	// ── Preview / plan ──
 	"preview.copy":         `copy "%s\%s"    to "%s\\"`,

@@ -13,9 +13,7 @@ var messagesRU = map[string]string{
 
 	// ── Запрос: основное действие ──
 	"prompt.action.title":   "Чем я могу помочь?",
-	"prompt.action.line1":   "  1) Установить ZombieBuddy",
-	"prompt.action.line2":   "  2) Удалить ZombieBuddy",
-	"prompt.action.line3":   "  3) Ничего, спасибо!",
+	"prompt.action.lines":   "  1) Установить ZombieBuddy\n  2) Удалить ZombieBuddy\n  3) Ничего, спасибо!",
 	"prompt.action.hint":    "Все системные изменения будут показаны для подтверждения перед применением.",
 	"prompt.action.prompt":  "Выберите 1, 2 или 3: ",
 	"prompt.action.eof_err": "действие не выбрано",
@@ -23,18 +21,14 @@ var messagesRU = map[string]string{
 
 	// ── Запрос: цели установки ──
 	"prompt.targets.title":   "Какой режим запуска должен изменять ZombieBuddy?",
-	"prompt.targets.line1":   "  1) Оба",
-	"prompt.targets.line2":   "  2) Обычный запуск",
-	"prompt.targets.line3":   "  3) Альтернативный запуск",
+	"prompt.targets.lines":   "  1) Оба\n  2) Обычный запуск\n  3) Альтернативный запуск",
 	"prompt.targets.prompt":  "Выберите 1, 2 или 3: ",
 	"prompt.targets.eof_err": "режим запуска не выбран",
 	"prompt.targets.invalid": "Пожалуйста, выберите 1, 2 или 3.",
 
 	// ── Запрос: обычная установка ──
 	"prompt.normal.title":   "Как следует изменить обычный запуск?",
-	"prompt.normal.line1":   "  1) Оба",
-	"prompt.normal.line2":   "  2) ProjectZomboid64.json",
-	"prompt.normal.line3":   "  3) Параметры запуска Steam",
+	"prompt.normal.lines":   "  1) Оба\n  2) ProjectZomboid64.json\n  3) Параметры запуска Steam",
 	"prompt.normal.prompt":  "Выберите 1, 2 или 3: ",
 	"prompt.normal.eof_err": "изменение обычного запуска не выбрано",
 	"prompt.normal.invalid": "Пожалуйста, выберите 1, 2 или 3.",
@@ -75,15 +69,6 @@ var messagesRU = map[string]string{
 	"uninstall.batch_removed": `"%s" удалён из ProjectZomboid64.bat`,
 	"uninstall.err_rm_core":   "удаление основных файлов: %v",
 	"uninstall.err_rm_steam":  "удаление параметров запуска Steam: %v",
-
-	// ── Обнаружение путей ──
-	"detect.err_steam":   "Ошибка при обнаружении Steam: %v",
-	"detect.path_format": "[.] %-*s находится в %s",
-	"detect.err_pz":      "Ошибка при обнаружении Project Zomboid: %v",
-	"detect.err_zb":      "Ошибка при обнаружении мода ZombieBuddy: %v",
-	"detect.steam_label": "Steam",
-	"detect.pz_label":    "PZ",
-	"detect.zb_label":    "ZB",
 
 	// ── Предпросмотр / план ──
 	"preview.copy":         `копировать "%s\%s"    в "%s\\"`,

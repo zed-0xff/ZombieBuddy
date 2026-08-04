@@ -13,9 +13,7 @@ var messagesFR = map[string]string{
 
 	// ── Invite : action principale ──
 	"prompt.action.title":   "Que puis-je faire pour vous ?",
-	"prompt.action.line1":   "  1) Installer ZombieBuddy",
-	"prompt.action.line2":   "  2) Désinstaller ZombieBuddy",
-	"prompt.action.line3":   "  3) Rien, merci !",
+	"prompt.action.lines":   "  1) Installer ZombieBuddy\n  2) Désinstaller ZombieBuddy\n  3) Rien, merci !",
 	"prompt.action.hint":    "Toute modification du système sera affichée pour confirmation avant d'être appliquée.",
 	"prompt.action.prompt":  "Choisissez 1, 2 ou 3 : ",
 	"prompt.action.eof_err": "aucune action sélectionnée",
@@ -23,18 +21,14 @@ var messagesFR = map[string]string{
 
 	// ── Invite : cibles d'installation ──
 	"prompt.targets.title":   "Quel mode de lancement ZombieBuddy doit-il modifier ?",
-	"prompt.targets.line1":   "  1) Les deux",
-	"prompt.targets.line2":   "  2) Lancement normal",
-	"prompt.targets.line3":   "  3) Lancement alternatif",
+	"prompt.targets.lines":   "  1) Les deux\n  2) Lancement normal\n  3) Lancement alternatif",
 	"prompt.targets.prompt":  "Choisissez 1, 2 ou 3 : ",
 	"prompt.targets.eof_err": "aucun mode de lancement sélectionné",
 	"prompt.targets.invalid": "Veuillez choisir 1, 2 ou 3.",
 
 	// ── Invite : installation normale ──
 	"prompt.normal.title":   "Comment le lancement normal doit-il être modifié ?",
-	"prompt.normal.line1":   "  1) Les deux",
-	"prompt.normal.line2":   "  2) ProjectZomboid64.json",
-	"prompt.normal.line3":   "  3) Options de lancement Steam",
+	"prompt.normal.lines":   "  1) Les deux\n  2) ProjectZomboid64.json\n  3) Options de lancement Steam",
 	"prompt.normal.prompt":  "Choisissez 1, 2 ou 3 : ",
 	"prompt.normal.eof_err": "aucune modification de lancement normal sélectionnée",
 	"prompt.normal.invalid": "Veuillez choisir 1, 2 ou 3.",
@@ -42,7 +36,7 @@ var messagesFR = map[string]string{
 	// ── Confirmation ──
 	"confirm.no_changes":        "Aucune modification système n'est nécessaire.",
 	"confirm.will_make_changes": "ZombieBuddy va effectuer les modifications suivantes :",
-	"confirm.prompt":            "Continuer ? [o/N] : ",
+	"confirm.prompt":            "Continuer ? [y/N] : ",
 
 	// ── Noms d'actions ──
 	"action.install":   "Installation",
@@ -75,15 +69,6 @@ var messagesFR = map[string]string{
 	"uninstall.batch_removed": `"%s" supprimé de ProjectZomboid64.bat`,
 	"uninstall.err_rm_core":   "suppression des fichiers principaux : %v",
 	"uninstall.err_rm_steam":  "suppression des options de lancement Steam : %v",
-
-	// ── Détection des chemins ──
-	"detect.err_steam":   "Erreur lors de la détection de Steam : %v",
-	"detect.path_format": "[.] %-*s se trouve dans %s",
-	"detect.err_pz":      "Erreur lors de la détection de Project Zomboid : %v",
-	"detect.err_zb":      "Erreur lors de la détection du mod ZombieBuddy : %v",
-	"detect.steam_label": "Steam",
-	"detect.pz_label":    "PZ",
-	"detect.zb_label":    "ZB",
 
 	// ── Aperçu / planification ──
 	"preview.copy":         `copier "%s\%s"    vers "%s\\"`,

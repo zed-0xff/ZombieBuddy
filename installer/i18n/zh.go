@@ -13,9 +13,7 @@ var messagesZH = map[string]string{
 
 	// ── 提示：主操作 ──
 	"prompt.action.title":   "我能为你做些什么？",
-	"prompt.action.line1":   "  1) 安装 ZombieBuddy",
-	"prompt.action.line2":   "  2) 卸载 ZombieBuddy",
-	"prompt.action.line3":   "  3) 不用了，谢谢！",
+	"prompt.action.lines":   "  1) 安装 ZombieBuddy\n  2) 卸载 ZombieBuddy\n  3) 不用了，谢谢！",
 	"prompt.action.hint":    "所有系统更改将在应用前显示以供确认。",
 	"prompt.action.prompt":  "请选择 1、2 或 3：",
 	"prompt.action.eof_err": "未选择操作",
@@ -23,18 +21,14 @@ var messagesZH = map[string]string{
 
 	// ── 提示：安装目标 ──
 	"prompt.targets.title":   "ZombieBuddy 应修补哪种启动模式？",
-	"prompt.targets.line1":   "  1) 两者都修补",
-	"prompt.targets.line2":   "  2) 正常启动",
-	"prompt.targets.line3":   "  3) 备用启动",
+	"prompt.targets.lines":   "  1) 两者都修补\n  2) 正常启动\n  3) 备用启动",
 	"prompt.targets.prompt":  "请选择 1、2 或 3：",
 	"prompt.targets.eof_err": "未选择启动模式",
 	"prompt.targets.invalid": "请选择 1、2 或 3。",
 
 	// ── 提示：正常安装目标 ──
 	"prompt.normal.title":   "正常启动应如何修补？",
-	"prompt.normal.line1":   "  1) 两者都修补",
-	"prompt.normal.line2":   "  2) ProjectZomboid64.json",
-	"prompt.normal.line3":   "  3) Steam 启动选项",
+	"prompt.normal.lines":   "  1) 两者都修补\n  2) ProjectZomboid64.json\n  3) Steam 启动选项",
 	"prompt.normal.prompt":  "请选择 1、2 或 3：",
 	"prompt.normal.eof_err": "未选择正常启动修补方式",
 	"prompt.normal.invalid": "请选择 1、2 或 3。",
@@ -75,15 +69,6 @@ var messagesZH = map[string]string{
 	"uninstall.batch_removed": `已从 ProjectZomboid64.bat 中移除 "%s"`,
 	"uninstall.err_rm_core":   "移除核心文件时出错：%v",
 	"uninstall.err_rm_steam":  "移除 Steam 启动选项时出错：%v",
-
-	// ── 路径检测 ──
-	"detect.err_steam":   "检测 Steam 时出错：%v",
-	"detect.path_format": "[.] %-*s 位于 %s",
-	"detect.err_pz":      "检测 Project Zomboid 时出错：%v",
-	"detect.err_zb":      "检测 ZombieBuddy 模组时出错：%v",
-	"detect.steam_label": "Steam",
-	"detect.pz_label":    "PZ",
-	"detect.zb_label":    "ZB",
 
 	// ── 预览 / 计划 ──
 	"preview.copy":         `复制 "%s\%s"    到 "%s\\"`,

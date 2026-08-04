@@ -13,9 +13,7 @@ var messagesAR = map[string]string{
 
 	// ── السؤال: الإجراء الرئيسي ──
 	"prompt.action.title":   "ماذا يمكنني أن أفعل لك؟",
-	"prompt.action.line1":   "  1) تثبيت ZombieBuddy",
-	"prompt.action.line2":   "  2) إزالة ZombieBuddy",
-	"prompt.action.line3":   "  3) لا شيء، شكراً!",
+	"prompt.action.lines":   "  1) تثبيت ZombieBuddy\n  2) إزالة ZombieBuddy\n  3) لا شيء، شكراً!",
 	"prompt.action.hint":    "سيتم عرض أي تغييرات في النظام للتأكيد قبل تطبيقها.",
 	"prompt.action.prompt":  "اختر 1 أو 2 أو 3: ",
 	"prompt.action.eof_err": "لم يتم تحديد أي إجراء",
@@ -23,18 +21,14 @@ var messagesAR = map[string]string{
 
 	// ── السؤال: أهداف التثبيت ──
 	"prompt.targets.title":   "ما وضع التشغيل الذي يجب على ZombieBuddy تعديله؟",
-	"prompt.targets.line1":   "  1) كلاهما",
-	"prompt.targets.line2":   "  2) التشغيل العادي",
-	"prompt.targets.line3":   "  3) التشغيل البديل",
+	"prompt.targets.lines":   "  1) كلاهما\n  2) التشغيل العادي\n  3) التشغيل البديل",
 	"prompt.targets.prompt":  "اختر 1 أو 2 أو 3: ",
 	"prompt.targets.eof_err": "لم يتم تحديد وضع التشغيل",
 	"prompt.targets.invalid": "يرجى اختيار 1 أو 2 أو 3.",
 
 	// ── السؤال: التثبيت العادي ──
 	"prompt.normal.title":   "كيف يجب تعديل التشغيل العادي؟",
-	"prompt.normal.line1":   "  1) كلاهما",
-	"prompt.normal.line2":   "  2) ProjectZomboid64.json",
-	"prompt.normal.line3":   "  3) خيارات تشغيل Steam",
+	"prompt.normal.lines":   "  1) كلاهما\n  2) ProjectZomboid64.json\n  3) خيارات تشغيل Steam",
 	"prompt.normal.prompt":  "اختر 1 أو 2 أو 3: ",
 	"prompt.normal.eof_err": "لم يتم تحديد تعديل للتشغيل العادي",
 	"prompt.normal.invalid": "يرجى اختيار 1 أو 2 أو 3.",
@@ -75,15 +69,6 @@ var messagesAR = map[string]string{
 	"uninstall.batch_removed": `تمت إزالة "%s" من ProjectZomboid64.bat`,
 	"uninstall.err_rm_core":   "إزالة الملفات الأساسية: %v",
 	"uninstall.err_rm_steam":  "إزالة خيارات تشغيل Steam: %v",
-
-	// ── اكتشاف المسارات ──
-	"detect.err_steam":   "خطأ في اكتشاف Steam: %v",
-	"detect.path_format": "[.] %-*s موجود في %s",
-	"detect.err_pz":      "خطأ في اكتشاف Project Zomboid: %v",
-	"detect.err_zb":      "خطأ في اكتشاف تعديل ZombieBuddy: %v",
-	"detect.steam_label": "Steam",
-	"detect.pz_label":    "PZ",
-	"detect.zb_label":    "ZB",
 
 	// ── المعاينة / الخطة ──
 	"preview.copy":         `نسخ "%s\%s"    إلى "%s\\"`,
