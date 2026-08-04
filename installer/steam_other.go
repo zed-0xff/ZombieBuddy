@@ -2,8 +2,12 @@
 
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/zed-0xff/ZombieBuddy/installer/i18n"
+)
 
 func detectSteamPath() (string, error) {
-	return "", fmt.Errorf("Steam registry lookup is only supported on Windows")
+	return "", fmt.Errorf("%s", i18n.Translate("steam.registry_windows_only"))
 }

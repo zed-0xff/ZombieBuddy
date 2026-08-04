@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/andygrunwald/vdf"
+	"github.com/zed-0xff/ZombieBuddy/installer/i18n"
 )
 
 const (
@@ -23,6 +24,10 @@ const (
 	INSTALLER_VERSION = "4.2"
 	ZB_LAUNCH_ARG     = "-agentlib:zbNative"
 	ZB_LAUNCH_OPTIONS = ZB_LAUNCH_ARG + " --"
+
+	steamLabel = "Steam"
+	pzLabel    = "PZ"
+	zbLabel    = "ZB"
 )
 
 var steamZombieBuddyLaunchOptionPattern = regexp.MustCompile(`(^|\s)-agentlib:zbNative(?:=\S*)?[ ]*[-]*`)
@@ -71,14 +76,16 @@ type launcherWindowsVersion struct {
 }
 
 func main() {
-	fmt.Println("ZombieBuddy Windows Installer v" + INSTALLER_VERSION)
-	fmt.Println("-------------------------------")
-
 	if runtime.GOOS != "windows" {
-		fmt.Println("[!] Error: This installer is only designed for Windows.")
+		fmt.Println("[!] " + i18n.Translate("err.windows_only"))
 		waitForExit()
 		return
 	}
+
+	i18n.PromptLanguage()
+
+	fmt.Printf(i18n.Translate("app.title")+"\n", INSTALLER_VERSION)
+	fmt.Println(i18n.Translate("app.separator"))
 
 	action, err := promptAction()
 	if err != nil {
@@ -94,7 +101,7 @@ func main() {
 	case "uninstall":
 		result = uninstall()
 	case "nothing":
-		fmt.Println("\nOkay, nothing changed.")
+		fmt.Println("\n" + i18n.Translate("app.okay_nothing"))
 		waitForExit()
 		return
 	}
@@ -103,37 +110,35 @@ func main() {
 	case resultSucceeded:
 		switch action {
 		case "install":
-			fmt.Println("\nInstallation complete! You can now start Steam and launch Project Zomboid.")
+			fmt.Println("\n" + i18n.Translate("app.install_complete"))
 		case "uninstall":
-			fmt.Println("\nUninstall complete! You can now start Steam and launch Project Zomboid.")
+			fmt.Println("\n" + i18n.Translate("app.uninstall_complete"))
 		}
 	case resultCancelled:
-		fmt.Println("\nNothing changed.")
+		fmt.Println("\n" + i18n.Translate("app.nothing_changed"))
 	default:
-		fmt.Printf("\n%s encountered errors. Please review the messages above.\n", displayAction(action))
+		fmt.Printf("\n"+i18n.Translate("app.errors_encountered")+"\n", displayAction(action))
 	}
 	waitForExit()
 }
 
 func waitForExit() {
-	fmt.Println("Press Enter to exit...")
+	fmt.Println(i18n.Translate("app.press_enter"))
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }
 
 func promptAction() (string, error) {
 	reader := bufio.NewReader(os.Stdin)
 	return promptChoice(reader, promptChoiceConfig{
-		title: "What can I do you for?",
+		title: i18n.Translate("prompt.action.title"),
 		lines: []string{
-			"  1) Install ZombieBuddy",
-			"  2) Uninstall ZombieBuddy",
-			"  3) Nothing, thanks!",
+			i18n.Translate("prompt.action.lines"),
 			"",
-			"Any system changes will be shown for confirmation before they are applied.",
+			i18n.Translate("prompt.action.hint"),
 		},
-		prompt:  "Choose 1, 2, or 3: ",
-		eofErr:  "no action selected",
-		invalid: "Please choose 1 for install, 2 for uninstall, or 3 to do nothing.",
+		prompt:  i18n.Translate("prompt.action.prompt"),
+		eofErr:  i18n.Translate("prompt.action.eof_err"),
+		invalid: i18n.Translate("prompt.action.invalid"),
 		options: []promptOption{
 			{value: "install", keys: []string{"1", "i", "install"}},
 			{value: "uninstall", keys: []string{"2", "u", "uninstall"}},
@@ -145,11 +150,11 @@ func promptAction() (string, error) {
 func promptInstallTargets() (patchTargets, error) {
 	reader := bufio.NewReader(os.Stdin)
 	value, err := promptChoice(reader, promptChoiceConfig{
-		title:   "What launch mode should ZombieBuddy patch?",
-		lines:   []string{"  1) Both", "  2) Normal Launch", "  3) Alternate Launch"},
-		prompt:  "Choose 1, 2, or 3: ",
-		eofErr:  "no launch mode selected",
-		invalid: "Please choose 1, 2, or 3.",
+		title:   i18n.Translate("prompt.targets.title"),
+		lines:   []string{i18n.Translate("prompt.targets.lines")},
+		prompt:  i18n.Translate("prompt.targets.prompt"),
+		eofErr:  i18n.Translate("prompt.targets.eof_err"),
+		invalid: i18n.Translate("prompt.targets.invalid"),
 		options: []promptOption{
 			{value: "both", keys: []string{"1", "b", "both"}},
 			{value: "normal", keys: []string{"2", "n", "normal", "normal launch"}},
@@ -168,17 +173,17 @@ func promptInstallTargets() (patchTargets, error) {
 	case "both":
 		return patchTargets{normalJSON: true, steamLaunchOptions: true, alternateBatch: true}, nil
 	default:
-		return patchTargets{}, fmt.Errorf("unknown launch mode %q", value)
+		return patchTargets{}, fmt.Errorf("%s: %q", i18n.Translate("err.unknown_launch_mode"), value)
 	}
 }
 
 func promptNormalInstallTargets(reader *bufio.Reader) (patchTargets, error) {
 	value, err := promptChoice(reader, promptChoiceConfig{
-		title:   "How should Normal Launch be patched?",
-		lines:   []string{"  1) Both", "  2) ProjectZomboid64.json", "  3) Steam launch options"},
-		prompt:  "Choose 1, 2, or 3: ",
-		eofErr:  "no normal launch patch selected",
-		invalid: "Please choose 1, 2, or 3.",
+		title:   i18n.Translate("prompt.normal.title"),
+		lines:   []string{i18n.Translate("prompt.normal.lines")},
+		prompt:  i18n.Translate("prompt.normal.prompt"),
+		eofErr:  i18n.Translate("prompt.normal.eof_err"),
+		invalid: i18n.Translate("prompt.normal.invalid"),
 		options: []promptOption{
 			{value: "both", keys: []string{"1", "b", "both"}},
 			{value: "json", keys: []string{"2", "j", "json"}},
@@ -197,7 +202,7 @@ func promptNormalInstallTargets(reader *bufio.Reader) (patchTargets, error) {
 	case "both":
 		return patchTargets{normalJSON: true, steamLaunchOptions: true}, nil
 	default:
-		return patchTargets{}, fmt.Errorf("unknown normal launch target %q", value)
+		return patchTargets{}, fmt.Errorf("%s: %q", i18n.Translate("err.unknown_normal_target"), value)
 	}
 }
 
@@ -241,16 +246,16 @@ func promptChoice(reader *bufio.Reader, config promptChoiceConfig) (string, erro
 func confirmChanges(lines []string) (bool, error) {
 	if len(lines) == 0 {
 		fmt.Println()
-		fmt.Println("No system changes are needed.")
+		fmt.Println(i18n.Translate("confirm.no_changes"))
 		return false, nil
 	}
 
 	fmt.Println()
-	fmt.Println("ZombieBuddy will make these changes:")
+	fmt.Println(i18n.Translate("confirm.will_make_changes"))
 	for _, line := range lines {
 		fmt.Println("  - " + line)
 	}
-	fmt.Print("Continue? [y/N]: ")
+	fmt.Print(i18n.Translate("confirm.prompt"))
 
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil && err != io.EOF {
@@ -267,13 +272,13 @@ func confirmChanges(lines []string) (bool, error) {
 func displayAction(action string) string {
 	switch action {
 	case "install":
-		return "Installation"
+		return i18n.Translate("action.install")
 	case "uninstall":
-		return "Uninstall"
+		return i18n.Translate("action.uninstall")
 	case "nothing":
-		return "Nothing"
+		return i18n.Translate("action.nothing")
 	default:
-		return "Operation"
+		return i18n.Translate("action.operation")
 	}
 }
 
@@ -289,7 +294,7 @@ func isSteamRunning() bool {
 func install() operationResult {
 	targets, err := promptInstallTargets()
 	if err != nil {
-		fmt.Printf("[!] Error selecting launch targets: %v\n", err)
+		fmt.Printf("[!] "+i18n.Translate("install.err_select_targets")+"\n", err)
 		return resultFailed
 	}
 
@@ -302,44 +307,44 @@ func install() operationResult {
 	preview := installPreview(paths.pz, paths.steam, paths.zb, targets)
 	confirmed, err := confirmChanges(preview)
 	if err != nil {
-		fmt.Printf("[!] Error reading confirmation: %v\n", err)
+		fmt.Printf("[!] "+i18n.Translate("install.err_read_confirm")+"\n", err)
 		return resultFailed
 	}
 	if !confirmed {
-		fmt.Println("[-] Installation cancelled.")
+		fmt.Println("[-] " + i18n.Translate("install.cancelled"))
 		return resultCancelled
 	}
 
 	err = copyCoreFiles(paths.pz, paths.zb)
 	if err != nil {
-		fmt.Printf("[!] Error copying core files: %v\n", err)
+		fmt.Printf("[!] "+i18n.Translate("install.err_copy_core")+"\n", err)
 		return resultFailed
 	} else {
-		fmt.Println("[.] Successfully installed zbNative.dll and ZombieBuddy.jar")
+		fmt.Println("[.] " + i18n.Translate("install.success_copy"))
 	}
 
 	if targets.normalJSON {
 		updatedJSON, err := patchJSONLauncher(paths.pz)
 		if err != nil {
-			fmt.Printf("[!] Error updating ProjectZomboid64.json: %v\n", err)
+			fmt.Printf("[!] "+i18n.Translate("install.err_json")+"\n", err)
 			return resultFailed
 		}
-		reportChange(updatedJSON, "Updated ProjectZomboid64.json for normal launcher mode", "ProjectZomboid64.json already contains ZombieBuddy agent.")
+		reportChange(updatedJSON, i18n.Translate("install.json_updated"), i18n.Translate("install.json_already"))
 	}
 
 	if targets.alternateBatch {
 		updatedBatch, err := patchBatchFile(paths.pz)
 		if err != nil {
-			fmt.Printf("[!] Error updating ProjectZomboid64.bat: %v\n", err)
+			fmt.Printf("[!] "+i18n.Translate("install.err_batch")+"\n", err)
 			return resultFailed
 		}
-		reportChange(updatedBatch, "Updated ProjectZomboid64.bat for alternative launcher mode", "ProjectZomboid64.bat already contains ZombieBuddy agent.")
+		reportChange(updatedBatch, i18n.Translate("install.batch_updated"), i18n.Translate("install.batch_already"))
 	}
 
 	if targets.steamLaunchOptions {
 		err = updateLaunchOptions(paths.steam)
 		if err != nil {
-			fmt.Printf("[!] Error updating Steam launch options: %v\n", err)
+			fmt.Printf("[!] "+i18n.Translate("install.err_steam")+"\n", err)
 			return resultFailed
 		}
 	}
@@ -356,27 +361,27 @@ func uninstall() operationResult {
 
 	plan, err := buildUninstallPlan(paths.pz, paths.steam)
 	if err != nil {
-		fmt.Printf("[!] Error planning uninstall: %v\n", err)
+		fmt.Printf("[!] "+i18n.Translate("uninstall.err_plan")+"\n", err)
 		return resultFailed
 	}
 	previewLines := uninstallPreview(plan)
 	if len(previewLines) == 0 {
-		fmt.Println("[-] Nothing to uninstall.")
+		fmt.Println("[-] " + i18n.Translate("uninstall.nothing"))
 		return resultCancelled
 	}
 
 	confirmed, err := confirmChanges(previewLines)
 	if err != nil {
-		fmt.Printf("[!] Error reading confirmation: %v\n", err)
+		fmt.Printf("[!] "+i18n.Translate("install.err_read_confirm")+"\n", err)
 		return resultFailed
 	}
 	if !confirmed {
-		fmt.Println("[-] Uninstall cancelled.")
+		fmt.Println("[-] " + i18n.Translate("uninstall.cancelled"))
 		return resultCancelled
 	}
 
 	if err := applyUninstallPlan(plan); err != nil {
-		fmt.Printf("[!] Error applying uninstall changes: %v\n", err)
+		fmt.Printf("[!] "+i18n.Translate("uninstall.err_apply")+"\n", err)
 		return resultFailed
 	}
 
@@ -384,19 +389,19 @@ func uninstall() operationResult {
 }
 
 func detectInstallPaths(includeZB bool) (installPaths, error) {
-	maxLen := len("Steam")
+	maxLen := len(steamLabel)
 
 	steamPath, err := detectSteamPath()
 	if err != nil {
 		return installPaths{}, fmt.Errorf("Error detecting Steam: %v", err)
 	}
-	fmt.Printf("[.] %-*s is at %s\n", maxLen, "Steam", steamPath)
+	fmt.Printf("[.] %-*s is at %s\n", maxLen, steamLabel, steamPath)
 
 	pzPath, err := detectPZPath(steamPath)
 	if err != nil {
 		return installPaths{}, fmt.Errorf("Error detecting Project Zomboid: %v", err)
 	}
-	fmt.Printf("[.] %-*s is at %s\n", maxLen, "PZ", pzPath)
+	fmt.Printf("[.] %-*s is at %s\n", maxLen, pzLabel, pzPath)
 
 	paths := installPaths{steam: steamPath, pz: pzPath}
 	if includeZB {
@@ -404,7 +409,7 @@ func detectInstallPaths(includeZB bool) (installPaths, error) {
 		if err != nil {
 			return installPaths{}, fmt.Errorf("Error detecting ZombieBuddy mod: %v", err)
 		}
-		fmt.Printf("[.] %-*s is at %s\n", maxLen, "ZB", zbPath)
+		fmt.Printf("[.] %-*s is at %s\n", maxLen, zbLabel, zbPath)
 		paths.zb = zbPath
 	}
 	return paths, nil
@@ -418,7 +423,7 @@ func buildUninstallPlan(pzPath string, steamPath string) (uninstallPlan, error) 
 	jsonPath := filepath.Join(pzPath, "ProjectZomboid64.json")
 	hasJSON, err := jsonLauncherHasZombieBuddy(jsonPath)
 	if err != nil {
-		return uninstallPlan{}, fmt.Errorf("checking ProjectZomboid64.json: %v", err)
+		return uninstallPlan{}, errors.New(fmt.Sprintf(i18n.Translate("err.check_json"), err))
 	}
 	if hasJSON {
 		plan.jsonLauncherPath = jsonPath
@@ -427,7 +432,7 @@ func buildUninstallPlan(pzPath string, steamPath string) (uninstallPlan, error) 
 	batchPath := filepath.Join(pzPath, "ProjectZomboid64.bat")
 	hasBatch, err := batchFileHasZombieBuddy(batchPath)
 	if err != nil {
-		return uninstallPlan{}, fmt.Errorf("checking ProjectZomboid64.bat: %v", err)
+		return uninstallPlan{}, errors.New(fmt.Sprintf(i18n.Translate("err.check_batch"), err))
 	}
 	if hasBatch {
 		plan.batchFilePath = batchPath
@@ -446,25 +451,25 @@ func applyUninstallPlan(plan uninstallPlan) error {
 	if plan.jsonLauncherPath != "" {
 		updated, err := updateJSONLauncherVMArgs(plan.jsonLauncherPath, false)
 		if err != nil {
-			return fmt.Errorf("updating ProjectZomboid64.json: %v", err)
+			return errors.New(fmt.Sprintf(i18n.Translate("uninstall.err_json"), err))
 		}
-		reportChange(updated, fmt.Sprintf("Removed \"%s\" from ProjectZomboid64.json", ZB_LAUNCH_ARG), "")
+		reportChange(updated, fmt.Sprintf(i18n.Translate("uninstall.json_removed"), ZB_LAUNCH_ARG), "")
 	}
 
 	if plan.batchFilePath != "" {
 		updated, err := updateBatchJavaOptions(plan.batchFilePath, false)
 		if err != nil {
-			return fmt.Errorf("updating ProjectZomboid64.bat: %v", err)
+			return errors.New(fmt.Sprintf(i18n.Translate("uninstall.err_batch"), err))
 		}
-		reportChange(updated, fmt.Sprintf("Removed \"%s\" from ProjectZomboid64.bat", ZB_LAUNCH_ARG), "")
+		reportChange(updated, fmt.Sprintf(i18n.Translate("uninstall.batch_removed"), ZB_LAUNCH_ARG), "")
 	}
 
 	if err := removeCoreFiles(plan.coreFilePaths); err != nil {
-		return fmt.Errorf("removing core files: %v", err)
+		return errors.New(fmt.Sprintf(i18n.Translate("uninstall.err_rm_core"), err))
 	}
 
 	if err := removeLaunchOptions(plan.steamConfigPaths); err != nil {
-		return fmt.Errorf("removing Steam launch options: %v", err)
+		return errors.New(fmt.Sprintf(i18n.Translate("uninstall.err_rm_steam"), err))
 	}
 
 	return nil
@@ -480,17 +485,17 @@ func reportChange(changed bool, changedMessage string, unchangedMessage string) 
 
 func installPreview(pzPath string, steamPath string, zbPath string, targets patchTargets) []string {
 	lines := []string{
-		fmt.Sprintf("copy \"%s\\zbNative.dll\"    to \"%s\\\"", "ZB", "PZ"),
-		fmt.Sprintf("copy \"%s\\ZombieBuddy.jar\" to \"%s\\\"", "ZB", "PZ"),
+		fmt.Sprintf(i18n.Translate("preview.copy"), zbLabel, "zbNative.dll", pzLabel),
+		fmt.Sprintf(i18n.Translate("preview.copy"), zbLabel, "ZombieBuddy.jar", pzLabel),
 	}
 	if targets.normalJSON {
-		lines = append(lines, fmt.Sprintf("add \"%s\" to \"%s\"", ZB_LAUNCH_ARG, "ProjectZomboid64.json"))
+		lines = append(lines, fmt.Sprintf(i18n.Translate("preview.add_json"), ZB_LAUNCH_ARG, "ProjectZomboid64.json"))
 	}
 	if targets.alternateBatch {
-		lines = append(lines, fmt.Sprintf("add \"%s\" to \"%s\"", ZB_LAUNCH_ARG, "ProjectZomboid64.bat"))
+		lines = append(lines, fmt.Sprintf(i18n.Translate("preview.add_json"), ZB_LAUNCH_ARG, "ProjectZomboid64.bat"))
 	}
 	if targets.steamLaunchOptions {
-		lines = append(lines, fmt.Sprintf("add \"%s\" to PZ Steam launch options", ZB_LAUNCH_OPTIONS))
+		lines = append(lines, fmt.Sprintf(i18n.Translate("preview.add_steam"), ZB_LAUNCH_OPTIONS))
 	}
 	return lines
 }
@@ -498,16 +503,16 @@ func installPreview(pzPath string, steamPath string, zbPath string, targets patc
 func uninstallPreview(plan uninstallPlan) []string {
 	var lines []string
 	if plan.jsonLauncherPath != "" {
-		lines = append(lines, fmt.Sprintf("remove \"%s\" from \"%s\"", ZB_LAUNCH_ARG, plan.jsonLauncherPath))
+		lines = append(lines, fmt.Sprintf(i18n.Translate("preview.remove"), ZB_LAUNCH_ARG, plan.jsonLauncherPath))
 	}
 	if plan.batchFilePath != "" {
-		lines = append(lines, fmt.Sprintf("remove \"%s\" from \"%s\"", ZB_LAUNCH_ARG, plan.batchFilePath))
+		lines = append(lines, fmt.Sprintf(i18n.Translate("preview.remove"), ZB_LAUNCH_ARG, plan.batchFilePath))
 	}
 	if plan.steamConfigPaths != nil {
-		lines = append(lines, fmt.Sprintf("remove \"%s\" from PZ Steam launch options", ZB_LAUNCH_ARG))
+		lines = append(lines, fmt.Sprintf(i18n.Translate("preview.remove_steam"), ZB_LAUNCH_ARG))
 	}
 	for _, path := range plan.coreFilePaths {
-		lines = append(lines, fmt.Sprintf("delete \"%s\"", path))
+		lines = append(lines, fmt.Sprintf(i18n.Translate("preview.delete"), path))
 	}
 	return lines
 }
@@ -516,14 +521,14 @@ func waitForSteamToClose(operation string) {
 	steamWasRunning := false
 	for isSteamRunning() {
 		steamWasRunning = true
-		fmt.Println("\n[!] Steam is currently running.")
-		fmt.Println("    Please close Steam completely before continuing.")
-		fmt.Println("    (Right-click Steam in system tray -> Exit)")
-		fmt.Println("\nPress Enter after closing Steam...")
+		fmt.Println("\n[!] " + i18n.Translate("steam.running"))
+		fmt.Println(i18n.Translate("steam.close_instructions1"))
+		fmt.Println(i18n.Translate("steam.close_instructions2"))
+		fmt.Println("\n" + i18n.Translate("steam.press_enter_after"))
 		bufio.NewReader(os.Stdin).ReadBytes('\n')
 	}
 	if steamWasRunning {
-		fmt.Printf("[.] Steam is now closed. Continuing %s...\n\n", operation)
+		fmt.Printf("[.] "+i18n.Translate("steam.now_closed")+"\n\n", operation)
 	}
 }
 
@@ -540,7 +545,7 @@ func detectPZPath(steamPath string) (string, error) {
 		return findAppInLibraries(libraryVDF, "common", "ProjectZomboid")
 	}
 
-	return "", fmt.Errorf("could not find Project Zomboid installation")
+	return "", errors.New(i18n.Translate("path.pz_not_found"))
 }
 
 func detectZBPath(steamPath string) (string, error) {
@@ -556,7 +561,7 @@ func detectZBPath(steamPath string) (string, error) {
 		return findAppInLibraries(libraryVDF, "workshop", "content", PZ_APP_ID, ZB_MOD_ID)
 	}
 
-	return "", fmt.Errorf("Make sure you've subscribed to https://steamcommunity.com/sharedfiles/filedetails/?id=3619862853")
+	return "", errors.New(i18n.Translate("path.zb_not_found"))
 }
 
 func findAppInLibraries(libraryVDFPath string, subPath ...string) (string, error) {
@@ -567,7 +572,7 @@ func findAppInLibraries(libraryVDFPath string, subPath ...string) (string, error
 
 	libraryfolders, ok := m["libraryfolders"].(map[string]interface{})
 	if !ok {
-		return "", fmt.Errorf("invalid libraryfolders.vdf")
+		return "", errors.New(i18n.Translate("vdf.invalid_library"))
 	}
 
 	for _, folder := range libraryfolders {
@@ -588,7 +593,7 @@ func findAppInLibraries(libraryVDFPath string, subPath ...string) (string, error
 		}
 	}
 
-	return "", fmt.Errorf("app not found in any Steam library")
+	return "", errors.New(i18n.Translate("vdf.app_not_found"))
 }
 
 func copyCoreFiles(pzPath string, zbPath string) error {
@@ -609,14 +614,14 @@ func copyCoreFiles(pzPath string, zbPath string) error {
 		}
 
 		if srcPath == "" {
-			return fmt.Errorf("could not find %s source", filename)
+			return errors.New(fmt.Sprintf(i18n.Translate("err.source_not_found"), filename))
 		}
 
 		dstPath := filepath.Join(pzPath, filename)
-		fmt.Printf("[.] copying \"%s\" to \"%s\"\n", srcPath, dstPath)
+		fmt.Printf("[.] "+i18n.Translate("copy.copying")+"\n", srcPath, dstPath)
 		err := copyFile(srcPath, dstPath)
 		if err != nil {
-			return fmt.Errorf("failed to copy %s: %v", filename, err)
+			return errors.New(fmt.Sprintf(i18n.Translate("err.copy_failed"), filename, err))
 		}
 	}
 
@@ -627,13 +632,13 @@ func removeCoreFiles(paths []string) error {
 	for _, path := range paths {
 		err := os.Remove(path)
 		if err == nil {
-			fmt.Printf("[.] Removed %s\n", path)
+			fmt.Printf("[.] "+i18n.Translate("remove.removed")+"\n", path)
 			continue
 		}
 		if os.IsNotExist(err) {
 			continue
 		}
-		return fmt.Errorf("failed to remove %s: %v", path, err)
+		return errors.New(fmt.Sprintf(i18n.Translate("err.remove_failed"), path, err))
 	}
 	return nil
 }
@@ -933,7 +938,7 @@ func updateLaunchOptions(steamPath string) error {
 	}
 
 	if updatedCount == 0 {
-		return fmt.Errorf("no user configurations found to update")
+		return errors.New(i18n.Translate("steam.no_users"))
 	}
 	return nil
 }
@@ -943,14 +948,14 @@ func removeLaunchOptions(localConfigPaths []string) error {
 		return nil
 	}
 
-	waitForSteamToClose("launch option update")
+	waitForSteamToClose(i18n.Translate("steam.launch_opt_update"))
 	for _, localConfigPath := range localConfigPaths {
 		updated, err := unpatchVDF(localConfigPath, false)
 		if err != nil {
-			return fmt.Errorf("failed to remove launch options from %s: %v", localConfigPath, err)
+			return errors.New(fmt.Sprintf(i18n.Translate("remove.steam_failed_remove"), localConfigPath, err))
 		}
 		if updated {
-			fmt.Printf("[.] Removed launch options from %s\n", localConfigPath)
+			fmt.Printf("[.] "+i18n.Translate("remove.steam_removed")+"\n", localConfigPath)
 		}
 	}
 	return nil
@@ -970,7 +975,7 @@ func steamLaunchOptionRemovalPlan(steamPath string) ([]string, error) {
 			if _, err := os.Stat(localConfigPath); err == nil {
 				has, err := vdfHasZombieBuddyLaunchOptions(localConfigPath)
 				if err != nil {
-					fmt.Printf("[?] skipping Steam launch options for user %s: %v\n", entry.Name(), err)
+					fmt.Printf("[?] "+i18n.Translate("steam.skipping_user")+"\n", entry.Name(), err)
 					continue
 				}
 				if has {
@@ -989,18 +994,18 @@ func patchVDF(path string) (bool, error) {
 	}
 
 	if pz == nil {
-		return false, fmt.Errorf("could not create Project Zomboid launch config")
+		return false, errors.New(i18n.Translate("vdf.no_config"))
 	}
 
 	currentOptions := launchOptionsFromConfig(pz)
 
 	newOptions := ZB_LAUNCH_OPTIONS
 	if hasZombieBuddyLaunchOptions(currentOptions) {
-		fmt.Println("[-] Launch options already contain ZombieBuddy agent.")
+		fmt.Println("[-] " + i18n.Translate("vdf.already_has_agent"))
 		return false, nil
 	}
 
-	waitForSteamToClose("launch option update")
+	waitForSteamToClose(i18n.Translate("steam.launch_opt_update"))
 	return true, manualPatchVDF(path, currentOptions, newOptions)
 }
 
@@ -1016,7 +1021,7 @@ func unpatchVDF(path string, waitForSteam bool) (bool, error) {
 	}
 
 	if waitForSteam {
-		waitForSteamToClose("launch option update")
+		waitForSteamToClose(i18n.Translate("steam.launch_opt_update"))
 	}
 	return true, manualPatchVDF(path, currentOptions, newOptions)
 }
@@ -1120,7 +1125,7 @@ func navigateMap(m map[string]interface{}, path ...string) (map[string]interface
 			if strings.EqualFold(k, key) {
 				next, ok := v.(map[string]interface{})
 				if !ok {
-					return nil, fmt.Errorf("key %s is not a map", k)
+					return nil, errors.New(fmt.Sprintf(i18n.Translate("err.nav_not_map"), k))
 				}
 				current = next
 				found = true
@@ -1128,7 +1133,7 @@ func navigateMap(m map[string]interface{}, path ...string) (map[string]interface
 			}
 		}
 		if !found {
-			return nil, fmt.Errorf("key %s not found", key)
+			return nil, errors.New(fmt.Sprintf(i18n.Translate("err.nav_key_not_found"), key))
 		}
 	}
 	return current, nil

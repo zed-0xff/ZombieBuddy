@@ -9,6 +9,8 @@
 .gradle
 .project
 .settings
+.venv
+.vs
 
 build
 tmp
