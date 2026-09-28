@@ -650,7 +650,7 @@ public class Loader {
         "ZModUnbork"
     );
 
-    public static void maybeReorderMods(ArrayList<String> mods) {
+    public static void maybeReorderMods(List<String> mods) {
         if (!g_config.auto_fix_mod_order()) return;
         if (Utils.isBlank(mods)) return;
 
@@ -681,14 +681,14 @@ public class Loader {
         return out;
     }
 
-    private static void moveModToIndex(ArrayList<String> mods, String modId, int index) {
+    private static void moveModToIndex(List<String> mods, String modId, int index) {
         int oldIndex = mods.indexOf(modId);
         if (oldIndex < 0) return;
         mods.remove(oldIndex);
         mods.add(Math.min(index, mods.size()), modId);
     }
 
-    public static void loadMods(ArrayList<String> mods) {
+    public static void loadMods(List<String> mods) {
         ArrayList<JavaModInfo> jModInfos = new ArrayList<>();
         ArrayList<String> jModIds = new ArrayList<>();
         HashSet<String> processedIds = new HashSet<>();
