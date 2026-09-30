@@ -1,4 +1,11 @@
-[h1]ZombieBuddy 临时修复与性能优化 / Temporary Fix & Performance Optimization[/h1]
+[h1]ZombieBuddy 临时修复 · 性能优化 · 内置自动汉化 / Temporary Fix · Performance · Auto CN/EN[/h1]
+
+[h2]内置自动汉化 / Built-in automatic CN/EN localization[/h2]
+[b]1.1.0 已把原 ZombieBuddyCN 的汉化和中文字体直接合并进 ZombieBuddy.jar，无需另外启用汉化 Mod。[/b]
+游戏语言为 CN 时中文，EN 时英文；读取启动前 options.ini 并跟随实际游戏语言变化。审批窗口、签名说明、加载提示、水印、原设置界面和重启提示自动切换。Swing 子进程继承游戏语言。仍启用的旧 cn.zbcn Java 汉化入口会自动跳过，避免固定中文转换重复覆盖。
+[b]Version 1.1.0 embeds the previous ZombieBuddyCN translations and Chinese font inside ZombieBuddy.jar. No separate translation mod needs to be enabled.[/b]
+CN game language uses Simplified Chinese; EN and other languages keep original English. Approval UI, loading text, watermark, original settings and restart notices follow the game language. Standalone Swing approvals inherit the parent language. The superseded cn.zbcn Java package is skipped automatically.
+审批 Boolean、y/n、模组 ID、哈希、签名和协议字段不翻译。TinyFD 系统原生按钮仍按系统语言显示。The approval values and protocol remain unchanged; TinyFD system-native buttons still use the OS language.
 
 [b]临时补丁声明 / Temporary patch notice[/b]
 原作者暂未发布新版兼容修复，因此临时制作了这个修复与性能优化版本。原作者发布更新后，本创意工坊 Mod 将删除；请届时切回原作者官方版本。
@@ -34,13 +41,6 @@ This is a temporary compatibility and performance patch while the original autho
 [*]Start normally and approve Java mods through ZombieBuddy's usual prompts. New or changed approved Java mods are deferred until the mandatory full restart. Save approval decisions if desired.
 [/list]
 
-[h2]内置自动汉化 / Built-in automatic CN/EN localization[/h2]
-[b]1.1.0 已把原 ZombieBuddyCN 的汉化和中文字体直接合并进 ZombieBuddy.jar，无需另外启用汉化 Mod。[/b]
-游戏语言为 CN 时中文，EN 时英文；读取启动前 options.ini 并跟随实际游戏语言变化。审批窗口、签名说明、加载提示、水印、原设置界面和重启提示自动切换。Swing 子进程继承游戏语言。仍启用的旧 cn.zbcn Java 汉化入口会自动跳过，避免固定中文转换重复覆盖。
-[b]Version 1.1.0 embeds the previous ZombieBuddyCN translations and Chinese font inside ZombieBuddy.jar. No separate translation mod needs to be enabled.[/b]
-CN game language uses Simplified Chinese; EN and other languages keep original English. Approval UI, loading text, watermark, original settings and restart notices follow the game language. Standalone Swing approvals inherit the parent language. The superseded cn.zbcn Java package is skipped automatically.
-审批 Boolean、y/n、模组 ID、哈希、签名和协议字段不翻译。TinyFD 系统原生按钮仍按系统语言显示。The approval values and protocol remain unchanged; TinyFD system-native buttons still use the OS language.
-
 [h2]修复与优化 / Fixes and optimizations[/h2]
 [list]
 [*]修复 42.21 的 loadMods(ArrayList → List) 接口变化造成的“框架已启动但 Java 模组不加载”；保留旧 ArrayList 调用入口。
@@ -71,5 +71,5 @@ Based on stable 2.3.3; validated with 42.21, bundled Java 25 and the existing na
 Close the game and restore your backed-up JAR to roll back; restore the author files if needed. The numeric version remains 2.3.3 and future higher official versions may replace it through the original updater. This temporary Workshop item will be deleted after the author's update; unsubscribe and use the official version then.
 
 [h2]署名与许可 / Credits and license[/h2]
-ZombieBuddy 原作者 Andrey “Zed” Zaikin；原 MIT 许可和依赖声明保留。原图来自 ZombieBuddy，本封面添加中英文修复/性能优化文字。临时维护与优化：老余。修改版 JAR 未由原作者签名，但其他 Java 模组的审批和签名验证未禁用。
-ZombieBuddy by Andrey “Zed” Zaikin. Original MIT license and dependency notices preserved. Cover adapted from the original ZombieBuddy icon. Temporary patch maintenance: LaoYu. This locally modified JAR is not signed by the original author; Java-mod approval/signature checks remain enabled.
+ZombieBuddy 原作者 Andrey “Zed” Zaikin；原 MIT 许可和依赖声明保留。原图来自 ZombieBuddy，本封面添加中英文修复/性能优化/内置汉化文字。临时维护与优化：老余。修改版 JAR 未由原作者签名，但其他 Java 模组的审批和签名验证未禁用。
+ZombieBuddy by Andrey “Zed” Zaikin. Original MIT license and dependency notices preserved. Cover adapted from the original ZombieBuddy icon with Fix / Performance / Auto CN/EN labels. Temporary patch maintenance: LaoYu. This locally modified JAR is not signed by the original author; Java-mod approval/signature checks remain enabled.

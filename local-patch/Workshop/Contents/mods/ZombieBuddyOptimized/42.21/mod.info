@@ -1,5 +1,5 @@
 id=ZombieBuddyOptimized
-name=ZombieBuddy Temporary Fix + Performance Optimization / 临时修复与性能优化
+name=ZombieBuddy Fix + Performance + Auto CN/EN / 修复、性能优化与内置汉化
 require=\ZombieBuddy
 modversion=1.1.0
 versionMin=42.21
