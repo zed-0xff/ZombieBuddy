@@ -30,24 +30,24 @@ public final class ConsoleModApprovalFrontend implements ModApprovalFrontend {
         for (JarBatchApprovalProtocol.Entry e : pending) {
             System.out.println();
             System.out.println("---");
-            System.out.println("Mod id:    " + e.modId);
-            System.out.println("Workshop:  " + (e.workshopItemId != null ? e.workshopItemId.value() : "(none)"));
+            System.out.println(local.zbselective.i18n.UiText.text("Mod id:    ", "模组 ID:    ") + e.modId);
+            System.out.println(local.zbselective.i18n.UiText.text("Workshop:  ", "创意工坊:  ") + (e.workshopItemId != null ? e.workshopItemId.value() : local.zbselective.i18n.UiText.text("(none)", "（无）")));
             System.out.println("JAR:       " + e.jarAbsolutePath);
             System.out.println("SHA-256:   " + e.sha256);
-            System.out.println("Updated:   " + formatDate(e.date));
-            System.out.println("ZBS valid: " + e.zbs.valid());
+            System.out.println(local.zbselective.i18n.UiText.text("Updated:   ", "更新时间:   ") + formatDate(e.date));
+            System.out.println(local.zbselective.i18n.UiText.text("ZBS valid: ", "ZBS 有效: ") + e.zbs.valid());
             if (!Utils.isBlank(e.zbs.notice())) {
-                System.out.println("ZBS note:  " + e.zbs.notice());
+                System.out.println(local.zbselective.i18n.UiText.text("ZBS note:  ", "ZBS 说明:  ") + e.zbs.notice());
             }
             boolean allow;
             if (e.zbs.invalid()) {
-                System.out.println("ZBS invalid — load will be denied.");
+                System.out.println(local.zbselective.i18n.UiText.text("ZBS invalid — load will be denied.", "ZBS 无效——将拒绝加载。"));
                 allow = false;
             } else {
-                allow = readYesNo("Allow this Java mod to load?");
+                allow = readYesNo(local.zbselective.i18n.UiText.text("Allow this Java mod to load?", "允许此 Java 模组加载吗？"));
             }
             e.decision = allow;
-            if (readYesNo("Save this decision to disk?")) {
+            if (readYesNo(local.zbselective.i18n.UiText.text("Save this decision to disk?", "将此决定保存到磁盘吗？"))) {
                 e.flags = e.flags.with(MF_PERSIST);
             } else {
                 e.flags = e.flags.without(MF_PERSIST);
@@ -80,13 +80,13 @@ public final class ConsoleModApprovalFrontend implements ModApprovalFrontend {
             if (s.startsWith("n")) {
                 return false;
             }
-            System.out.println("Please answer y or n.");
+            System.out.println(local.zbselective.i18n.UiText.text("Please answer y or n.", "请输入 y 或 n。"));
         }
     }
 
     private static String formatDate(Date date) {
         if (date == null) {
-            return "(unknown)";
+            return local.zbselective.i18n.UiText.text("(unknown)", "（未知）");
         }
         return new SimpleDateFormat(DATE_FORMAT, Locale.ROOT).format(date);
     }

@@ -22,6 +22,7 @@ public class Agent {
             return;
         }
 
+        local.zbselective.i18n.UiText.initialize();
         Logger.info("activating " + ZombieBuddy.getFullVersionString());
         Loader.g_instrumentation = inst;
 

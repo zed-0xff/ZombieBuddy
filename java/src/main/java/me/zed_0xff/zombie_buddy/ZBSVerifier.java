@@ -59,8 +59,8 @@ public final class ZBSVerifier {
         }
 
         static CheckResult missingNotAllowed(SteamID64 uploaderID) {
-            return new CheckResult(ModFlags.EMPTY, null, uploaderID, "Missing .zbs file (allow_unsigned_mods=false)",
-                "missing .zbs file; allow_unsigned_mods=false", null);
+            return new CheckResult(ModFlags.EMPTY, null, uploaderID, local.zbselective.i18n.UiText.text("Missing .zbs file (allow_unsigned_mods=false)", "缺少 .zbs 文件（allow_unsigned_mods=false）"),
+                local.zbselective.i18n.UiText.text("missing .zbs file; allow_unsigned_mods=false", "缺少 .zbs 文件；allow_unsigned_mods=false"), null);
         }
     }
 
@@ -156,7 +156,7 @@ public final class ZBSVerifier {
         Map<SteamID64, KnownAuthors.AuthorEntry> knownAuthors
     ) {
         if (zbsPath == null || !Files.isRegularFile(zbsPath)) {
-            return new MissingSignature(null, "Missing .zbs file next to JAR: " + zbsPath);
+            return new MissingSignature(null, local.zbselective.i18n.UiText.text("Missing .zbs file next to JAR: ", "JAR 旁缺少 .zbs 文件：") + zbsPath);
         }
         SteamID64 sid;
         byte[] sig;
@@ -165,17 +165,17 @@ public final class ZBSVerifier {
             sid = p.sid;
             sig = p.signature;
         } catch (IOException e) {
-            return new InvalidSignature(null, "Could not read .zbs: " + e.getMessage());
+            return new InvalidSignature(null, local.zbselective.i18n.UiText.text("Could not read .zbs: ", "无法读取 .zbs：") + e.getMessage());
         }
         if (uploaderID != null) {
             if (!uploaderID.equals(sid)) {
-                return new InvalidSignature(sid, "Declared SteamID64 does not match Workshop item uploader.");
+                return new InvalidSignature(sid, local.zbselective.i18n.UiText.text("Declared SteamID64 does not match Workshop item uploader.", "声明的 SteamID64 与创意工坊上传者不匹配。"));
             }
         }
         List<String> pubHexes = knownJavaModZBSHexes(sid, knownAuthors);
-        String keySource = "known authors list";
+        String keySource = local.zbselective.i18n.UiText.text("known authors list", "已知作者列表");
         if (pubHexes.isEmpty()) {
-            keySource = "Steam profile";
+            keySource = local.zbselective.i18n.UiText.text("Steam profile", "Steam 个人资料");
             try {
                 pubHexes = fetchJavaModZBSHexesFromSteam(sid);
             } catch (Exception e) {
@@ -184,7 +184,7 @@ public final class ZBSVerifier {
             if (pubHexes.isEmpty()) {
                 return new VerificationError(
                     sid,
-                    "Could not find JavaModZBS:<64 hex> on Steam profile — add it to your profile summary.",
+                    local.zbselective.i18n.UiText.text("Could not find JavaModZBS:<64 hex> on Steam profile — add it to your profile summary.", "在 Steam 个人资料中未找到 JavaModZBS:<64 hex>——请将其添加到个人资料简介中。"),
                     pubHexes
                 );
             }
@@ -197,10 +197,10 @@ public final class ZBSVerifier {
                 try {
                     pubRaw = hexToBytes(pubHex);
                 } catch (Exception e) {
-                    return new VerificationError(sid, "Invalid JavaModZBS hex in " + keySource + ".", pubHexes);
+                    return new VerificationError(sid, local.zbselective.i18n.UiText.text("Invalid JavaModZBS hex in ", "JavaModZBS 十六进制值无效，来源：") + keySource + ".", pubHexes);
                 }
                 if (pubRaw.length != 32) {
-                    return new VerificationError(sid, "JavaModZBS in " + keySource + " must be 64 hex chars (32-byte Ed25519 public key).", pubHexes);
+                    return new VerificationError(sid, local.zbselective.i18n.UiText.text("JavaModZBS in ", "JavaModZBS（来自 ") + keySource + local.zbselective.i18n.UiText.text(" must be 64 hex chars (32-byte Ed25519 public key).", "）必须为 64 个十六进制字符（32 字节 Ed25519 公钥）。"), pubHexes);
                 }
                 Ed25519PublicKeyParameters pub = new Ed25519PublicKeyParameters(pubRaw, 0);
                 Ed25519Signer signer = new Ed25519Signer();
@@ -211,7 +211,7 @@ public final class ZBSVerifier {
                     return new ValidSignature(sid, pubHexes);
                 }
             }
-            return new InvalidSignature(sid, "Invalid signature — JAR may have been tampered with.", pubHexes);
+            return new InvalidSignature(sid, local.zbselective.i18n.UiText.text("Invalid signature — JAR may have been tampered with.", "签名无效——JAR 可能已被篡改。"), pubHexes);
         } catch (Exception e) {
             return new VerificationError(sid, e.getMessage(), pubHexes);
         }
@@ -306,7 +306,7 @@ public final class ZBSVerifier {
             try {
                 sig = hexToBytes(m3.group(1));
             } catch (IllegalArgumentException e) {
-                throw new IOException("Invalid signature hex: " + e.getMessage());
+                throw new IOException(local.zbselective.i18n.UiText.text("Invalid signature hex: ", "无效的签名十六进制值：") + e.getMessage());
             }
             return new ParsedZBS(sid, sig);
         }
@@ -366,29 +366,29 @@ public final class ZBSVerifier {
     /** Missing .zbs sidecar file (caller may allow this as unsigned). */
     public static final class MissingSignature extends Verification {
         public MissingSignature(SteamID64 sid, String message) {
-            super(sid, "Missing signature file.", message);
+            super(sid, local.zbselective.i18n.UiText.text("Missing signature file.", "缺少签名文件。"), message);
         }
     }
 
     /** .zbs exists but signature does not validate or is malformed. */
     public static final class InvalidSignature extends Verification {
         public InvalidSignature(SteamID64 sid, String message) {
-            super(sid, "Invalid signature.", message);
+            super(sid, local.zbselective.i18n.UiText.text("Invalid signature.", "签名无效。"), message);
         }
 
         public InvalidSignature(SteamID64 sid, String message, List<String> profileKeys) {
-            super(sid, "Invalid signature.", message, profileKeys);
+            super(sid, local.zbselective.i18n.UiText.text("Invalid signature.", "签名无效。"), message, profileKeys);
         }
     }
 
     /** Verification failed due to external/operational problems (Steam API/profile/key fetch, etc.). */
     public static final class VerificationError extends Verification {
         public VerificationError(SteamID64 sid, String message) {
-            super(sid, "Could not verify signature.", message);
+            super(sid, local.zbselective.i18n.UiText.text("Could not verify signature.", "无法验证签名。"), message);
         }
 
         public VerificationError(SteamID64 sid, String message, List<String> profileKeys) {
-            super(sid, "Could not verify signature.", message, profileKeys);
+            super(sid, local.zbselective.i18n.UiText.text("Could not verify signature.", "无法验证签名。"), message, profileKeys);
         }
     }
 }

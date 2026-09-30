@@ -413,6 +413,7 @@ public class Loader {
             // Skip inactive/unprepared preloads before JAR hashing and network metadata lookup.
             if (!local.zbselective.RuntimeState.shouldPreload(id, preloadMod.jarPath())) continue;
             String javaPkgName = JavaModInfo.javaPkgNameFrom(preloadMod.infPath());
+            if (local.zbselective.i18n.UiText.replacesLegacyPackage(javaPkgName)) continue;
             if (Utils.isBlank(javaPkgName)) {
                 Logger.warn("Preload mod '" + id + "': cannot read javaPkgName from " + preloadMod.infPath() + "; removing.");
                 PreloadMods.remove(id);
@@ -685,7 +686,7 @@ public class Loader {
         for (int i = 0; i < jModInfos.size(); i++) {
             JavaModInfo jModInfo = jModInfos.get(i);
             boolean stSkip = false;
-            if (jModInfo.javaPkgName().equals(myPackageName)) {
+            if (jModInfo.javaPkgName().equals(myPackageName) || local.zbselective.i18n.UiText.replacesLegacyPackage(jModInfo.javaPkgName())) {
                 stSkip = true;
             }
             Integer lastIdx = lastPkgNameIndex.get(jModInfo.javaPkgName());
@@ -809,14 +810,14 @@ public class Loader {
             }
             if (!batchEntries.isEmpty()) {
                 if (g_hasDoLoadingText) {
-                    GameWindow.DoLoadingText("Waiting for Java mods approval…");
+                    GameWindow.DoLoadingText(local.zbselective.i18n.UiText.text("Waiting for Java mods approval…", "正在等待 Java 模组审批…"));
                 }
                 List<JarBatchApprovalProtocol.Entry> decided = batchEntries;
                 try {
                     decided = approvalFrontend().approvePendingMods(batchEntries);
                 } finally {
                     if (g_hasDoLoadingText) {
-                        GameWindow.DoLoadingText("Loading Mods");
+                        GameWindow.DoLoadingText(local.zbselective.i18n.UiText.text("Loading Mods", "正在加载模组"));
                     }
                 }
                 applyBatchApprovalLines(decided, approvals);
@@ -831,7 +832,7 @@ public class Loader {
             String skipReason = "";
             
             // Skip ZombieBuddy itself - it's loaded as a Java agent, not through normal mod loading
-            if (jModInfo.javaPkgName().equals(myPackageName)) {
+            if (jModInfo.javaPkgName().equals(myPackageName) || local.zbselective.i18n.UiText.replacesLegacyPackage(jModInfo.javaPkgName())) {
                 shouldSkip = true;
                 skipReason = " (loaded as Java agent, skipping normal mod loading)" + SelfUpdater.getExclusionReasonSuffix(ctx.jarPath);
             }
@@ -984,6 +985,10 @@ public class Loader {
 
     // called by Agent and Loader
     static boolean loadJar(Path jarPath, String packageName, String approvedHash, Phase phase) {
+        if (local.zbselective.i18n.UiText.replacesLegacyPackage(packageName)) {
+            Logger.info("Built-in automatic localization replaces legacy package " + packageName);
+            return false;
+        }
         if (!Files.isRegularFile(jarPath)) {
             Logger.error("JAR not found: " + jarPath);
             return false;

@@ -34,6 +34,13 @@ This is a temporary compatibility and performance patch while the original autho
 [*]Start normally and approve Java mods through ZombieBuddy's usual prompts. New or changed approved Java mods are deferred until the mandatory full restart. Save approval decisions if desired.
 [/list]
 
+[h2]内置自动汉化 / Built-in automatic CN/EN localization[/h2]
+[b]1.1.0 已把原 ZombieBuddyCN 的汉化和中文字体直接合并进 ZombieBuddy.jar，无需另外启用汉化 Mod。[/b]
+游戏语言为 CN 时中文，EN 时英文；读取启动前 options.ini 并跟随实际游戏语言变化。审批窗口、签名说明、加载提示、水印、原设置界面和重启提示自动切换。Swing 子进程继承游戏语言。仍启用的旧 cn.zbcn Java 汉化入口会自动跳过，避免固定中文转换重复覆盖。
+[b]Version 1.1.0 embeds the previous ZombieBuddyCN translations and Chinese font inside ZombieBuddy.jar. No separate translation mod needs to be enabled.[/b]
+CN game language uses Simplified Chinese; EN and other languages keep original English. Approval UI, loading text, watermark, original settings and restart notices follow the game language. Standalone Swing approvals inherit the parent language. The superseded cn.zbcn Java package is skipped automatically.
+审批 Boolean、y/n、模组 ID、哈希、签名和协议字段不翻译。TinyFD 系统原生按钮仍按系统语言显示。The approval values and protocol remain unchanged; TinyFD system-native buttons still use the OS language.
+
 [h2]修复与优化 / Fixes and optimizations[/h2]
 [list]
 [*]修复 42.21 的 loadMods(ArrayList → List) 接口变化造成的“框架已启动但 Java 模组不加载”；保留旧 ArrayList 调用入口。
@@ -56,7 +63,7 @@ Fork: [url=https://github.com/yuruichang/ZombieBuddy]yuruichang/ZombieBuddy[/url
 上游 / Upstream: [url=https://github.com/zed-0xff/ZombieBuddy]zed-0xff/ZombieBuddy[/url]
 
 [h2]验证与限制 / Validation and scope[/h2]
-基于官方稳定版 2.3.3，已验证本机 42.21、游戏自带 Java 25 与原 Windows 原生启动器。142 个上游测试与 13 个专项 JVM 场景通过；作者签名与替换脚本也已验证。尚未验收完整游戏世界、全部模组组合或多人，未测量完整启动提速百分比。框架修复不能让所有 Java 模组自动兼容新版游戏 API。
+基于官方稳定版 2.3.3，已验证本机 42.21、游戏自带 Java 25 与原 Windows 原生启动器。142 个上游测试、13 个性能/兼容性专项 JVM 场景和 6 组自动语言/字体验证通过；作者签名与替换脚本也已验证。尚未验收完整游戏世界、全部模组组合或多人，未测量完整启动提速百分比。框架修复不能让所有 Java 模组自动兼容新版游戏 API。
 Based on stable 2.3.3; validated with 42.21, bundled Java 25 and the existing native Windows launcher. This does not automatically fix game-API incompatibilities inside other Java mods. No full-game startup speed percentage or complete multiplayer/mod-combination validation is claimed.
 
 [h2]回退与官方更新 / Rollback and official updates[/h2]

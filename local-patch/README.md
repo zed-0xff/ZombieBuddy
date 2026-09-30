@@ -1,4 +1,4 @@
-# ZombieBuddy 2.3.3 — LY Optimized 1.0.0
+# ZombieBuddy 2.3.3 — LY Optimized 1.1.0
 
 基于官方稳定版 **v2.3.3 / commit `0ddf161c27848f12d09e74de7fadbea9d50e621d`** 的源码修复与优化版本。已使用本机 **Project Zomboid 42.21 / 游戏自带 Java 25** 验证。GitHub master 当前为 3.0.0 alpha，本包不引入该分支的大规模重构。
 
@@ -11,6 +11,19 @@ Fork 仓库：[yuruichang/ZombieBuddy](https://github.com/yuruichang/ZombieBuddy
 42.21 的 `ZomboidFileSystem.loadMods` 参数是 `List<String>`。原框架的加载 Advice 声明为 `ArrayList<String>`，无法匹配目标方法，所以能看到框架启动，却没有 Java 模组加载。本包将 Advice 和内部加载逻辑改为 `List`，同时保留 `Loader.loadMods(ArrayList)` 的旧入口，兼容已编译的旧调用者。
 
 依据：[上游 Issue #53](https://github.com/zed-0xff/ZombieBuddy/issues/53)、[未合并 PR #56](https://github.com/zed-0xff/ZombieBuddy/pull/56)。另对比了 [工坊临时修复 3807686870](https://steamcommunity.com/sharedfiles/filedetails/?id=3807686870) 的实际 JAR，确认其加载器修复方向相同；本包由官方稳定版源码构建，没有直接改用他人的二进制。
+
+## 内置自动汉化（1.1.0）
+
+之前的 ZombieBuddyCN 译文、原 Lua 设置界面翻译及 Noto Sans SC 中文字库已直接编入本 JAR。**无需订阅或手动启用 ZombieBuddyCN，也没有额外的汉化审批或前置 Agent。**
+
+- 游戏语言为简体中文 `CN` 时显示中文；英文及其他语言使用原英文。
+- 首次加载游戏语言前读取 `options.ini`，支持 `-cachedir`；游戏自己的语言设置生效后跟随 `Translator`，切换 CN/EN 时更新标签、水印与设置文本。
+- 覆盖 ImGui/Swing/TinyFD/控制台审批文字、签名说明、加载提示、水印、原模组设置和重启提示。Swing 子进程继承父游戏语言。
+- 审批的 Boolean 值、y/n 输入、模组 ID、哈希、签名和 JSON 协议字段不翻译。
+- 如果旧 ZombieBuddyCN 仍在启用/预加载列表中，自动跳过它的 `cn.zbcn` Java 入口，避免旧的固定中文转换器覆盖内置动态语言。
+- TinyFD 的系统原生按钮文字由操作系统提供；标题、正文和框架自绘界面按游戏语言显示。JAR 没有启动时，自然无法运行其内置翻译。
+
+原汉化提供的 Noto Sans SC 字库采用 SIL OFL 1.1，许可保存在 JAR 的 `fonts/OFL.txt`。中文字体仅在审批窗口创建字体图集时合并；未新增后台语言轮询或全游戏字符串拦截。
 
 ## 性能与兼容性改动
 
@@ -72,7 +85,7 @@ JAR 的数字版本保留 **2.3.3**，额外清单字段 `X-Local-Optimized` 和
 
 上游 **142 例**全部通过：97 单元测试、30 真实补丁测试、15 原版对照。一个原测试依赖作者个人 Workshop 目录，改为临时目录内的真实 `workshop.txt` 夹具，未改变生产路径识别逻辑。
 
-另有 **13 个专项 JVM 场景**通过，包括：新模组延迟执行、重启后 Advice/MethodDelegation、已加载类只转换一次、正则目标、Lua API 暴露、更新与重新启用、停用退出、存档列表衔接、42.21 真实加载入口、惰性 HTTP、初始化失败回退以及原 `zbNative.dll` 启动。JVM 验证启用 `-Xverify:all`。
+另有 **13 个性能/兼容性专项 JVM 场景**通过，以及 6 组自动语言/字体验证（CN/EN 启动与实时切换、CN/EN 子进程、带空格的自定义缓存路径、原生 ImGui 汉字/Latin 字形）。审批决策与无效签名拒绝在两种语言下均已验证。原有专项包括：新模组延迟执行、重启后 Advice/MethodDelegation、已加载类只转换一次、正则目标、Lua API 暴露、更新与重新启用、停用退出、存档列表衔接、42.21 真实加载入口、惰性 HTTP、初始化失败回退以及原 `zbNative.dll` 启动。JVM 验证启用 `-Xverify:all`。
 
 没有进入完整游戏世界或进行全部模组组合和多人实机验收；未测量完整启动耗时，不承诺提速百分比。本包修复框架入口，不能自动修复其他 Java 模组对新版游戏 API 的不兼容。
 
@@ -82,6 +95,6 @@ JAR 的数字版本保留 **2.3.3**，额外清单字段 `X-Local-Optimized` 和
 
 ## 源码与许可
 
-原作者为 Andrey “Zed” Zaikin，原 MIT 许可与依赖声明保留。源代码改动见 `source-changes.patch`，完整修改源码另有源码包。`build.ps1` 使用原 Gradle 构建、运行原测试及专项回归，不执行签名任务。需要 JDK 25、Python 与用于编译和验证的游戏 `projectzomboid.jar`。
+原作者为 Andrey “Zed” Zaikin，原 MIT 许可与依赖声明保留。汉化译文沿用老余原 ZombieBuddyCN 项目，字体的 OFL 许可随 JAR 分发。源代码改动见 `source-changes.patch`，完整修改源码另有源码包。`build.ps1` 使用原 Gradle 构建、运行原测试及专项回归，不执行签名任务。需要 JDK 25、Python 与用于编译和验证的游戏 `projectzomboid.jar`。
 
 相关来源：[上游稳定版源码](https://github.com/zed-0xff/ZombieBuddy/tree/v2.3.3)、[HTTP 初始化故障报告 #46](https://github.com/zed-0xff/ZombieBuddy/issues/46)、[官方 2.3.3 发布](https://github.com/zed-0xff/ZombieBuddy/releases/tag/v2.3.3)。

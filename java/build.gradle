@@ -58,7 +58,7 @@ jar {
             'Can-Redefine-Classes': 'true',
             'Can-Retransform-Classes': 'true',
             'Implementation-Version': version,
-            'X-Local-Optimized': 'b42-list-loader-per-package-hooks-1.0.0'
+            'X-Local-Optimized': 'b42-list-loader-per-package-hooks-auto-cn-en-1.1.0'
         )
     }
 }
@@ -72,7 +72,7 @@ shadowJar {
             'Can-Redefine-Classes': 'true',
             'Can-Retransform-Classes': 'true',
             'Implementation-Version': version,
-            'X-Local-Optimized': 'b42-list-loader-per-package-hooks-1.0.0'
+            'X-Local-Optimized': 'b42-list-loader-per-package-hooks-auto-cn-en-1.1.0'
         )
     }
     mergeServiceFiles()

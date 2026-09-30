@@ -1,10 +1,10 @@
 {
-  "name": "ZombieBuddy 2.3.3 LY Optimized 1.0.0",
+  "name": "ZombieBuddy 2.3.3 LY Optimized 1.1.0",
   "upstream_commit": "0ddf161c27848f12d09e74de7fadbea9d50e621d",
   "upstream_url": "https://github.com/zed-0xff/ZombieBuddy",
   "tested_game": "42.21",
   "java": "game JRE 25.0.1",
-  "jar_sha256": "53b50e518ab771dd4c05304bd01e03093025e735ce14304120fd65d6c2be00dc",
+  "jar_sha256": "fedebb0cb5e4887f1e843ebf784c176d18e9b4615d0665fe457181c93fc42a24",
   "upstream_tests": {
     "unitTest": {
       "tests": 97,
@@ -61,5 +61,13 @@
     "official_ed25519_signature": "verified by bundled ZombieBuddy KnownAuthors verifier",
     "bytes_preserved": true
   },
-  "fork": "https://github.com/yuruichang/ZombieBuddy/tree/codex/optimized-b42"
+  "fork": "https://github.com/yuruichang/ZombieBuddy/tree/codex/optimized-b42",
+  "localization": {
+    "CN": "passed",
+    "EN": "passed",
+    "child-CN": "passed",
+    "child-EN": "passed",
+    "custom-cachedir": "passed",
+    "native-CJK-font": "passed"
+  }
 }

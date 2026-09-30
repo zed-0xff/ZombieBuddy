@@ -1,5 +1,5 @@
 > **本分支 / This branch: B42.21 temporary fix and performance optimization.**
-> 修复 List 加载入口，按需处理启用 Java 模组，并包含上游官方签名作者名单。
+> 修复 List 加载入口，按需处理启用 Java 模组，内置随游戏语言切换的中英汉化，并包含上游官方签名作者名单。
 > [安装说明、作者名单替换与验证 / Installation and verification](local-patch/README.md)
 > [创意工坊暂存包 / Workshop staging package](local-patch/Workshop)
 > 原作者发布更新后，临时创意工坊 Mod 将删除。 / The temporary Workshop item will be deleted after the original author publishes an update.

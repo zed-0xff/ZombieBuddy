@@ -1,3 +1,4 @@
 # Official signatures cover the original JSON bytes; disable newline conversion.
 authors.json -text
 **/authors.json -text
+java/src/main/resources/fonts/OFL.txt whitespace=-blank-at-eol

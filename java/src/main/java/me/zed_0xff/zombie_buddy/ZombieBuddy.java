@@ -36,7 +36,7 @@ public class ZombieBuddy {
     }
     
     public static String getFullVersionString() {
-        return "ZombieBuddy v" + version + " [LY Optimized 1.0.0]";
+        return "ZombieBuddy v" + version + local.zbselective.i18n.UiText.text(" [LY Optimized 1.1.0]", " [老余修复与优化 1.1.0]");
     }
 
     public static void setAutoFixModOrder(boolean value) {

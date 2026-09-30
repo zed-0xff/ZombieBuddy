@@ -14,6 +14,8 @@ $artifact = Join-Path $output 'libs/ZombieBuddy.jar'
 if (-not $SkipTests) {
     & python (Join-Path $PSScriptRoot 'tools/test.py') --game-dir $GameDir --jar $artifact
     if ($LASTEXITCODE -ne 0) { throw 'Regression tests failed' }
+    & python (Join-Path $PSScriptRoot 'tools/test-localization.py')
+    if ($LASTEXITCODE -ne 0) { throw 'Localization tests failed' }
 } else {
     $localOutput = Join-Path $PSScriptRoot 'build'
     New-Item -ItemType Directory -Path $localOutput -Force | Out-Null

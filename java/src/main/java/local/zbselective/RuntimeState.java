@@ -157,9 +157,9 @@ public final class RuntimeState {
     }
 
     static void requestRestart() {
-        String message = "Java 模组已获准或启用列表发生变化。\n\n为按需加载 Java hook，必须完整重启游戏。\n"
-            + "待加载记录已保存，新模组尚未执行。\n点击确定后游戏将关闭，请重新启动游戏。\n\n"
-            + "Java mod selection changed. A full game restart is required.\nNew/updated mods have been deferred. Restart the game after closing this dialog.";
+        String message = local.zbselective.i18n.UiText.text(
+            "Java mod selection changed. A full game restart is required.\n\nNew/updated mods have been deferred.\nClick OK to close the game, then start it again.",
+            "Java 模组已获准或启用列表发生变化。\n\n为按需加载 Java hook，必须完整重启游戏。\n待加载记录已保存，新模组尚未执行。\n点击确定后游戏将关闭，请重新启动游戏。");
         try {
             if (!Boolean.parseBoolean(System.getProperty("zbselective.restartUi", "true"))) {
                 System.err.println(message);
@@ -168,7 +168,8 @@ public final class RuntimeState {
             }
             String exe = System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java";
             Process dialog = new ProcessBuilder(Path.of(System.getProperty("java.home"), "bin", exe).toString(),
-                "-Djava.awt.headless=false", "-cp", ownJar.toString(), RestartDialog.class.getName(), message)
+                "-Djava.awt.headless=false", local.zbselective.i18n.UiText.childVmOption(),
+                "-cp", ownJar.toString(), RestartDialog.class.getName(), message)
                 .inheritIO().start();
             if (!dialog.waitFor(5, java.util.concurrent.TimeUnit.MINUTES)) dialog.destroyForcibly();
         } catch (Exception error) { log("restart dialog unavailable: " + error); }
