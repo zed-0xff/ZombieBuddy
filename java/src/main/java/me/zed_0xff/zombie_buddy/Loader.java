@@ -410,6 +410,8 @@ public class Loader {
         for (Map.Entry<String, Config.PreloadMod> e : g_config.preload_mods().entrySet()) {
             String id = e.getKey();
             Config.PreloadMod preloadMod = e.getValue();
+            // Skip inactive/unprepared preloads before JAR hashing and network metadata lookup.
+            if (!local.zbselective.RuntimeState.shouldPreload(id, preloadMod.jarPath())) continue;
             String javaPkgName = JavaModInfo.javaPkgNameFrom(preloadMod.infPath());
             if (Utils.isBlank(javaPkgName)) {
                 Logger.warn("Preload mod '" + id + "': cannot read javaPkgName from " + preloadMod.infPath() + "; removing.");
@@ -555,7 +557,7 @@ public class Loader {
         "ZModUnbork"
     );
 
-    private static void autoFixModOrder(ArrayList<String> mods) {
+    private static void autoFixModOrder(List<String> mods) {
         if (Utils.isBlank(mods)) {
             return;
         }
@@ -586,14 +588,20 @@ public class Loader {
         return out;
     }
 
-    private static void moveModToIndex(ArrayList<String> mods, String modId, int index) {
+    private static void moveModToIndex(List<String> mods, String modId, int index) {
         int oldIndex = mods.indexOf(modId);
         if (oldIndex < 0) return;
         mods.remove(oldIndex);
         mods.add(Math.min(index, mods.size()), modId);
     }
 
+    /** Binary compatibility for mods compiled against the original ArrayList entry point. */
     public static void loadMods(ArrayList<String> mods) {
+        loadMods((List<String>) mods);
+    }
+
+    public static void loadMods(List<String> mods) {
+        local.zbselective.RuntimeState.begin(mods);
         if (g_config.auto_fix_mod_order()) {
             autoFixModOrder(mods);
         }
@@ -613,7 +621,7 @@ public class Loader {
         }
 
         ArrayList<String> mergedIds = new ArrayList<>();
-        mergedIds.addAll(PreloadMods.getIds()); // inject preloaded mod ids BEFORE actual mod list
+        mergedIds.addAll(local.zbselective.RuntimeState.enabledPreloadIds(PreloadMods.getIds())); // only enabled preloads
         mergedIds.addAll(mods);
 
         Boolean isB42 = null;
@@ -939,6 +947,7 @@ public class Loader {
                 loadJar(jModInfos.get(i).jarPath(), jModInfos.get(i).javaPkgName(), modContexts.get(i).hash, Phase.MAIN);
             }
         }
+        local.zbselective.RuntimeState.finish();
     }
 
     private static void checkShiftKey() {
@@ -981,6 +990,9 @@ public class Loader {
         }
         if (Utils.isBlank(packageName)) {
             Logger.error("Invalid package name: '" + packageName + "' for JAR " + jarPath);
+            return false;
+        }
+        if (!local.zbselective.RuntimeState.allowJar(jarPath, packageName, approvedHash, phase.name())) {
             return false;
         }
         if (!addJarToClasspath(jarPath, packageName, approvedHash)) {

@@ -36,7 +36,7 @@ public class ZombieBuddy {
     }
     
     public static String getFullVersionString() {
-        return "ZombieBuddy v" + version;
+        return "ZombieBuddy v" + version + " [LY Optimized 1.0.0]";
     }
 
     public static void setAutoFixModOrder(boolean value) {

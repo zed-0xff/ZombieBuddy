@@ -1,0 +1,9 @@
+id=ZombieBuddyOptimized
+name=ZombieBuddy Temporary Fix + Performance Optimization / 临时修复与性能优化
+require=\ZombieBuddy
+modversion=1.0.0
+versionMin=42.21
+author=老余
+poster=poster.png
+icon=icon.png
+description=Temporary manual replacement package for ZombieBuddy.jar and the official signed authors.json. Requires the original ZombieBuddy installation. No in-game activation required. Will be deleted after the original author's update. / 手动替换JAR和官方作者签名名单的临时补丁，无需在游戏模组列表启用；原作者更新后删除。

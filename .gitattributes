@@ -1,0 +1,3 @@
+# Official signatures cover the original JSON bytes; disable newline conversion.
+authors.json -text
+**/authors.json -text

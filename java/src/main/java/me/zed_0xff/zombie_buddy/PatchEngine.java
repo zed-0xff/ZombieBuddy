@@ -133,6 +133,7 @@ public final class PatchEngine {
      */
     public static void applyPatches(String packageName, ClassLoader modLoader) {
         List<Class<?>> patches = collectPatches(packageName, modLoader);
+        local.zbselective.TargetInstrumentation.remember(patches, packageName);
         if (patches.isEmpty()) {
             Logger.info("no patches in package " + packageName);
             return;
@@ -200,11 +201,9 @@ public final class PatchEngine {
         // Check if we have Advice patches on already-loaded classes
         // If so, we need to disable class format changes for retransformation to work
         boolean hasAdviceOnLoadedClasses = false;
-        Set<String> advLoadedClasses = new HashSet<>();
         for (var entry : advicePatches.entrySet()) {
             if (loadedClasses.contains(entry.getKey().className())) {
                 hasAdviceOnLoadedClasses = true;
-                advLoadedClasses.add(entry.getKey().className());
                 break;
             }
         }
@@ -622,40 +621,17 @@ public final class PatchEngine {
                 });
         }
         
-        builder.installOn(Loader.g_instrumentation);
+        builder.installOn(local.zbselective.TargetInstrumentation.wrap(Loader.g_instrumentation, packageName));
 
-        // Explicitly retransform already-loaded classes to ensure Advice is applied
-        // ByteBuddy's agent builder with RETRANSFORMATION strategy should handle this automatically,
-        // but we call retransformClasses() explicitly to trigger the transformation immediately.
-        // Note: ByteBuddy's Advice may not work correctly with retransformation for already-loaded classes
-        // due to JVM limitations. If this doesn't work, patches need to be loaded before the target class.
-        if (!advLoadedClasses.isEmpty()) {
-            Logger.info("Explicitly retransforming " + advLoadedClasses.size() + " already-loaded class(es)");
-            // Logger.info("WARNING: Advice patches on already-loaded classes may not work due to JVM retransformation limitations.");
-            // Logger.info("Consider loading patches before the target class is loaded, or use MethodDelegation instead.");
-            for (String className : advLoadedClasses) {
-                try {
-                    Class<?> cls = Class.forName(className);
-                    // Retransform through ByteBuddy's agent pipeline
-                    Loader.g_instrumentation.retransformClasses(cls);
-                    Logger.debug("Retransformed: " + className);
-                } catch (ClassNotFoundException e) {
-                    Logger.error("Could not find class for retransformation: " + className);
-                } catch (Exception e) {
-                    Logger.error("Error retransforming class " + className + ": " + e.getMessage());
-                    if (Loader.g_verbosity > 0) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-        }
+        // RETRANSFORMATION already processes loaded targets once during installOn.
+        // A second explicit retransform duplicates Advice compilation and bytecode work.
 
         // Warm up classes _AFTER_ installing the agent builder
         for (String className : classesToWarmUp) {
             Logger.info("warming up class: " + className);
             try {
                 Class<?> cls = Class.forName(className);
-                builder = builder.warmUp(cls);
+                // Class.forName above triggers first-load weaving; do not build an unused warm-up plan.
             } catch (ClassNotFoundException e) {
                 Logger.error("Could not find class for warm-up: " + className);
             } catch (Exception e) {
@@ -691,7 +667,7 @@ public final class PatchEngine {
                 }
             }
             if (!jarPaths.isEmpty()) {
-                classGraph = classGraph.overrideClasspath(jarPaths.toArray());
+                classGraph = classGraph.overrideClasspath(local.zbselective.RuntimeState.scanClasspath(jarPaths.toArray(), packageName));
             }
         }
 
