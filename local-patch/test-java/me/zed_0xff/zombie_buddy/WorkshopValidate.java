@@ -1,6 +1,7 @@
 package me.zed_0xff.zombie_buddy;
 
 import java.nio.file.*;
+import java.nio.charset.StandardCharsets;
 import zombie.core.znet.SteamWorkshopItem;
 
 public final class WorkshopValidate {
@@ -16,6 +17,11 @@ public final class WorkshopValidate {
         String desc = item.getDescription();
         if (!desc.contains("authors.json") || !desc.contains("codex/optimized-b42") || !desc.contains("将删除"))
             throw new AssertionError("Workshop description missing requested installation/source/temporary notice");
+        int descriptionBytes = item.getSubmitDescription().getBytes(StandardCharsets.UTF_8).length;
+        int titleBytes = item.getTitle().getBytes(StandardCharsets.UTF_8).length;
+        if (descriptionBytes >= 8000) throw new AssertionError("Steam description exceeds byte limit: " + descriptionBytes);
+        if (titleBytes > 128) throw new AssertionError("Steam title exceeds byte limit: " + titleBytes);
+        System.out.println("Steam submit metadata: description=" + descriptionBytes + "/8000 bytes, title=" + titleBytes + "/128 bytes");
         System.out.println("PASS actual game Workshop validator; " + item.getTitle());
     }
 }
