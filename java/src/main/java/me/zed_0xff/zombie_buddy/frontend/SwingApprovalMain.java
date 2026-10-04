@@ -87,8 +87,9 @@ public final class SwingApprovalMain {
     private SwingApprovalMain() {}
 
     public static void main(String[] args) {
+        local.zbselective.i18n.UiText.initialize();
         if (args == null || args.length != 2) {
-            System.err.println("Usage: SwingApprovalMain <requestFile> <responseFile>");
+            System.err.println(local.zbselective.i18n.UiText.text("Usage: SwingApprovalMain <requestFile> <responseFile>", "用法: SwingApprovalMain <请求文件> <响应文件>"));
             System.exit(2);
         }
         Path req = Paths.get(args[0]);
@@ -136,7 +137,7 @@ public final class SwingApprovalMain {
             }
         }
         final boolean showTrustColumn = shouldShowTrustColumn(entries, authorsWithBannedMods);
-        JFrame frame = new JFrame("ZombieBuddy — Java mod approval");
+        JFrame frame = new JFrame(local.zbselective.i18n.UiText.text("ZombieBuddy — Java mod approval", "ZombieBuddy — Java 模组审批"));
         frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         frame.addWindowListener(new WindowAdapter() {
             @Override
@@ -148,7 +149,7 @@ public final class SwingApprovalMain {
         JPanel root = new JPanel(new BorderLayout(8, 8));
         root.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JLabel intro = new JLabel("<html>For each mod choose <b>Yes</b> (load JAR) or <b>No</b> (block).</html>");
+        JLabel intro = new JLabel(local.zbselective.i18n.UiText.text("<html>For each mod choose <b>Yes</b> (load JAR) or <b>No</b> (block).</html>", "<html>请为每个模组选择<b>是</b>（加载 JAR）或<b>否</b>（阻止）。</html>"));
         root.add(intro, BorderLayout.NORTH);
 
         JPanel grid = new JPanel(new GridBagLayout());
@@ -160,12 +161,12 @@ public final class SwingApprovalMain {
         Font base = UIManager.getFont("Label.font");
         Font bold = base != null ? base.deriveFont(Font.BOLD) : null;
 
-        JLabel hName     = new JLabel("Mod");
-        JLabel hAuthor   = new JLabel("Author");
-        JLabel hUpdated  = new JLabel("Updated");
-        JLabel hSteamBan = new JLabel("<html><center>Steam<br/>ban status</center></html>");
-        JLabel hTrust    = new JLabel("<html><center>Trust<br/>author</center></html>");
-        JLabel hAllow    = new JLabel("Allow");
+        JLabel hName     = new JLabel(local.zbselective.i18n.UiText.text("Mod", "模组"));
+        JLabel hAuthor   = new JLabel(local.zbselective.i18n.UiText.text("Author", "作者"));
+        JLabel hUpdated  = new JLabel(local.zbselective.i18n.UiText.text("Updated", "更新时间"));
+        JLabel hSteamBan = new JLabel(local.zbselective.i18n.UiText.text("<html><center>Steam<br/>ban status</center></html>", "<html><center>Steam<br/>封禁状态</center></html>"));
+        JLabel hTrust    = new JLabel(local.zbselective.i18n.UiText.text("<html><center>Trust<br/>author</center></html>", "<html><center>信任<br/>作者</center></html>"));
+        JLabel hAllow    = new JLabel(local.zbselective.i18n.UiText.text("Allow", "允许"));
 
         hUpdated.setHorizontalAlignment(SwingConstants.CENTER);
         hSteamBan.setHorizontalAlignment(SwingConstants.CENTER);
@@ -279,7 +280,7 @@ public final class SwingApprovalMain {
             } else if (zbsNo) {
                 String fullNotice = !Utils.isBlank(e.zbs.notice())
                     ? e.zbs.notice()
-                    : "Invalid signature — JAR may have been tampered with.";
+                    : local.zbselective.i18n.UiText.text("Invalid signature — JAR may have been tampered with.", "签名无效——JAR 可能已被篡改。");
                 int nl = fullNotice.indexOf('\n');
                 String shortNotice = nl >= 0 ? fullNotice.substring(0, nl).trim() : fullNotice;
                 JLabel warn = new JLabel("<html><font color=\"#b00000\">" + escapeHtml(
@@ -292,12 +293,12 @@ public final class SwingApprovalMain {
                 applyRowBackground(warn, rowBg);
                 authorCell.add(warn);
             } else if (zbsUnsigned) {
-                JLabel u = new JLabel("<html><i>(unsigned)</i></html>");
+                JLabel u = new JLabel(local.zbselective.i18n.UiText.text("<html><i>(unsigned)</i></html>", "<html><i>（未签名）</i></html>"));
                 u.setAlignmentX(Component.LEFT_ALIGNMENT);
                 applyRowBackground(u, rowBg);
                 authorCell.add(u);
             } else {
-                String authorText = "?";
+                String authorText = local.zbselective.i18n.UiText.text("?", "？");
                 JLabel plain = new JLabel(authorText);
                 applyRowBackground(plain, rowBg);
                 authorCell.add(plain);
@@ -315,7 +316,7 @@ public final class SwingApprovalMain {
             c.gridx = COL_STEAM_BAN;
             c.weightx = W_STEAM_BAN;
             c.fill = GridBagConstraints.BOTH;
-            JLabel banStatusLab = new JLabel(steamBanYes ? "Yes" : "No");
+            JLabel banStatusLab = new JLabel(steamBanYes ? local.zbselective.i18n.UiText.text("Yes", "是") : local.zbselective.i18n.UiText.text("No", "否"));
             banStatusLab.setHorizontalAlignment(SwingConstants.CENTER);
             if (!steamBanYes) {
                 banStatusLab.setForeground(STEAM_BAN_NO);
@@ -327,8 +328,8 @@ public final class SwingApprovalMain {
             grid.add(banStatusLab, c);
 
             boolean defaultYes = Boolean.TRUE.equals(e.decision);
-            JRadioButton yesB = new JRadioButton("Yes", defaultYes);
-            JRadioButton noB = new JRadioButton("No", !defaultYes);
+            JRadioButton yesB = new JRadioButton(local.zbselective.i18n.UiText.text("Yes", "是"), defaultYes);
+            JRadioButton noB = new JRadioButton(local.zbselective.i18n.UiText.text("No", "否"), !defaultYes);
             forceDisableAllow[i] = zbsNo || steamBanYes;
             if (forceDisableAllow[i]) {
                 yesB.setEnabled(false);
@@ -357,7 +358,7 @@ public final class SwingApprovalMain {
             trustCb.setEnabled(canTrustThisAuthor);
             if (!canTrustThisAuthor && showTrustColumn && zbsYes && !zbsSteamId.isEmpty()
                     && authorsWithBannedMods.contains(zbsSteamId)) {
-                trustCb.setToolTipText("Cannot trust author: they have a banned mod in this batch.");
+                trustCb.setToolTipText(local.zbselective.i18n.UiText.text("Cannot trust author: they have a banned mod in this batch.", "无法信任该作者：其在本批次中有被封禁的模组。"));
             }
             applyRowBackground(trustCb, rowBg);
             trustChecks[i] = trustCb;
@@ -390,14 +391,14 @@ public final class SwingApprovalMain {
         root.add(scroll, BorderLayout.CENTER);
 
         JLabel trustNotice = new JLabel(
-            "<html><small><i>\"Trust author\" means all mods by that author are auto-allowed while their digital signature remains valid and the mod is not banned.</i></small></html>");
+            local.zbselective.i18n.UiText.text("<html><small><i>\"Trust author\" means all mods by that author are auto-allowed while their digital signature remains valid and the mod is not banned.</i></small></html>", "<html><small><i>“信任作者”表示该作者的所有模组将在其数字签名仍然有效且未被封禁时自动允许加载。</i></small></html>"));
         trustNotice.setAlignmentX(Component.LEFT_ALIGNMENT);
-        JCheckBox savePersist = new JCheckBox("Save decisions to disk (persist across game launches)", false);
+        JCheckBox savePersist = new JCheckBox(local.zbselective.i18n.UiText.text("Save decisions to disk (persist across game launches)", "将决定保存到磁盘（跨游戏启动保持）"), false);
         savePersist.setHorizontalTextPosition(SwingConstants.LEADING);
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        JButton ok = new JButton("OK");
-        JButton cancel = new JButton("Cancel");
+        JButton ok = new JButton(local.zbselective.i18n.UiText.text("OK", "确定"));
+        JButton cancel = new JButton(local.zbselective.i18n.UiText.text("Cancel", "取消"));
         buttons.add(cancel);
         buttons.add(ok);
         Runnable updateOkEnabled = () -> {

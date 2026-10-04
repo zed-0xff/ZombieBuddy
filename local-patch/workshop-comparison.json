@@ -1,0 +1,21 @@
+{
+  "original_sha256": "6dd95cedce60f03bf8b8cefd0d19eb156230e0d54bffa07de9da5212a06c7be6",
+  "workshop_sha256": "dd13e6e06e64be0e832a4f13508c6872de36c9c7b2290023c5884a7f74467283",
+  "changed_entries": [
+    "META-INF/MANIFEST.MF",
+    "META-INF/ME_ZED_0.RSA",
+    "META-INF/ME_ZED_0.SF",
+    "me/zed_0xff/zombie_buddy/Loader$1ModCtx.class",
+    "me/zed_0xff/zombie_buddy/Loader$1PreloadEntry.class",
+    "me/zed_0xff/zombie_buddy/Loader$JavaModLoadState.class",
+    "me/zed_0xff/zombie_buddy/Loader$Phase.class",
+    "me/zed_0xff/zombie_buddy/Loader$PreloadMods.class",
+    "me/zed_0xff/zombie_buddy/Loader$ZBSContext.class",
+    "me/zed_0xff/zombie_buddy/Loader.class",
+    "me/zed_0xff/zombie_buddy/patches/Patch_ZomboidFileSystem$Patch_getAllModFoldersAux$1.class",
+    "me/zed_0xff/zombie_buddy/patches/Patch_ZomboidFileSystem$Patch_getAllModFoldersAux.class",
+    "me/zed_0xff/zombie_buddy/patches/Patch_ZomboidFileSystem$Patch_loadMods1.class",
+    "me/zed_0xff/zombie_buddy/patches/Patch_ZomboidFileSystem$Patch_loadMods2.class",
+    "me/zed_0xff/zombie_buddy/patches/Patch_ZomboidFileSystem.class"
+  ]
+}

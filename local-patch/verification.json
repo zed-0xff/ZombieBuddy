@@ -1,0 +1,96 @@
+{
+  "name": "ZombieBuddy 2.3.3 LY Optimized 1.1.2",
+  "upstream_commit": "0ddf161c27848f12d09e74de7fadbea9d50e621d",
+  "upstream_url": "https://github.com/zed-0xff/ZombieBuddy",
+  "tested_game": "42.21",
+  "java": "game JRE 25.0.1",
+  "jar_sha256": "dd24cebdbeddc7b4bb49765347fb90ef16457514a3f40422cd1dd8bc969bffd6",
+  "upstream_tests": {
+    "unitTest": {
+      "tests": 97,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "test_patched": {
+      "tests": 30,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "test_vanilla": {
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "custom_regressions": {
+    "unit": "passed",
+    "prepare": "passed",
+    "resumed": "passed",
+    "resumed-loaded": "passed",
+    "reenabled": "passed",
+    "updated": "passed",
+    "disabled": "passed",
+    "prepare-save": "passed",
+    "profile": "passed",
+    "core": "passed",
+    "prepare-profile-save-plan": "passed",
+    "profile-cycle-save-plan": "passed",
+    "prepare-profile-default-plan": "passed",
+    "profile-cycle-default-plan": "passed",
+    "prepare-profile-new-code": "passed",
+    "profile-cycle-new-code": "passed",
+    "prepare-profile-removed-code": "passed",
+    "profile-cycle-removed-code": "passed",
+    "prepare-preload-save": "passed",
+    "preload-save": "passed",
+    "prepare-preload-default": "passed",
+    "preload-default": "passed",
+    "prepare-preload-updated": "passed",
+    "preload-updated": "passed",
+    "prepare-preload-invalid-signature": "passed",
+    "preload-invalid-signature": "passed",
+    "network-lazy": "passed",
+    "network-failure": "passed",
+    "native-launcher": "passed",
+    "replacement-script": {
+      "status": "passed",
+      "shells": [
+        "powershell",
+        "pwsh"
+      ]
+    }
+  },
+  "limitations": [
+    "No full in-game world/multiplayer run",
+    "No full startup timing benchmark",
+    "Unsigned local replacement; original mod approval and ZBS checks preserved"
+  ],
+  "authors_snapshot": {
+    "source": "https://github.com/zed-0xff/ZombieBuddy/blob/a403dafae4e8a37e1ccefda1936927782709f82d/authors.json",
+    "upstream_commit": "a403dafae4e8a37e1ccefda1936927782709f82d",
+    "updated_at": "2026-08-16T00:00:00Z",
+    "count": 10,
+    "sha256": "3243a883c80a48a743f7957ed09d55983536906fd76e368b733b22916310421b",
+    "official_ed25519_signature": "verified by bundled ZombieBuddy KnownAuthors verifier",
+    "bytes_preserved": true
+  },
+  "fork": "https://github.com/yuruichang/ZombieBuddy/tree/b42-compatibility-performance-localization",
+  "localization": {
+    "CN": "passed",
+    "EN": "passed",
+    "child-CN": "passed",
+    "child-EN": "passed",
+    "custom-cachedir": "passed",
+    "native-CJK-font": "passed"
+  },
+  "distribution": {
+    "untested-build-rejected": "passed",
+    "stale-regression-rejected": "passed",
+    "source-patch-generated": "passed",
+    "stale-workshop-overridden": "passed",
+    "skip-tests-checksum-and-rejection": "passed"
+  }
+}

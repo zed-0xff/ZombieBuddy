@@ -42,11 +42,11 @@ import zombie.network.DesktopBrowser;
 
 final class ImguiApprovalDialog {
     private static final String DATE_FORMAT = "yyyy-MM-dd";
-    private static final String PRELOAD_NOTICE = "[Preload]";
-    private static final String PRELOAD_TOOLTIP = String.join("\n",
-            "This mod wants ZombieBuddy to load its Java code during agent startup on the next launch.",
-            "Preloaded mods run before normal Project Zomboid mod loading.",
-            "This lets the mod hook earlier game code that is otherwise already loaded.");
+    private static String PRELOAD_NOTICE() { return local.zbselective.i18n.UiText.text("[Preload]", "【预加载】"); }
+    private static String PRELOAD_TOOLTIP() { return String.join("\n",
+            local.zbselective.i18n.UiText.text("This mod wants ZombieBuddy to load its Java code during agent startup on the next launch.", "此模组希望 ZombieBuddy 在下一次启动时于代理启动阶段加载其 Java 代码。"),
+            local.zbselective.i18n.UiText.text("Preloaded mods run before normal Project Zomboid mod loading.", "预加载模组先于常规 Project Zomboid 模组加载。"),
+            local.zbselective.i18n.UiText.text("This lets the mod hook earlier game code that is otherwise already loaded.", "这允许模组挂钩更早期的游戏代码（否则这些代码可能已加载）。")); }
     private static final int ROW_OK                     = ImColor.rgba(60, 110, 60, 80);
     private static final int ROW_BAD                    = ImColor.rgba(130, 55, 55, 95);
     private static final int STEAM_BAN_NO               = ImColor.rgb(0, 170, 70);
@@ -68,13 +68,13 @@ final class ImguiApprovalDialog {
     private static final int COL_IDX_ALLOW              = 4;
     private static final int COL_IDX_TRUST_AUTHOR       = 5;
 
-    private static final String COL_MOD                 = "Mod";
-    private static final String COL_AUTHOR              = "Author";
-    private static final String COL_UPDATED             = "Updated";
-    private static final String COL_STEAM_BAN           = "Steam ban status";
-    private static final String COL_ALLOW               = "Allow";
-    private static final String COL_TRUST_AUTHOR        = "Trust author";
-    private static final String TRUST_AUTHOR_TOOLTIP    = "Signed mods by that author can be auto-allowed while the signature remains valid and the mod is not banned.";
+    private static String COL_MOD() { return local.zbselective.i18n.UiText.text("Mod", "模组"); }
+    private static String COL_AUTHOR() { return local.zbselective.i18n.UiText.text("Author", "作者"); }
+    private static String COL_UPDATED() { return local.zbselective.i18n.UiText.text("Updated", "更新时间"); }
+    private static String COL_STEAM_BAN() { return local.zbselective.i18n.UiText.text("Steam ban status", "Steam 封禁状态"); }
+    private static String COL_ALLOW() { return local.zbselective.i18n.UiText.text("Allow", "允许"); }
+    private static String COL_TRUST_AUTHOR() { return local.zbselective.i18n.UiText.text("Trust author", "信任作者"); }
+    private static String TRUST_AUTHOR_TOOLTIP() { return local.zbselective.i18n.UiText.text("Signed mods by that author can be auto-allowed while the signature remains valid and the mod is not banned.", "该作者的已签名模组可在签名仍然有效且未被封禁时自动允许加载。"); }
     private static final String WATERMARK_ICON_RESOURCE = "zb_icon.png";
 
     private static IconTexture watermarkIcon;
@@ -143,14 +143,14 @@ final class ImguiApprovalDialog {
                 0.5f,
                 0.5f);
         ImGui.pushStyleVar(ImGuiStyleVar.WindowTitleAlign, 0.5f, 0.5f);
-        boolean visible = ImGui.begin("ZombieBuddy Java Mod Approval", open, ImGuiWindowFlags.NoCollapse);
+        boolean visible = ImGui.begin(local.zbselective.i18n.UiText.text("ZombieBuddy Java Mod Approval", "ZombieBuddy Java 模组审批"), open, ImGuiWindowFlags.NoCollapse);
         ImGui.popStyleVar();
         if (!visible) {
             ImGui.end();
             return;
         }
         drawWindowIconOverlay();
-        centeredText("Review each Java mod before allowing it to load.");
+        centeredText(local.zbselective.i18n.UiText.text("Review each Java mod before allowing it to load.", "请在允许加载前逐一审查每个 Java 模组。"));
         ImGui.separator();
 
         if (ImGui.beginChild("##zb-imgui-approval-scroll", 0.0f, scaled(TABLE_SCROLL_H), true)) {
@@ -176,11 +176,11 @@ final class ImguiApprovalDialog {
     }
 
     private void drawBottomActions() {
-        String forceDialogHint = "Hold Shift during game load to force-show this dialog";
-        String persistLabel = "Save decisions to disk (persist across game launches)";
-        String persistTooltip = "When disabled, choices apply only to this game launch.";
-        String cancelLabel = "Cancel";
-        String okLabel = "OK";
+        String forceDialogHint = local.zbselective.i18n.UiText.text("Hold Shift during game load to force-show this dialog", "游戏加载期间按住 Shift 可强制显示此对话框");
+        String persistLabel = local.zbselective.i18n.UiText.text("Save decisions to disk (persist across game launches)", "将决定保存到磁盘（跨游戏启动保持）");
+        String persistTooltip = local.zbselective.i18n.UiText.text("When disabled, choices apply only to this game launch.", "未勾选时，选择仅对本次游戏启动生效。");
+        String cancelLabel = local.zbselective.i18n.UiText.text("Cancel", "取消");
+        String okLabel = local.zbselective.i18n.UiText.text("OK", "确定");
 
         float spacing       = ImGui.getStyle().getItemSpacingX();
         float paddingX      = ImGui.getStyle().getFramePaddingX();
@@ -203,7 +203,7 @@ final class ImguiApprovalDialog {
 
         ImGui.setCursorPos(leftX, textY);
         ImGui.textDisabled(forceDialogHint);
-        showTooltipIfHovered("Shows the approval dialog even for previously approved Java mods.");
+        showTooltipIfHovered(local.zbselective.i18n.UiText.text("Shows the approval dialog even for previously approved Java mods.", "即使对已批准的 Java 模组也会显示审批对话框。"));
 
         ImGui.setCursorPos(persistX, persistY);
         ImGui.text(persistLabel);
@@ -216,7 +216,7 @@ final class ImguiApprovalDialog {
         ImGui.setCursorPosY(buttonY);
         ImGui.setCursorPosX(Math.max(ImGui.getCursorPosX(), ImGui.getWindowWidth() - rightPad - buttonRowW));
         boolean cancelClicked = clickableButton(cancelLabel, cancelW, buttonH);
-        showTooltipIfHovered("deny all pending Java mods");
+        showTooltipIfHovered(local.zbselective.i18n.UiText.text("deny all pending Java mods", "拒绝所有待审批的 Java 模组"));
 
         if (cancelClicked) {
             result.compareAndSet(null, denyAll(entries));
@@ -252,12 +252,12 @@ final class ImguiApprovalDialog {
         tableRowHeight = scaled(TABLE_ROW_MIN_HEIGHT);
         ImGui.tableNextRow(ImGuiTableRowFlags.Headers, tableRowHeight);
         tableRowStartY = ImGui.getCursorPosY();
-        drawHeaderCell(COL_IDX_MOD, COL_MOD);
-        drawHeaderCell(COL_IDX_AUTHOR, COL_AUTHOR);
-        drawHeaderCell(COL_IDX_UPDATED, COL_UPDATED);
-        drawHeaderCell(COL_IDX_STEAM_BAN, COL_STEAM_BAN);
-        drawHeaderCell(COL_IDX_ALLOW, COL_ALLOW);
-        drawHeaderCell(COL_IDX_TRUST_AUTHOR, COL_TRUST_AUTHOR);
+        drawHeaderCell(COL_IDX_MOD, COL_MOD());
+        drawHeaderCell(COL_IDX_AUTHOR, COL_AUTHOR());
+        drawHeaderCell(COL_IDX_UPDATED, COL_UPDATED());
+        drawHeaderCell(COL_IDX_STEAM_BAN, COL_STEAM_BAN());
+        drawHeaderCell(COL_IDX_ALLOW, COL_ALLOW());
+        drawHeaderCell(COL_IDX_TRUST_AUTHOR, COL_TRUST_AUTHOR());
     }
 
     private static void drawHeaderCell(int columnIndex, String label) {
@@ -340,12 +340,12 @@ final class ImguiApprovalDialog {
     }
 
     private void setupTableColumns() {
-        ImGui.tableSetupColumn(COL_MOD, ImGuiTableColumnFlags.WidthStretch, 1.0f);
-        setupFixedColumn(COL_AUTHOR, columnContentWidth(COL_AUTHOR, e -> authorText(e)));
-        setupFixedColumn(COL_UPDATED, columnContentWidth(COL_UPDATED, e -> updatedText(e)));
-        setupFixedColumn(COL_STEAM_BAN, steamBanColumnContentWidth());
-        setupFixedColumn(COL_ALLOW, allowColumnContentWidth());
-        setupFixedColumn(COL_TRUST_AUTHOR, Math.max(ImGui.calcTextSize(COL_TRUST_AUTHOR).x, ImGui.getFrameHeight()));
+        ImGui.tableSetupColumn(COL_MOD(), ImGuiTableColumnFlags.WidthStretch, 1.0f);
+        setupFixedColumn(COL_AUTHOR(), columnContentWidth(COL_AUTHOR(), e -> authorText(e)));
+        setupFixedColumn(COL_UPDATED(), columnContentWidth(COL_UPDATED(), e -> updatedText(e)));
+        setupFixedColumn(COL_STEAM_BAN(), steamBanColumnContentWidth());
+        setupFixedColumn(COL_ALLOW(), allowColumnContentWidth());
+        setupFixedColumn(COL_TRUST_AUTHOR(), Math.max(ImGui.calcTextSize(COL_TRUST_AUTHOR()).x, ImGui.getFrameHeight()));
     }
 
     private static void setupFixedColumn(String label, float contentW) {
@@ -369,12 +369,12 @@ final class ImguiApprovalDialog {
             return !Utils.isBlank(e.zbs.notice()) ? e.zbs.notice() : e.zbs.authorSteamId().toString();
         }
         if (e.zbs.invalid()) {
-            return "No";
+            return local.zbselective.i18n.UiText.text("No", "否");
         }
         if (e.zbs.unsigned()) {
-            return "(unsigned)";
+            return local.zbselective.i18n.UiText.text("(unsigned)", "（未签名）");
         }
-        return "?";
+        return local.zbselective.i18n.UiText.text("?", "？");
     }
 
     private static String updatedText(JarBatchApprovalProtocol.Entry e) {
@@ -383,12 +383,12 @@ final class ImguiApprovalDialog {
 
     private static float steamBanColumnContentWidth() {
         return Math.max(
-                ImGui.calcTextSize(COL_STEAM_BAN).x,
-                ImGui.calcTextSize("Unknown").x);
+                ImGui.calcTextSize(COL_STEAM_BAN()).x,
+                ImGui.calcTextSize(local.zbselective.i18n.UiText.text("Unknown", "未知")).x);
     }
 
     private float allowColumnContentWidth() {
-        float w = ImGui.calcTextSize(COL_ALLOW).x;
+        float w = ImGui.calcTextSize(COL_ALLOW()).x;
         w = Math.max(w, ImGui.getFrameHeight() * 2.0f + ImGui.getStyle().getItemSpacingX());
         return w;
     }
@@ -461,7 +461,7 @@ final class ImguiApprovalDialog {
         }
 
         String url = SteamWorkshop.workshopItemUrl(e.workshopItemId);
-        String linkTooltip = "url: " + url + "\n" + tooltip;
+        String linkTooltip = local.zbselective.i18n.UiText.text("url: ", "链接: ") + url + "\n" + tooltip;
         if (centerInCell) {
             linkTextWrapped(name, url, linkTooltip);
         } else {
@@ -476,11 +476,11 @@ final class ImguiApprovalDialog {
         ImGui.spacing();
         ImGui.pushStyleColor(ImGuiCol.Text, ALERT_TEXT);
         try {
-            ImGui.textWrapped(PRELOAD_NOTICE);
+            ImGui.textWrapped(PRELOAD_NOTICE());
         } finally {
             ImGui.popStyleColor();
         }
-        showTooltipIfHovered(PRELOAD_TOOLTIP);
+        showTooltipIfHovered(PRELOAD_TOOLTIP());
     }
 
     private void drawAuthor(JarBatchApprovalProtocol.Entry e) {
@@ -490,24 +490,24 @@ final class ImguiApprovalDialog {
             return;
         }
         if (e.zbs.invalid()) {
-            cellCenteredTextColored(1.0f, 0.25f, 0.25f, 1.0f, "Invalid signature");
+            cellCenteredTextColored(1.0f, 0.25f, 0.25f, 1.0f, local.zbselective.i18n.UiText.text("Invalid signature", "签名无效"));
             if (!Utils.isBlank(e.zbs.notice())) {
                 showTooltipIfHovered(e.zbs.notice()); // should be called after text draw
             }
             return;
         }
         if (e.zbs.unsigned()) {
-            cellCenteredDisabledText("(unsigned)");
+            cellCenteredDisabledText(local.zbselective.i18n.UiText.text("(unsigned)", "（未签名）"));
             return;
         }
-        cellCenteredText("?");
+        cellCenteredText(local.zbselective.i18n.UiText.text("?", "？"));
     }
 
     private void drawSteamBan(JarBatchApprovalProtocol.Entry e) {
         if (e.steamBan != null) {
-            cellCenteredTextColored(1.0f, 0.25f, 0.25f, 1.0f, "Yes");
+            cellCenteredTextColored(1.0f, 0.25f, 0.25f, 1.0f, local.zbselective.i18n.UiText.text("Yes", "是"));
         } else {
-            cellCenteredTextColored(STEAM_BAN_NO, "No");
+            cellCenteredTextColored(STEAM_BAN_NO, local.zbselective.i18n.UiText.text("No", "否"));
         }
         if (e.steamBan != null && !Utils.isBlank(e.steamBan.reason())) {
             showTooltipIfHovered(e.steamBan.reason());
@@ -534,7 +534,7 @@ final class ImguiApprovalDialog {
             if (clickableCheckbox("##trust-" + index, trustAuthor[index]) && before != trustAuthor[index].get()) {
                 applyTrustAuthor(index, trustAuthor[index].get());
             }
-            showTooltipIfHovered(TRUST_AUTHOR_TOOLTIP);
+            showTooltipIfHovered(TRUST_AUTHOR_TOOLTIP());
             return;
         }
 
@@ -555,11 +555,11 @@ final class ImguiApprovalDialog {
         centerNextItem(rowW);
         ImGui.beginDisabled(!interactive);
         try {
-            if (clickableCheckboxValue("##allow-yes-" + index, allow[index].get(), "Yes", ALLOW_CHECK_MARK)) {
+            if (clickableCheckboxValue("##allow-yes-" + index, allow[index].get(), local.zbselective.i18n.UiText.text("Yes", "是"), ALLOW_CHECK_MARK)) {
                 allow[index].set(true);
             }
             ImGui.sameLine();
-            if (clickableCrossCheckbox("##allow-no-" + index, !allow[index].get(), "No")) {
+            if (clickableCrossCheckbox("##allow-no-" + index, !allow[index].get(), local.zbselective.i18n.UiText.text("No", "否"))) {
                 allow[index].set(false);
             }
         } finally {
@@ -794,11 +794,11 @@ final class ImguiApprovalDialog {
     private static String modTooltip(JarBatchApprovalProtocol.Entry e) {
         StringBuilder sb = new StringBuilder();
         if (e.flags.has(MF_PRELOAD)) {
-            sb.append(PRELOAD_NOTICE);
+            sb.append(PRELOAD_NOTICE());
         }
-        appendTooltipLine(sb, "id:  ", e.modId);
-        appendTooltipLine(sb, "jar: ", e.jarAbsolutePath.toString());
-        appendTooltipLine(sb, "inf: ", e.infAbsolutePath.toString());
+        appendTooltipLine(sb, local.zbselective.i18n.UiText.text("id:  ", "ID:  "), e.modId);
+        appendTooltipLine(sb, local.zbselective.i18n.UiText.text("jar: ", "JAR: "), e.jarAbsolutePath.toString());
+        appendTooltipLine(sb, local.zbselective.i18n.UiText.text("inf: ", "mod.info: "), e.infAbsolutePath.toString());
         return sb.toString();
     }
 
@@ -878,19 +878,19 @@ final class ImguiApprovalDialog {
 
     private String trustAuthorDisabledTooltip(JarBatchApprovalProtocol.Entry e) {
         if (e.steamBan != null) {
-            return "Cannot trust author: this mod has a Steam ban.";
+            return local.zbselective.i18n.UiText.text("Cannot trust author: this mod has a Steam ban.", "无法信任该作者：此模组已被 Steam 封禁。");
         }
         if (e.zbs.authorSteamId() != null && authorsWithBannedMods.contains(e.zbs.authorSteamId().toString())) {
-            return "Cannot trust author: they have a banned mod in this batch.";
+            return local.zbselective.i18n.UiText.text("Cannot trust author: they have a banned mod in this batch.", "无法信任该作者：其在本批次中有被封禁的模组。");
         }
         if (e.zbs.invalid()) {
-            return "Cannot trust author: signature is invalid.";
+            return local.zbselective.i18n.UiText.text("Cannot trust author: signature is invalid.", "无法信任该作者：签名无效。");
         }
         if (e.zbs.unsigned()) {
-            return "Cannot trust author: mod is unsigned.";
+            return local.zbselective.i18n.UiText.text("Cannot trust author: mod is unsigned.", "无法信任该作者：模组未签名。");
         }
         if (e.zbs.authorSteamId() == null) {
-            return "Cannot trust author: signature has no author SteamID.";
+            return local.zbselective.i18n.UiText.text("Cannot trust author: signature has no author SteamID.", "无法信任该作者：签名中缺少作者 SteamID。");
         }
         return "";
     }

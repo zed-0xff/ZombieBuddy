@@ -1,0 +1,9 @@
+{
+  "source": "https://github.com/zed-0xff/ZombieBuddy/blob/a403dafae4e8a37e1ccefda1936927782709f82d/authors.json",
+  "upstream_commit": "a403dafae4e8a37e1ccefda1936927782709f82d",
+  "updated_at": "2026-08-16T00:00:00Z",
+  "count": 10,
+  "sha256": "3243a883c80a48a743f7957ed09d55983536906fd76e368b733b22916310421b",
+  "official_ed25519_signature": "verified by bundled ZombieBuddy KnownAuthors verifier",
+  "bytes_preserved": true
+}

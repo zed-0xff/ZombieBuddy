@@ -1,14 +1,16 @@
 *.class
 *.exe
 *.jar
+!java/gradle/wrapper/gradle-wrapper.jar
 *.local
 *.log
 
 .classpath
-.cursor
+.*/
 .gradle
 .project
 .settings
 
 build
 tmp
+/local-patch/source-changes.patch

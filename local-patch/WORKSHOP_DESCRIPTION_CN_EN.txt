@@ -1,0 +1,63 @@
+[h1]ZombieBuddy 修复 · 性能优化 · 内置汉化 / Fix · Performance · Auto CN/EN[/h1]
+
+[b]这是临时补丁：原作者暂未发布所需更新。原作者更新后，本 Mod 将删除，请切回官方版本。[/b]
+[b]Temporary patch while awaiting the original author's update. This item will be deleted after that update; please return to the official version.[/b]
+
+[h2]功能 / Features[/h2]
+[list]
+[*]1.1.1 修复菜单往返重启：主菜单与存档列表不同，退出存档或重载菜单不再强制退出，也不覆盖存档计划。菜单新增 Java 先暂缓，重新进入同一存档可继续；实际开始另一套 Java 配置仍可能重启一次。
+[*]Menu round trips no longer restart the process or overwrite the save plan. New menu Java code is deferred; the same save can be entered again. A different actual game Java selection may still require one restart.
+[*]修复 42.21 的 List 加载接口，恢复 Java 模组发现与加载。
+[*]按模组扫描 JAR、过滤无关类通知并减少重复转换；实际开始游戏时，新获准、更新或移除所需 Java 代码才触发必要重启。
+[*]1.1.0 内置原 ZombieBuddyCN 译文与中文字库，无需启用汉化 Mod。游戏 CN 时中文，EN 时英文；审批、加载提示、水印、设置与重启提示自动切换。
+[*]Restores Java-mod loading on 42.21, reduces repeated JAR scanning/class transformations, and requires a full restart for changed Java code when actually starting a game.
+[*]Built-in CN/EN localization follows the game language. No separate ZombieBuddyCN activation is needed.
+[/list]
+
+[h2]必须手动替换 JAR 和作者列表 / Replace BOTH files manually[/h2]
+[b]订阅只下载文件，在模组菜单启用本补丁不会完成安装。本补丁无需启用；原 ZombieBuddy 必须先安装配置，并保持订阅和启用。[/b]
+[b]Subscribing only downloads files. Enabling this patch in-game does not install it. Keep the original ZombieBuddy installed, configured, subscribed and enabled.[/b]
+原版 / Original: [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3619862853]ZombieBuddy by Zed[/url]
+
+[h2]中文安装[/h2]
+[list]
+[*]完整退出游戏、Coop 和服务器。Steam → 管理 → 浏览本地文件，确认实际启动的游戏目录。
+[*]本包文件位于 steamapps/workshop/content/108600/3810617983/mods/ZombieBuddyOptimized/42.21/。
+[*]备份游戏目录旧 ZombieBuddy.jar，用本包同名 JAR 替换。保留 zbNative.dll 和原启动方式，不要覆盖原工坊 JAR。
+[*][b]authors.json 也必须替换：[/b]备份后，将本包文件原样复制到 steamapps/workshop/content/108600/3619862853/mods/ZombieBuddy/authors.json（与 libs、41、42 同级）。
+[*]同时复制到运行缓存：默认 %USERPROFILE%/.zombie_buddy/authors.json；使用 config_dir 时改用该配置目录。两处都更新，覆盖工坊文件与离线缓存。
+[*]不要编辑或重新排版 authors.json，也不要改变编码/换行，官方签名覆盖原始内容。
+[*]移除旧 ZombieBuddySelectiveHooks.jar 的启动参数。旧 cn.zbcn 汉化 Java 入口会自动跳过，无需另外启用汉化。
+[*]照常审批 Java 模组，建议保存决定。提示必须重启时退出并重新启动后生效。
+[/list]
+
+[h2]English installation[/h2]
+[list]
+[*]Close the game, Coop and servers. Locate the actual game folder through Steam → Manage → Browse local files.
+[*]Package files: steamapps/workshop/content/108600/3810617983/mods/ZombieBuddyOptimized/42.21/.
+[*]Back up and replace the GAME folder's ZombieBuddy.jar. Keep zbNative.dll and existing launcher options. Do not replace the original Workshop JAR.
+[*][b]Also replace authors.json[/b] in steamapps/workshop/content/108600/3619862853/mods/ZombieBuddy/, alongside libs/41/42.
+[*]Copy the same file to %USERPROFILE%/.zombie_buddy/authors.json, or the directory selected by config_dir. Update both locations for offline fallback.
+[*]Preserve the JSON bytes: no edits, reformatting or encoding/line-ending changes.
+[*]Remove any old ZombieBuddySelectiveHooks.jar startup argument. The superseded cn.zbcn Java translation package is skipped automatically.
+[*]Use normal approval prompts. New/changed approved Java mods are deferred until the required full restart.
+[/list]
+
+[h2]作者名单与源码 / Authors and source[/h2]
+作者文件为官方 GitHub 签名快照 a403daf，2026-08-16，10 位作者，已用官方 Ed25519 公钥验签；未自行添加或重新签署作者。
+The bundled 10-author list is the verified official signed snapshot (a403daf, 2026-08-16), not a locally re-signed list.
+Fork: [url=https://github.com/yuruichang/ZombieBuddy]yuruichang/ZombieBuddy[/url]
+本次分支 / Patch branch: [url=https://github.com/yuruichang/ZombieBuddy/tree/b42-compatibility-performance-localization]b42-compatibility-performance-localization[/url]
+Upstream: [url=https://github.com/zed-0xff/ZombieBuddy]zed-0xff/ZombieBuddy[/url]
+
+[h2]验证、回退与许可 / Validation, rollback and license[/h2]
+基于 2.3.3，验证环境为 42.21 / 游戏 Java 25 / 原 Windows 启动器。142 上游测试、13 回归场景、6 组语言与字体验证通过。未验收所有模组组合、完整游戏与多人；不承诺提速比例，也不自动修复其他模组的新 API 故障。
+Validated with 42.21, bundled Java 25 and the native Windows launcher. Approval/signature/ban checks remain active. Full-game, multiplayer and all mod combinations are not verified. TinyFD native buttons use the OS language.
+关闭游戏并恢复备份 JAR 即可回退。数字版本仍为 2.3.3，更高官方版本仍可覆盖本包；原作者更新后本 Mod 将删除。
+Close the game and restore the backed-up JAR to roll back. Future higher official versions can replace this patch; this temporary item will be deleted after the author's update.
+原作者 Andrey “Zed” Zaikin，MIT 许可与依赖声明保留；临时维护与汉化：老余。中文字库 Noto Sans SC 采用 OFL。本地修改 JAR 未经原作者签名，但其他 Java 模组的签名和审批未禁用。
+By Andrey “Zed” Zaikin; MIT/dependency notices preserved. Temporary patch/localization: LaoYu. Noto Sans SC uses OFL. This modified JAR is unsigned by the original author; Java-mod approval and signature verification remain enabled.
+
+
+[b]1.1.2：修复存档专用 Java 预加载与待加载状态显示；修正构建和工坊打包流程。[/b]
+[b]1.1.2: Fix save-only Java preloads and deferred status; correct the build and Workshop packaging workflow.[/b]

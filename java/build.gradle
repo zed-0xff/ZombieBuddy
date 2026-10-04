@@ -5,6 +5,11 @@ plugins {
     id 'io.github.zed-0xff.zb-gradle-plugin' version '1.0.1'
 }
 
+// Optional local output avoids transient cloud-drive file snapshots on Windows.
+if (project.hasProperty('optimizedBuildDir')) {
+    layout.buildDirectory = file(project.property('optimizedBuildDir'))
+}
+
 // Game classpath: comma-separated JARs or dirs. Set via -PgameClasspath=... and/or env PZ_CLASSPATH.
 // Optional: only needed for compilation, not for running tests
 def rawGameClasspath = project.findProperty('gameClasspath')?.toString()?.trim()
@@ -52,7 +57,8 @@ jar {
             'Premain-Class': 'me.zed_0xff.zombie_buddy.Agent',
             'Can-Redefine-Classes': 'true',
             'Can-Retransform-Classes': 'true',
-            'Implementation-Version': version
+            'Implementation-Version': version,
+            'X-Local-Optimized': 'b42-list-loader-per-package-hooks-auto-cn-en-1.1.2'
         )
     }
 }
@@ -65,7 +71,8 @@ shadowJar {
             'Premain-Class': 'me.zed_0xff.zombie_buddy.Agent',
             'Can-Redefine-Classes': 'true',
             'Can-Retransform-Classes': 'true',
-            'Implementation-Version': version
+            'Implementation-Version': version,
+            'X-Local-Optimized': 'b42-list-loader-per-package-hooks-auto-cn-en-1.1.2'
         )
     }
     mergeServiceFiles()
@@ -513,3 +520,9 @@ task signAuthorsJson {
         }
     }
 }
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 17 }

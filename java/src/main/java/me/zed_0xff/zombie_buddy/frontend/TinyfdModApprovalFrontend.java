@@ -16,7 +16,7 @@ import java.util.Locale;
  */
 public final class TinyfdModApprovalFrontend implements ModApprovalFrontend {
 
-    private static final String DIALOG_TITLE = "ZombieBuddy Java mod approval";
+    private static String DIALOG_TITLE() { return local.zbselective.i18n.UiText.text("ZombieBuddy Java mod approval", "ZombieBuddy Java 模组审批"); }
     private static final String DATE_FORMAT = "yyyy-MM-dd";
 
     @Override
@@ -37,11 +37,11 @@ public final class TinyfdModApprovalFrontend implements ModApprovalFrontend {
         if (e.zbs.invalid()) {
             String note = !Utils.isBlank(e.zbs.notice())
                 ? e.zbs.notice()
-                : "Invalid ZBS — load will be denied.";
+                : local.zbselective.i18n.UiText.text("Invalid ZBS — load will be denied.", "ZBS 无效——将拒绝加载。");
             tinyfdYesNo(
-                "ZBS invalid — this Java mod cannot be loaded.\n\n"
+                local.zbselective.i18n.UiText.text("ZBS invalid — this Java mod cannot be loaded.\n\n", "ZBS 无效——此 Java 模组无法加载。\n\n")
                     + note
-                    + "\n\nIt will be denied."
+                    + local.zbselective.i18n.UiText.text("\n\nIt will be denied.", "\n\n该模组将被拒绝加载。")
             );
             return false;
         }
@@ -57,11 +57,11 @@ public final class TinyfdModApprovalFrontend implements ModApprovalFrontend {
         Boolean allow = tinyfdYesNo(
             "Allow Java mod to load?\n\n"
                 + zbsLine
-                + "Mod: " + e.modId + "\n\n"
+                + local.zbselective.i18n.UiText.text("Mod: ", "模组: ") + e.modId + "\n\n"
                 + "JAR: " + e.jarAbsolutePath + "\n\n"
-                + "Modified: " + modified + "\n\n"
+                + local.zbselective.i18n.UiText.text("Modified: ", "修改时间: ") + modified + "\n\n"
                 + "SHA-256: " + e.sha256 + "\n\n"
-                + "Only allow if you trust this mod source."
+                + local.zbselective.i18n.UiText.text("Only allow if you trust this mod source.", "仅在您信任此模组来源时允许加载。")
         );
         if (allow == null) {
             return false;
@@ -71,17 +71,17 @@ public final class TinyfdModApprovalFrontend implements ModApprovalFrontend {
 
     private static String zbsStatus(JarBatchApprovalProtocol.Entry e) {
         if (e.zbs.valid()) {
-            return "valid";
+            return local.zbselective.i18n.UiText.text("valid", "有效");
         }
         if (e.zbs.invalid()) {
-            return "invalid";
+            return local.zbselective.i18n.UiText.text("invalid", "无效");
         }
-        return "unsigned";
+        return local.zbselective.i18n.UiText.text("unsigned", "未签名");
     }
 
     private static String formatDate(Date date) {
         if (date == null) {
-            return "<unknown>";
+            return local.zbselective.i18n.UiText.text("<unknown>", "未知");
         }
         return new SimpleDateFormat(DATE_FORMAT, Locale.ROOT).format(date);
     }
@@ -103,7 +103,7 @@ public final class TinyfdModApprovalFrontend implements ModApprovalFrontend {
             Object result = Accessor.callByName(
                 dialogClass,
                 "tinyfd_messageBox",
-                DIALOG_TITLE,
+                DIALOG_TITLE(),
                 msg,
                 "yesno",
                 "warning",

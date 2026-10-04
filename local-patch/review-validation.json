@@ -1,0 +1,26 @@
+{
+  "date": "2026-10-04",
+  "upstream_v2x": "0ddf161c27848f12d09e74de7fadbea9d50e621d",
+  "upstream_master": "32e4280",
+  "jar_sha256": "dd24cebdbeddc7b4bb49765347fb90ef16457514a3f40422cd1dd8bc969bffd6",
+  "clean_checkout": "passed",
+  "working_directory": "outside repository",
+  "custom_paths": "GameDir and OutputDir contain spaces",
+  "upstream_tests": 142,
+  "runtime_processes": 29,
+  "localization_scenarios": 6,
+  "build_skip_tests": "generates matching checksum and is rejected for distribution",
+  "distribution_checks": {
+    "untested-build-rejected": "passed",
+    "stale-regression-rejected": "passed",
+    "source-patch-generated": "passed",
+    "stale-workshop-overridden": "passed",
+    "skip-tests-checksum-and-rejection": "passed"
+  },
+  "official_authors_signature": "passed",
+  "game_workshop_validation": "passed",
+  "limitations": [
+    "No full-world or multiplayer gameplay run"
+  ],
+  "gradle_wrapper_sha256": "b3a875ddc1f044746e1b1a55f645584505f4a10438c1afea9f15e92a7c42ec13"
+}

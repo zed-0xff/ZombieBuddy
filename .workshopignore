@@ -8,8 +8,7 @@
 test*.jar
 
 .classpath
-.claude
-.cursor
+.*
 .gradle
 .project
 .settings
