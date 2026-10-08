@@ -1,4 +1,4 @@
-module github.com/zed-0xff/zombie_buddy/installer
+module github.com/zed-0xff/ZombieBuddy/installer
 
 go 1.25.5
 
