@@ -85,6 +85,7 @@ public class Agent {
             }
         }
 
+        CoopServerLaunch.install(inst);
         Exposer.exposeAnnotatedClasses(ZombieBuddy.class.getPackage().getName());
 
         String basePkg = ZombieBuddy.class.getPackage().getName();

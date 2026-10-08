@@ -205,6 +205,8 @@ sourceSets {
         // Ensure test source set can access main source set classes
         compileClasspath += main.output
         runtimeClasspath += main.output
+        compileClasspath += experimental.output
+        runtimeClasspath += experimental.output
     }
     testVanilla {
         java {

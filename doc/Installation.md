@@ -199,6 +199,24 @@ Enable ZombieBuddy in the Project Zomboid mod manager (if you want to use mods t
 
 ZombieBuddy will load automatically as a Java agent.
 
+### Locally hosted Coop servers
+
+When the client starts a local Coop server, ZombieBuddy adds its agent to the
+child JVM and forwards the explicitly configured `policy`, `allow_unsigned_mods`,
+`frontend`, `config_dir`, and `verbosity` options. The client and server therefore
+use the same approval policy and, when `config_dir` is set, the same configuration
+directory. Defaults still apply to options that were not configured.
+
+Windows uses `-agentlib:zbNative`; Linux and macOS use `-javaagent:` with the actual
+loaded ZombieBuddy JAR. Existing JVM options and the game's garbage-collector
+selection are preserved. Client-only controls such as `experimental`,
+`patches_jar`, and `exit_after_game_init` are not forwarded.
+
+This applies only to servers launched by the client's Coop host flow. Dedicated
+servers still need their own agent installation and launch settings. If the
+Coop command cannot be prepared safely, ZombieBuddy warns and preserves the
+original launch; it never logs the command's admin password.
+
 ---
 
 ## Verifying Installation

@@ -58,7 +58,7 @@ ZombieBuddy does not inspect source code, decompile JARs, or judge behavior.
 
 Signing does not protect users if the author's private key is stolen.
 
-If a private key leaks, someone else may be able to sign files as that author until the key is removed or replaced.
+If a private key leaks, someone else may be able to sign files as that author until the accepted key is removed or replaced. Removing it from a Steam profile does not revoke a previously verified local cache entry; see the cache policy below.
 
 Signing does not automatically make unsigned mods bad.
 
@@ -99,9 +99,21 @@ ZombieBuddy can load a known authors list from `authors.json`. Entries look like
 
 This list gives ZombieBuddy a stable mapping from SteamID64 to display name and public signing keys. ZombieBuddy syncs `authors.json` from GitHub and caches it in the ZombieBuddy config directory, so new author entries can be added without publishing a ZombieBuddy mod update, and verification can still work when the remote list is temporarily unavailable.
 
-When an author has keys in `authors.json`, those keys are authoritative. ZombieBuddy tries them before falling back to reading `JavaModZBS:<key>` from the author's Steam profile.
+ZombieBuddy checks signing keys in order: `authors.json`, the local author cache, then the author's Steam profile. A successful check at any stage validates the signature without consulting later stages. A mismatch in the official list does not block fallback to the local cache or Steam profile; the signature is rejected only if none of these sources can verify it.
 
 Authors who want to keep their Steam profile private can submit a pull request to add their SteamID64, display name, and public key instead of publishing `JavaModZBS:<key>` on their profile. Do this by adding a new file to `authors/` (named after the author, e.g. `authors/author-name.json`), not by editing `authors.json` directly — that file is regenerated from `authors/` and any direct edits to it will be overwritten.
+
+## Local Steam Profile Cache
+
+When neither the official list nor the local cache verifies a signature, a successful Steam-profile check saves the verified public key and profile name in `authors.local.json` under the active `config_dir` (default `~/.zombie_buddy`). The key and name come from one HTTPS XML profile response. Only a key that verifies the current JAR is saved; a profile lookup alone never grants trust or approval. The successful profile response updates that author's cached keys, removing old keys no longer published in the profile and retaining previously verified keys only if still published. Other authors' entries remain unchanged.
+
+Matching cached keys verify later JARs without a Steam profile request, including after a process restart. A missing key or signature mismatch permits a profile lookup; one response or failure per author is reused for the process lifetime. The first verified profile name stays attached to that SteamID64 even after a name or key change. Display names are labels, not identities.
+
+This cache deliberately has no expiry or periodic refresh. Removing a key from a Steam profile does not revoke a matching cached key until a successful profile fallback updates the entry. To force a fresh lookup, close all processes using that configuration and remove the relevant entry from `authors.local.json` (or remove the file). `http_cache_ttl` does not expire or disable this verified-key cache.
+
+Client, Coop and headless server processes sharing `config_dir` merge writes under `authors.local.lock` and publish the JSON atomically. Different configuration directories have separate caches. Corrupt or unsupported cache files are ignored and preserved; a successful fresh verification can still proceed, with a warning if saving fails.
+
+`policy=allow-all` skips signature verification, so it neither checks nor populates this cache. Other approval policies, trusted-author decisions, unsigned-mod settings and Workshop uploader binding retain their existing behavior.
 
 ### Why not just use the Steam profile name?
 
@@ -109,7 +121,7 @@ Steam display names are not reliable author identities.
 
 They can change at any time, may contain formatting or confusing impersonation text, and may be unavailable due to privacy settings, network failures, rate limits, or Steam pages returning different content. A live profile name is therefore not a good thing to store as a trust label.
 
-The stable identity is the SteamID64. `authors.json` provides a curated human-readable name for that stable ID. If no known name is available, ZombieBuddy can still show the raw SteamID64.
+The stable identity is the SteamID64. A previously verified local profile name is retained as its display label; otherwise `authors.json` supplies the curated name. If neither is available, ZombieBuddy shows the raw SteamID64.
 
 ---
 
