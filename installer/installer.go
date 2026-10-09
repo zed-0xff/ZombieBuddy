@@ -400,7 +400,7 @@ func detectInstallPaths(includeZB bool) (installPaths, error) {
 
 	paths := installPaths{steam: steamPath, pz: pzPath}
 	if includeZB {
-		zbPath, err := detectZBPath(steamPath)
+		zbPath, err := detectZBPath(steamPath, pzPath)
 		if err != nil {
 			return installPaths{}, fmt.Errorf("Error detecting ZombieBuddy mod: %v", err)
 		}
@@ -543,7 +543,16 @@ func detectPZPath(steamPath string) (string, error) {
 	return "", fmt.Errorf("could not find Project Zomboid installation")
 }
 
-func detectZBPath(steamPath string) (string, error) {
+func detectZBPath(steamPath string, pzPath string) (string, error) {
+	// Prefer Workshop content installed in the same Steam library as the game.
+	if pzPath != "" {
+		steamappsPath := filepath.Dir(filepath.Dir(pzPath))
+		gameLibraryPath := filepath.Join(steamappsPath, "workshop", "content", PZ_APP_ID, ZB_MOD_ID)
+		if _, err := os.Stat(gameLibraryPath); err == nil {
+			return gameLibraryPath, nil
+		}
+	}
+
 	// First check the default path
 	defaultPath := filepath.Join(steamPath, "steamapps", "workshop", "content", PZ_APP_ID, ZB_MOD_ID)
 	if _, err := os.Stat(defaultPath); err == nil {
