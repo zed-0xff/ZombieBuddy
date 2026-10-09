@@ -20,7 +20,7 @@ import (
 const (
 	PZ_APP_ID         = "108600"
 	ZB_MOD_ID         = "3619862853"
-	INSTALLER_VERSION = "4.2"
+	INSTALLER_VERSION = "4.2.1"
 	ZB_LAUNCH_ARG     = "-agentlib:zbNative"
 	ZB_LAUNCH_OPTIONS = ZB_LAUNCH_ARG + " --"
 )
@@ -166,7 +166,7 @@ func promptInstallTargets() (patchTargets, error) {
 	case "alternate":
 		return patchTargets{alternateBatch: true}, nil
 	case "both":
-		return patchTargets{normalJSON: true, steamLaunchOptions: true, alternateBatch: true}, nil
+		return patchTargets{normalJSON: true, alternateBatch: true}, nil
 	default:
 		return patchTargets{}, fmt.Errorf("unknown launch mode %q", value)
 	}
@@ -299,7 +299,18 @@ func install() operationResult {
 		return resultFailed
 	}
 
+	var staleSteamLaunchOptions []string
+	if targets.normalJSON && !targets.steamLaunchOptions {
+		staleSteamLaunchOptions, err = steamLaunchOptionRemovalPlan(paths.steam)
+		if err != nil {
+			fmt.Printf("[!] Error checking existing Steam launch options: %v\\n", err)
+			return resultFailed
+		}
+	}
 	preview := installPreview(paths.pz, paths.steam, paths.zb, targets)
+	if len(staleSteamLaunchOptions) > 0 {
+		preview = append(preview, fmt.Sprintf("remove duplicate \\"%s\\" from PZ Steam launch options", ZB_LAUNCH_ARG))
+	}
 	confirmed, err := confirmChanges(preview)
 	if err != nil {
 		fmt.Printf("[!] Error reading confirmation: %v\n", err)
@@ -344,6 +355,12 @@ func install() operationResult {
 		}
 	}
 
+	if len(staleSteamLaunchOptions) > 0 {
+		if err := removeLaunchOptions(staleSteamLaunchOptions); err != nil {
+			fmt.Printf("[!] Error removing duplicate Steam launch options: %v\\n", err)
+			return resultFailed
+		}
+	}
 	return resultSucceeded
 }
 
