@@ -62,6 +62,50 @@ func TestFindAppInLibraries(t *testing.T) {
 	}
 }
 
+func TestDetectPZPathOnSecondarySteamLibrary(t *testing.T) {
+	tmpDir := t.TempDir()
+	steamPath := filepath.Join(tmpDir, "c-library")
+	libs := []string{steamPath, filepath.Join(tmpDir, "g-library")}
+	for _, lib := range libs {
+		if err := os.MkdirAll(filepath.Join(lib, "steamapps"), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	installDir := "ProjectZomboid-Custom"
+	gamePath := filepath.Join(libs[1], "steamapps", "common", installDir)
+	if err := os.MkdirAll(gamePath, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	manifest := "\"AppState\"\n{\n" +
+		"\t\"appid\"\t\t\"108600\"\n" +
+		"\t\"installdir\"\t\t\"" + installDir + "\"\n" +
+		"}\n"
+	if err := os.WriteFile(filepath.Join(libs[1], "steamapps", "appmanifest_108600.acf"), []byte(manifest), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Use mixed-case VDF keys to make sure discovery is not coupled to the
+	// exact casing Steam happens to write today.
+	vdfContent := "\"LibraryFolders\"\n{\n" +
+		"\t\"0\"\n\t{\n\t\t\"Path\"\t\t\"" + libs[0] + "\"\n\t}\n" +
+		"\t\"1\"\n\t{\n\t\t\"Path\"\t\t\"" + libs[1] + "\"\n\t}\n" +
+		"}\n"
+	vdfPath := filepath.Join(steamPath, "steamapps", "libraryfolders.vdf")
+	if err := os.WriteFile(vdfPath, []byte(vdfContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := detectPZPath(steamPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != gamePath {
+		t.Fatalf("got %q, want %q", got, gamePath)
+	}
+}
+
 func TestStripZombieBuddyLaunchOptions(t *testing.T) {
 	tests := []struct {
 		name    string
