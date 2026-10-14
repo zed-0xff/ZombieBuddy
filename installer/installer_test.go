@@ -36,8 +36,8 @@ func TestFindAppInLibraries(t *testing.T) {
 			}
 
 			vdfContent := "\"libraryfolders\"\n{\n" +
-				"\t\"0\"\n\t{\n\t\t\"path\"\t\t\"" + libs[0] + "\"\n\t}\n" +
-				"\t\"1\"\n\t{\n\t\t\"path\"\t\t\"" + libs[1] + "\"\n\t}\n" +
+				"\t\"0\"\n\t{\n\t\t\"path\"\t\t\"" + strings.ReplaceAll(libs[0], "\\", "\\\\") + "\"\n\t}\n" +
+				"\t\"1\"\n\t{\n\t\t\"path\"\t\t\"" + strings.ReplaceAll(libs[1], "\\", "\\\\") + "\"\n\t}\n" +
 				"}\n"
 			vdfPath := filepath.Join(tmpDir, "libraryfolders.vdf")
 			if err := os.WriteFile(vdfPath, []byte(vdfContent), 0644); err != nil {
