@@ -328,6 +328,12 @@ public class Loader {
     }
 
     static void applyBatchApprovalLines(List<JarBatchApprovalProtocol.Entry> entries, JarDecisionTable disk) {
+        // null + MF_PERSIST requests an explicit reset, not a permanent denial.
+        // Consume it before normal processing: remove the stored hash/author trust,
+        // then convert it to a nonpersistent denial for this launch. Never store the marker.
+        if (ApprovalChoices.applyClears(entries, g_storedEntries, Loader::removeTrustedAuthor)) {
+            g_modApprovalsDirty = true;
+        }
         if (entries == null) return;
         for (JarBatchApprovalProtocol.Entry entry : entries) {
             if (entry == null || entry.decision == null || Utils.isBlank(entry.sha256)) continue;

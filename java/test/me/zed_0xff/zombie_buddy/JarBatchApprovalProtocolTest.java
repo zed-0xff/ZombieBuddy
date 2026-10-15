@@ -195,6 +195,84 @@ class JarBatchApprovalProtocolTest {
             "authorSteamId should be numeric: " + json);
     }
 
+    @Test
+    void readRequest_rejectsMissingOrNullSignatureMetadata() throws IOException {
+        for (String signature : new String[]{"", ",\"zbs\":null"}) {
+            Path path = tempDir.resolve("missing-signature-request.json");
+            Files.writeString(path, "{\"header\":\"" + JarBatchApprovalProtocol.HDR_REQ
+                    + "\",\"entries\":[{\"modId\":\"broken\",\"flags\":8" + signature + "}]}");
+            assertThrows(IOException.class, () -> JarBatchApprovalProtocol.readRequest(path));
+        }
+    }
+
+    @Test
+    void readResponse_rejectsMissingOrNullSignatureMetadata() throws IOException {
+        for (String signature : new String[]{"", ",\"zbs\":null"}) {
+            Path path = tempDir.resolve("missing-signature-response.json");
+            Files.writeString(path, "{\"header\":\"" + JarBatchApprovalProtocol.HDR_RESP
+                    + "\",\"entries\":[{\"modId\":\"broken\",\"sha256\":\"hash\",\"flags\":8" + signature + "}]}");
+            assertThrows(IOException.class, () -> JarBatchApprovalProtocol.readResponse(path));
+        }
+    }
+
+    @Test
+    void readers_rejectNullRows() throws IOException {
+        Path path = tempDir.resolve("null-row.json");
+        Files.writeString(path, "{\"header\":\"" + JarBatchApprovalProtocol.HDR_REQ + "\",\"entries\":[null]}");
+        assertThrows(IOException.class, () -> JarBatchApprovalProtocol.readRequest(path));
+        Files.writeString(path, "{\"header\":\"" + JarBatchApprovalProtocol.HDR_RESP + "\",\"entries\":[null]}");
+        assertThrows(IOException.class, () -> JarBatchApprovalProtocol.readResponse(path));
+    }
+
+    @Test
+    void readers_rejectMissingFlags() throws IOException {
+        Path path = tempDir.resolve("missing-flags.json");
+        String entry = "\",\"entries\":[{\"modId\":\"broken\",\"zbs\":{\"valid\":false,\"notice\":\"\"}}]}";
+        Files.writeString(path, "{\"header\":\"" + JarBatchApprovalProtocol.HDR_REQ + entry);
+        assertThrows(IOException.class, () -> JarBatchApprovalProtocol.readRequest(path));
+        Files.writeString(path, "{\"header\":\"" + JarBatchApprovalProtocol.HDR_RESP + entry);
+        assertThrows(IOException.class, () -> JarBatchApprovalProtocol.readResponse(path));
+    }
+
+    @Test
+    void constructor_normalizesOptionalSignatureAndFlags() throws IOException {
+        var entry = new JarBatchApprovalProtocol.Entry("unsigned", null, null, null, "hash", null,
+                false, null, "Unsigned", null, null);
+        assertNotNull(entry.zbs);
+        assertTrue(entry.zbs.unsigned());
+        assertEquals(ModFlags.EMPTY, entry.flags);
+        Path path = tempDir.resolve("unsigned.json");
+        JarBatchApprovalProtocol.writeRequest(path, List.of(entry));
+        assertTrue(JarBatchApprovalProtocol.readRequest(path).get(0).zbs.unsigned());
+    }
+
+    @Test
+    void responseValidation_preservesLegitimateNullResetDecision() throws IOException {
+        var entry = new JarBatchApprovalProtocol.Entry("reset", null, null, null, "hash", null,
+                null, new ModFlags(MF_PERSIST), "Reset", null, null);
+        Path path = tempDir.resolve("reset.json");
+        JarBatchApprovalProtocol.writeResponse(path, List.of(entry));
+        var reset = JarBatchApprovalProtocol.readResponse(path).get(0);
+        assertNull(reset.decision);
+        assertTrue(reset.flags.has(MF_PERSIST));
+        assertTrue(reset.zbs.unsigned());
+    }
+
+    @Test
+    void invalidLaterRow_preventsAnyEarlierResetFromBeingApplied() throws IOException {
+        Path path = tempDir.resolve("partly-invalid-response.json");
+        Files.writeString(path, "{\"header\":\"" + JarBatchApprovalProtocol.HDR_RESP
+                + "\",\"entries\":[{\"sha256\":\"keep-hash\",\"flags\":8,\"zbs\":{\"valid\":false,\"notice\":\"\"}},"
+                + "{\"sha256\":\"broken-hash\",\"flags\":8}]}");
+        var saved = new ModApprovalsStore.ModEntry("keep", null, "keep-hash", true, "before", null);
+        var stored = new ArrayList<>(List.of(saved));
+        assertThrows(IOException.class, () -> ApprovalChoices.applyClears(
+                JarBatchApprovalProtocol.readResponse(path), stored,
+                author -> fail("Invalid batch must not change author trust")));
+        assertEquals(1, stored.size());
+        assertSame(saved, stored.get(0));
+    }
+
     private static String loadFixture(String name) throws IOException {
         try (InputStream is = JarBatchApprovalProtocolTest.class.getResourceAsStream("/fixtures/" + name)) {
             if (is == null) {

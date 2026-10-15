@@ -29,6 +29,17 @@ This guide covers installing ZombieBuddy for end users who want to use Java mods
 
 Nothing is loaded until you click **Yes**. A second dialog asks whether the decision should be **persisted** across game runs or kept **session-only**. Negative answers (deny) can be persisted too, so a mod you explicitly rejected never re-prompts you.
 
+### ImGui approval window
+
+The ImGui batch window distinguishes an undecided row (grey X) from an explicit refusal (red X).
+An untouched new mod is denied for this launch and asked again next launch under `policy=prompt`.
+`Save decisions to disk` saves only explicitly selected choices, rather than permanently rejecting every untouched row.
+Click a selected Allow or Deny option again to reset it to undecided; click the opposite option to switch directly.
+Saving an explicit reset also removes that mod hash's previous saved decision. Without Save, or on Cancel, stored decisions remain unchanged.
+Signature failures and Steam bans keep their enforced refusals; author trust still applies only to eligible signed mods.
+
+The Console, Swing and Tinyfd frontends retain their existing interaction behavior.
+
 ### Where decisions are stored
 
 - **Windows:** `%USERPROFILE%\.zombie_buddy\mod_approvals.json`

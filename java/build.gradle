@@ -39,6 +39,7 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.14.0'
 
     compileOnly files(GAME_CLASSPATH)
+    testCompileOnly files(GAME_CLASSPATH)
     
     // Test dependencies
     testImplementation 'org.junit.jupiter:junit-jupiter:6.1.3'
