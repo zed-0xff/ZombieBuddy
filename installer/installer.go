@@ -536,16 +536,30 @@ func waitForSteamToClose(operation string) {
 }
 
 func detectPZPath(steamPath string) (string, error) {
-	// First check the default path
+	// Check every Steam library's app manifest before any legacy directory.
+	// Steam's manifest is authoritative even when an old default directory
+	// remains after moving the game to another drive or a custom folder.
+	libraryVDF := filepath.Join(steamPath, "steamapps", "libraryfolders.vdf")
+	if path, err := findSteamAppInstallDirInLibraries(libraryVDF, PZ_APP_ID); err == nil {
+		return path, nil
+	}
+
+	// Older or unusual Steam installs may be missing the manifest, so keep
+	// the previous default path and directory scan as fallbacks.
 	defaultPath := filepath.Join(steamPath, "steamapps", "common", "ProjectZomboid")
 	if _, err := os.Stat(defaultPath); err == nil {
 		return defaultPath, nil
 	}
+	if path, err := findAppInLibraries(libraryVDF, "common", "ProjectZomboid"); err == nil {
+		return path, nil
+	}
 
-	// Then check libraryfolders.vdf
-	libraryVDF := filepath.Join(steamPath, "steamapps", "libraryfolders.vdf")
-	if _, err := os.Stat(libraryVDF); err == nil {
-		return findAppInLibraries(libraryVDF, "common", "ProjectZomboid")
+	// Last-resort Windows fallback: Steam registers installed games with an
+	// InstallLocation, which is independent of the Steam client's own drive.
+	if path, err := detectSteamAppInstallPath(PZ_APP_ID); err == nil {
+		if _, statErr := os.Stat(path); statErr == nil {
+			return path, nil
+		}
 	}
 
 	return "", fmt.Errorf("could not find Project Zomboid installation")
@@ -642,27 +656,12 @@ func findZBPath(steamPath string, pzPath string, modID string) (string, error) {
 }
 
 func findAppInLibraries(libraryVDFPath string, subPath ...string) (string, error) {
-	m, err := parseVDFMap(libraryVDFPath)
+	libraryPaths, err := steamLibraryPaths(libraryVDFPath)
 	if err != nil {
 		return "", err
 	}
 
-	libraryfolders, ok := m["libraryfolders"].(map[string]interface{})
-	if !ok {
-		return "", fmt.Errorf("invalid libraryfolders.vdf")
-	}
-
-	for _, folder := range libraryfolders {
-		folderMap, ok := folder.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		path, ok := folderMap["path"].(string)
-		if !ok {
-			continue
-		}
-
+	for _, path := range libraryPaths {
 		fullSubPath := append([]string{"steamapps"}, subPath...)
 		fullPath := filepath.Join(path, filepath.Join(fullSubPath...))
 		if _, err := os.Stat(fullPath); err == nil {
@@ -671,6 +670,82 @@ func findAppInLibraries(libraryVDFPath string, subPath ...string) (string, error
 	}
 
 	return "", fmt.Errorf("app not found in any Steam library")
+}
+
+func findSteamAppInstallDirInLibraries(libraryVDFPath string, appID string) (string, error) {
+	libraryPaths, err := steamLibraryPaths(libraryVDFPath)
+	if err != nil {
+		// The client library is known even when its library index is unavailable.
+		libraryPaths = []string{filepath.Dir(filepath.Dir(libraryVDFPath))}
+	}
+
+	for _, libraryPath := range libraryPaths {
+		manifestPath := filepath.Join(libraryPath, "steamapps", "appmanifest_"+appID+".acf")
+		if _, err := os.Stat(manifestPath); err != nil {
+			continue
+		}
+
+		manifest, err := parseVDFMap(manifestPath)
+		if err != nil {
+			continue
+		}
+		appState, err := navigateMap(manifest, "AppState")
+		if err != nil {
+			continue
+		}
+		installDir, ok := stringMapValue(appState, "installdir")
+		if !ok || strings.TrimSpace(installDir) == "" {
+			continue
+		}
+
+		fullPath := filepath.Join(libraryPath, "steamapps", "common", installDir)
+		if _, err := os.Stat(fullPath); err == nil {
+			return fullPath, nil
+		}
+	}
+
+	return "", fmt.Errorf("app %s not found in any Steam library", appID)
+}
+
+func steamLibraryPaths(libraryVDFPath string) ([]string, error) {
+	m, err := parseVDFMap(libraryVDFPath)
+	if err != nil {
+		return nil, err
+	}
+
+	libraryfolders, err := navigateMap(m, "libraryfolders")
+	if err != nil {
+		return nil, fmt.Errorf("invalid libraryfolders.vdf: %v", err)
+	}
+
+	var paths []string
+	for _, folder := range libraryfolders {
+		folderMap, ok := folder.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		path, ok := stringMapValue(folderMap, "path")
+		if !ok || strings.TrimSpace(path) == "" {
+			continue
+		}
+		paths = append(paths, filepath.Clean(path))
+	}
+
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("invalid libraryfolders.vdf: no Steam library paths found")
+	}
+	return paths, nil
+}
+
+func stringMapValue(m map[string]interface{}, key string) (string, bool) {
+	for k, value := range m {
+		if strings.EqualFold(k, key) {
+			result, ok := value.(string)
+			return result, ok
+		}
+	}
+	return "", false
 }
 
 func copyCoreFiles(pzPath string, zbPath string) error {

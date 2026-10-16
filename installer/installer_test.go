@@ -63,6 +63,102 @@ func TestFindAppInLibraries(t *testing.T) {
 	}
 }
 
+func TestDetectPZPathOnSecondarySteamLibrary(t *testing.T) {
+	tmpDir := t.TempDir()
+	steamPath := filepath.Join(tmpDir, "c-library")
+	libs := []string{steamPath, filepath.Join(tmpDir, "g-library")}
+	for _, lib := range libs {
+		if err := os.MkdirAll(filepath.Join(lib, "steamapps"), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	installDir := "ProjectZomboid-Custom"
+	gamePath := filepath.Join(libs[1], "steamapps", "common", installDir)
+	if err := os.MkdirAll(gamePath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Leftover files in the old default directory must not override Steam's
+	// manifest pointing to the current install on another drive.
+	stalePath := filepath.Join(steamPath, "steamapps", "common", "ProjectZomboid")
+	if err := os.MkdirAll(stalePath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(stalePath, "leftover.txt"), []byte("old install"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	manifest := "\"AppState\"\n{\n" +
+		"\t\"appid\"\t\t\"108600\"\n" +
+		"\t\"installdir\"\t\t\"" + installDir + "\"\n" +
+		"}\n"
+	if err := os.WriteFile(filepath.Join(libs[1], "steamapps", "appmanifest_108600.acf"), []byte(manifest), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Use mixed-case VDF keys to make sure discovery is not coupled to the
+	// exact casing Steam happens to write today.
+	vdfContent := "\"LibraryFolders\"\n{\n" +
+		"\t\"0\"\n\t{\n\t\t\"Path\"\t\t\"" + strings.ReplaceAll(libs[0], "\\", "\\\\") + "\"\n\t}\n" +
+		"\t\"1\"\n\t{\n\t\t\"Path\"\t\t\"" + strings.ReplaceAll(libs[1], "\\", "\\\\") + "\"\n\t}\n" +
+		"}\n"
+	vdfPath := filepath.Join(steamPath, "steamapps", "libraryfolders.vdf")
+	if err := os.WriteFile(vdfPath, []byte(vdfContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := detectPZPath(steamPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != gamePath {
+		t.Fatalf("got %q, want %q", got, gamePath)
+	}
+}
+
+func TestDetectPZPathLegacyFallback(t *testing.T) {
+	tests := []struct {
+		name     string
+		inLib    int
+		manifest string
+	}{
+		{name: "default directory without manifest", inLib: 0},
+		{name: "secondary directory without manifest", inLib: 1},
+		{name: "invalid manifest", inLib: 1, manifest: "\"AppState\"\n{\n}\n"},
+		{name: "manifest points to missing directory", inLib: 1, manifest: "\"AppState\"\n{\n\"installdir\" \"MissingGame\"\n}\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			libs := []string{filepath.Join(tmpDir, "Steam"), filepath.Join(tmpDir, "Other Library")}
+			if err := os.MkdirAll(filepath.Join(libs[0], "steamapps"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			want := filepath.Join(libs[tt.inLib], "steamapps", "common", "ProjectZomboid")
+			if err := os.MkdirAll(want, 0755); err != nil {
+				t.Fatal(err)
+			}
+			vdfContent := fmt.Sprintf("\"libraryfolders\"\n{\n\"0\" { \"path\" \"%s\" }\n\"1\" { \"path\" \"%s\" }\n}\n",
+				filepath.ToSlash(libs[0]), filepath.ToSlash(libs[1]))
+			if err := os.WriteFile(filepath.Join(libs[0], "steamapps", "libraryfolders.vdf"), []byte(vdfContent), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if tt.manifest != "" {
+				if err := os.WriteFile(filepath.Join(libs[tt.inLib], "steamapps", "appmanifest_"+PZ_APP_ID+".acf"), []byte(tt.manifest), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			got, err := detectPZPath(libs[0])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != want {
+				t.Fatalf("got %q, want %q", got, want)
+			}
+		})
+	}
+}
+
 func TestStripZombieBuddyLaunchOptions(t *testing.T) {
 	tests := []struct {
 		name    string
