@@ -637,11 +637,7 @@ public class Loader {
         SteamID64 sid,
         Map<SteamID64, KnownAuthors.AuthorEntry> knownAuthors
     ) {
-        if (sid == null) {
-            return "";
-        }
-        KnownAuthors.AuthorEntry known = knownAuthors != null ? knownAuthors.get(sid) : null;
-        return known != null && !Utils.isBlank(known.name) ? known.name : sid.toString();
+        return LocalAuthors.displayName(sid, knownAuthors);
     }
 
     private static final List<String> PINNED_MOD_ORDER = List.of(
