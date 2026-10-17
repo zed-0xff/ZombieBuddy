@@ -15,7 +15,7 @@ all: $(TARGET1)
 $(TARGET1): $(OBJECTS1)
 	$(CC) $(LDFLAGS) -o $@ $^ $(DEF1) -lkernel32 -luser32
 
-%.o: %.c
+%.o: %.c runtime_guard.h
 	$(CC) $(CFLAGS) -c $<
 
 clean:

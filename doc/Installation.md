@@ -57,6 +57,18 @@ For all available command-line parameters, see [CommandLine.md](CommandLine.md).
 
 ---
 
+## Windows native loader requirement
+
+The protected Windows loader requires `GetFileInformationByHandleEx(FileIdInfo)` support for its runtime DLL files. The operating system/filesystem must support the query, and access permissions must permit it. If identity cannot be inspected, including `ERROR_NOT_SUPPORTED`, the guard refuses agent initialization: a native-agent startup fails, or an attach attempt is rejected. There is no reduced-verification fallback or option to bypass this check.
+
+Use Windows 10/11 x64 for the current Project Zomboid target. The native API floor is Windows 8 / Windows Server 2012 for [`FileIdInfo`](https://learn.microsoft.com/en-us/windows/win32/api/minwinbase/ne-minwinbase-file_info_by_handle_class); this is not a promise that the current game/JVM supports those older systems. The [`LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32`](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibraryexw) flags are available there without a separate update. KB2533623 adds these search flags to some older Windows versions, but does not add `FileIdInfo` support to Windows 7. No `SetDefaultDllDirectories()` call is needed for flags supplied directly to `LoadLibraryExW`; the loader does not change the process-wide search path. Building requires Windows 8-or-newer SDK declarations, or corresponding MinGW-w64 headers, for these APIs.
+
+Keep the complete `[ZB-NATIVE] JVM DLL guard` startup message, including its error code, when reporting a failure. `ZB_GUARD_MODULE_IDENTITY` can mean an unreadable/unsupported identity as well as a different DLL file; it alone is not evidence that a DLL should be deleted. Keep the active runtime DLLs intact.
+
+The message distinguishes a confirmed different physical DLL from `CreateFileW` or `FileIdInfo` failures, and includes `[operation=...] [win32=...]` for Windows API errors. For an open failure, check file paths/read permissions and verify the game runtime. For a query failure, check filesystem support and access permissions; do not delete DLLs based on that failure. Only a confirmed mismatch recommends removing confirmed leftover copies outside the active runtime. Follow the message's link to this section.
+
+Messages go to standard error, including redirected files/pipes. If that handle is unavailable or a write fails, the loader also sends the message to Windows debug output. Capture it with a debugger/debug-output collector before reproducing a start without working stderr. Debug output is not a persistent log and may have no receiver. This fallback does not create a log file or write to the Windows Event Log.
+
 ## Windows (Automated Installer)
 
 The easiest way to install ZombieBuddy on Windows is using the automated installer:
