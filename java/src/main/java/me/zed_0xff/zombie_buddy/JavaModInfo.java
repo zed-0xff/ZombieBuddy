@@ -53,7 +53,9 @@ record JavaModInfo(
         if (p == null || p.getParent() == null) {
             return null;
         }
-        if (p.getParent().getFileName().toString().equalsIgnoreCase("workshop") && Utils.isSameFile(p.getParent().getParent(), Utils.getCachePath())) {
+        Path ws = p.getParent();
+        Path wsName = ws.getFileName(); // null when ws is a filesystem root (e.g. "G:\\" or "/")
+        if (wsName != null && wsName.toString().equalsIgnoreCase("workshop") && Utils.isSameFile(ws.getParent(), Utils.getCachePath())) {
             return workshopItemIdFromWorkshopTxtIn(p);
         }
         return null;

@@ -8,6 +8,7 @@ local config = {
     autoFixModOrder           = options:addTickBox( "autoFixModOrder",           "UI_ZB_AutoFixModOrder",           true, "UI_ZB_AutoFixModOrder_desc" ),
     fixApprovalDialogCursor   = options:addTickBox( "fixApprovalDialogCursor",   "UI_ZB_FixApprovalDialogCursor",   true, "UI_ZB_FixApprovalDialogCursor_desc" ),
     fixMacOSRetina            = options:addTickBox( "fixMacOSRetina",            "UI_ZB_FixMacOSRetina",            false, "UI_ZB_FixMacOSRetina_desc" ),
+    stealthMode               = options:addTickBox( "stealthMode",               "UI_ZB_StealthMode",               false, "UI_ZB_StealthMode_desc" ),
 }
 
 local function onChangeWatermarkOpacity(self, value)
@@ -32,6 +33,9 @@ local function applySettings()
         end
         if ZombieBuddy.setFixMacOSRetina then
             ZombieBuddy.setFixMacOSRetina(config.fixMacOSRetina:getValue())
+        end
+        if ZombieBuddy.setStealthMode then
+            ZombieBuddy.setStealthMode(config.stealthMode:getValue())
         end
         if ZombieBuddy.Watermark and ZombieBuddy.Watermark.setAlpha then
             ZombieBuddy.Watermark.setAlpha(config.watermarkOpacity:getValue())

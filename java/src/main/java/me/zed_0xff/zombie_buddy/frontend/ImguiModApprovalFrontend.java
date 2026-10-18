@@ -46,9 +46,10 @@ public final class ImguiModApprovalFrontend implements ModApprovalFrontend {
         AtomicReference<List<JarBatchApprovalProtocol.Entry>> result = new AtomicReference<>();
         ImguiApprovalDialog dialog = new ImguiApprovalDialog(pending, result);
 
-        OwnedImguiContext imgui = createImguiContext(Display.getWindow());
+        long windowHandle = Display.getWindow();
+        OwnedImguiContext imgui = createImguiContext(windowHandle);
         try {
-            while (result.get() == null && dialog.isOpen()) {
+            while (result.get() == null && dialog.isOpen() && !GLFW.glfwWindowShouldClose(windowHandle)) {
                 pumpImguiLoadingFrame(imgui, dialog);
                 try {
                     Thread.sleep(16);
@@ -60,6 +61,9 @@ public final class ImguiModApprovalFrontend implements ModApprovalFrontend {
             }
         } finally {
             closeImguiContext(imgui);
+        }
+        if (GLFW.glfwWindowShouldClose(windowHandle)) {
+            System.exit(0);
         }
 
         List<JarBatchApprovalProtocol.Entry> lines = result.get();

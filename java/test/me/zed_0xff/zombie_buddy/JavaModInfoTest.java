@@ -47,4 +47,10 @@ class JavaModInfoTest {
         assertNull( JavaModInfo.workshopItemIdFromInfPath( Path.of(CACHE_DIR, "Workshop/ZBExhume41/Contents/mods/ZBExhume41/42.13/media/java/ZBExhume41.jar")));
         assertNull( JavaModInfo.workshopItemIdFromInfPath( Path.of("/etc/passwd")));
     }
+
+    @Test
+    void workshopItemIdFromInfPath_oneDirBelowRoot() {
+        // 4 levels up from mod.info lands on "/x", whose parent is the root (no file name)
+        assertNull( JavaModInfo.workshopItemIdFromInfPath( Path.of("/x/cache/mods/ZBPopFix/42.20/mod.info")));
+    }
 }

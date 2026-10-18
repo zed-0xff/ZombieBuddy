@@ -4,6 +4,18 @@ Release version is here - https://steamcommunity.com/sharedfiles/filedetails/?id
 
 You cannot install both versions at the same time.
 
+[b]For modders:[/b] [url=https://github.com/zed-0xff/ZombieBuddy/blob/master/doc/Migrating2xTo3x.md]Migrating Mods from ZombieBuddy 2.x to 3.x[/url]
+
+[url=https://github.com/zed-0xff/ZombieBuddy/releases/tag/windows_installer_4.3]Windows Installer v4.3[/url] now lets you choose either the BETA or the release version of ZombieBuddy. Use it to uninstall as well.
+
 Mod incompatibilities are expected.
+
+[h1]What's new in ZombieBuddy 3.0[/h1]
+
+[list]
+[*] [b]Major internal refactoring[/b] - the annotation and patching engine was reworked into a transformer pipeline, which makes ZombieBuddy easier to maintain and extend.
+[*] [b]Faster[/b] - the heavy ClassGraph class scanner was dropped in favor of scanning mod jars directly, reflection lookups are cached, and Steam Workshop responses are cached, so there are fewer slow lookups during game startup.
+[*] [b]Stealth mode[/b] - new option in Options -> Mods. When you join a multiplayer server that doesn't have ZombieBuddy, hides ZombieBuddy's own Lua files from the server's checksum.
+[/list]
 
 [url=https://patreon.com/zed_0xff][img]https://cdn.jsdelivr.net/gh/zed-0xff/ZombieBuddy@master/patreon.png[/img][/url]

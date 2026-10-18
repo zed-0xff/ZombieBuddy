@@ -5,11 +5,13 @@
     "UI_ZB_AutoFixModOrder":          "Automatically fix mod order on launch",
     "UI_ZB_FixApprovalDialogCursor":  "Fix cursor in mod approval dialog",
     "UI_ZB_FixMacOSRetina":           "Fix Retina display scaling (macOS)",
+    "UI_ZB_StealthMode":              "Stealth mode",
     "UI_ZB_SuppressSandboxLog":       "Suppress sandbox options logging",
     "UI_ZB_WatermarkOpacity":         "Watermark Opacity",
 
     "UI_ZB_AutoFixModOrder_desc":         "Moves zdk and ZModUnbork (if present) to the top of the mod order to prevent borken or deprecated mods from making the game unbootable",
     "UI_ZB_FixApprovalDialogCursor_desc": "Restores the visible mouse cursor while the Java mod approval dialog is open; fixes invisible cursor and unresponsive clicks",
     "UI_ZB_FixMacOSRetina_desc":          "Fixes blurry/incorrectly scaled graphics and mouse coordinates on macOS Retina displays by using the framebuffer size instead of the window size. Requires a game restart to take effect",
+    "UI_ZB_StealthMode_desc":             "When joining a server that doesn't have ZombieBuddy, hides ZombieBuddy's own Lua files from the multiplayer checksum so you can still join (fixes \"zombiebuddy.lua does not exist on server\"). Takes effect on the next server join",
     "UI_ZB_SuppressSandboxLog_desc":      "Hides the vanilla startup log dump of all sandbox variables"
 }

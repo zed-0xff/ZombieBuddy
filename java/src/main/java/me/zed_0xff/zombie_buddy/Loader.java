@@ -1244,4 +1244,18 @@ public class Loader {
         Config.save(g_config);
         g_configDirty = false;
     }
+
+    public static boolean stealthMode() {
+        return g_config.stealth_mode();
+    }
+
+    public static void setStealthMode(boolean value) {
+        Config newConfig = g_config.withStealthMode(value);
+        if (newConfig.equals(g_config)) {
+            return;
+        }
+        g_config = newConfig;
+        Config.save(g_config);
+        g_configDirty = false;
+    }
 }

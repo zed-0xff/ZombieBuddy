@@ -16,7 +16,8 @@ record Config(
     Map<String, Config.PreloadMod> preload_mods,
     boolean auto_fix_mod_order,
     boolean fix_approval_dialog_cursor,
-    boolean fix_macos_retina
+    boolean fix_macos_retina,
+    boolean stealth_mode
 ) {
     record PreloadMod(
         Path infPath,
@@ -24,7 +25,7 @@ record Config(
     ) {}
 
     static final String JSON_FILE_NAME = "config.json";
-    private static final Config DEFAULT = new Config(new ArrayList<>(), new LinkedHashMap<>(), true, true, false);
+    private static final Config DEFAULT = new Config(new ArrayList<>(), new LinkedHashMap<>(), true, true, false, false);
 
     Config {
         trusted_authors = normalizeTrustedAuthors(trusted_authors);
@@ -32,7 +33,7 @@ record Config(
     }
 
     Config() {
-        this(DEFAULT.trusted_authors, DEFAULT.preload_mods, DEFAULT.auto_fix_mod_order, DEFAULT.fix_approval_dialog_cursor, DEFAULT.fix_macos_retina);
+        this(DEFAULT.trusted_authors, DEFAULT.preload_mods, DEFAULT.auto_fix_mod_order, DEFAULT.fix_approval_dialog_cursor, DEFAULT.fix_macos_retina, DEFAULT.stealth_mode);
     }
 
     static Path jsonPath() {
@@ -69,7 +70,7 @@ record Config(
     }
 
     private static Config defaultConfig() {
-        return new Config(DEFAULT.trusted_authors, DEFAULT.preload_mods, DEFAULT.auto_fix_mod_order, DEFAULT.fix_approval_dialog_cursor, DEFAULT.fix_macos_retina);
+        return new Config(DEFAULT.trusted_authors, DEFAULT.preload_mods, DEFAULT.auto_fix_mod_order, DEFAULT.fix_approval_dialog_cursor, DEFAULT.fix_macos_retina, DEFAULT.stealth_mode);
     }
 
     boolean trustsAuthor(SteamID64 authorId) {
@@ -96,21 +97,28 @@ record Config(
         if (value == auto_fix_mod_order) {
             return this;
         }
-        return new Config(trusted_authors, preload_mods, value, fix_approval_dialog_cursor, fix_macos_retina);
+        return new Config(trusted_authors, preload_mods, value, fix_approval_dialog_cursor, fix_macos_retina, stealth_mode);
     }
 
     Config withFixApprovalDialogCursor(boolean value) {
         if (value == fix_approval_dialog_cursor) {
             return this;
         }
-        return new Config(trusted_authors, preload_mods, auto_fix_mod_order, value, fix_macos_retina);
+        return new Config(trusted_authors, preload_mods, auto_fix_mod_order, value, fix_macos_retina, stealth_mode);
     }
 
     Config withFixMacOSRetina(boolean value) {
         if (value == fix_macos_retina) {
             return this;
         }
-        return new Config(trusted_authors, preload_mods, auto_fix_mod_order, fix_approval_dialog_cursor, value);
+        return new Config(trusted_authors, preload_mods, auto_fix_mod_order, fix_approval_dialog_cursor, value, stealth_mode);
+    }
+
+    Config withStealthMode(boolean value) {
+        if (value == stealth_mode) {
+            return this;
+        }
+        return new Config(trusted_authors, preload_mods, auto_fix_mod_order, fix_approval_dialog_cursor, fix_macos_retina, value);
     }
 
     private Config withTrustedAuthor(SteamID64 authorId, boolean trusted) {
@@ -127,7 +135,7 @@ record Config(
     }
 
     private Config withTrustedAuthors(List<SteamID64> trustedAuthors) {
-        return new Config(trustedAuthors, preload_mods, auto_fix_mod_order, fix_approval_dialog_cursor, fix_macos_retina);
+        return new Config(trustedAuthors, preload_mods, auto_fix_mod_order, fix_approval_dialog_cursor, fix_macos_retina, stealth_mode);
     }
 
     private Config withPreloadMod(String id, PreloadMod mod, boolean enabled) {
@@ -144,7 +152,7 @@ record Config(
     }
 
     private Config withPreloadMods(Map<String, PreloadMod> preloadMods) {
-        return new Config(trusted_authors, preloadMods, auto_fix_mod_order, fix_approval_dialog_cursor, fix_macos_retina);
+        return new Config(trusted_authors, preloadMods, auto_fix_mod_order, fix_approval_dialog_cursor, fix_macos_retina, stealth_mode);
     }
 
     private static List<SteamID64> normalizeTrustedAuthors(List<SteamID64> input) {
