@@ -39,6 +39,7 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.14.0'
 
     compileOnly files(GAME_CLASSPATH)
+    testCompileOnly files(GAME_CLASSPATH)
     
     // Test dependencies
     testImplementation 'org.junit.jupiter:junit-jupiter:6.1.3'
@@ -205,6 +206,8 @@ sourceSets {
         // Ensure test source set can access main source set classes
         compileClasspath += main.output
         runtimeClasspath += main.output
+        compileClasspath += experimental.output
+        runtimeClasspath += experimental.output
     }
     testVanilla {
         java {
@@ -523,6 +526,10 @@ task unitTest(type: Test) {
 
     useJUnitPlatform()
     dependsOn testJar
+    // The Coop fallback regression starts the actual shaded agent in a fresh JVM.
+    dependsOn shadowJar
+    systemProperty 'zb.test.agentJar', shadowJar.archiveFile.get().asFile.absolutePath
+    systemProperty 'zb.test.probeClasspath', (sourceSets.test.output + files(GAME_CLASSPATH)).asPath
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath + files(GAME_CLASSPATH)
 }

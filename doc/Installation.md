@@ -199,6 +199,57 @@ Enable ZombieBuddy in the Project Zomboid mod manager (if you want to use mods t
 
 ZombieBuddy will load automatically as a Java agent.
 
+### Locally hosted Coop servers
+
+When the client starts a local Coop server, ZombieBuddy adds its agent to the
+child JVM and forwards the explicitly configured `policy`, `allow_unsigned_mods`,
+`frontend`, `config_dir`, and `verbosity` options. The client and server therefore
+use the same approval policy and, when `config_dir` is set, the same configuration
+directory. Defaults still apply to options that were not configured.
+The Coop child is read-only for client-owned decisions and settings. It never
+opens an approval dialog, changes author trust/preload entries, creates or
+replaces `config.json`/`mod_approvals.json`, or removes legacy approval files.
+Each mod-loading pass reads the client's current saved configuration and
+approvals. Under `policy=prompt`, missing approvals are denied without prompting;
+existing author trust and allow/deny entries keep their normal meaning. Explicit
+`policy=allow-all` permits loading for that child session without saving new
+decisions. Unsaved client-only dialog choices are not transferred by this path.
+Client and separately launched dedicated agents retain their existing write/UI
+behavior. The verified `authors.local.json` identity cache remains independent
+of approval/trust decisions and retains its existing lock/merge protocol.
+
+The launch helper adds `-Dzb.coop.child=true` as the final JVM property before the
+server main class, separately from native agent options. Premain captures the
+role before mods load; changing mutable agent options/properties later cannot
+disable the guards. Normal Java `GameServer -coop` commands are also recognized
+when an agent was injected manually. This is an ownership rule for supported
+loader/store APIs, not a sandbox against arbitrary code in already allowed mods.
+
+Windows uses `-agentlib:zbNative`; Linux and macOS use `-javaagent:` with the actual
+loaded ZombieBuddy JAR. Existing JVM options and the game's garbage-collector
+selection are preserved. Client-only controls such as `experimental`,
+`patches_jar`, and `exit_after_game_init` are not forwarded.
+
+This applies only to servers launched by the client's Coop host flow. Dedicated
+servers still need their own agent installation and launch settings. If the
+Coop command cannot be prepared safely, ZombieBuddy warns and preserves the
+original launch; it never logs the command's admin password.
+
+On Windows, forwarded ZombieBuddy options are limited to **2048 bytes**, including
+the internal `ZombieBuddy.jar=` prefix and terminating NUL byte. This conservative
+limit also works with newer native loaders that provide a larger buffer. It is a
+byte limit in the native platform encoding, so non-ASCII characters can use more
+than one byte. It applies only to the five shared options listed above, not to
+the full JVM command line, memory/GC arguments or the Coop admin password.
+
+If those options exceed the limit or cannot be represented in that encoding,
+ZombieBuddy keeps the original command and logs a warning without option values
+or passwords. The child then receives no automatically forwarded agent; preserving
+the launch does not make agent-dependent Java mods work without it. Shorten
+`config_dir` or other forwarded values, or use a dedicated server with its own
+ZombieBuddy installation. Forwarding remains enabled by default for client-hosted
+Coop because its server JVM needs the agent independently of the client.
+
 ---
 
 ## Verifying Installation

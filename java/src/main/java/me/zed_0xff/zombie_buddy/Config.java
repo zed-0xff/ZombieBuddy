@@ -59,6 +59,7 @@ record Config(
     }
 
     static void save(Config config) {
+        if (CoopChild.isReadOnly()) return;
         try {
             Path path = jsonPath();
             Files.createDirectories(path.getParent());
