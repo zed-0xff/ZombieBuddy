@@ -20,6 +20,7 @@ import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
 import me.zed_0xff.zombie_buddy.JarBatchApprovalProtocol;
+import me.zed_0xff.zombie_buddy.ApprovalChoices;
 import me.zed_0xff.zombie_buddy.Logger;
 import me.zed_0xff.zombie_buddy.SteamWorkshop;
 import me.zed_0xff.zombie_buddy.Utils;
@@ -74,13 +75,14 @@ final class ImguiApprovalDialog {
     private static final String COL_STEAM_BAN           = "Steam ban status";
     private static final String COL_ALLOW               = "Allow";
     private static final String COL_TRUST_AUTHOR        = "Trust author";
-    private static final String TRUST_AUTHOR_TOOLTIP    = "Signed mods by that author can be auto-allowed while the signature remains valid and the mod is not banned.";
+    private static final String TRUST_AUTHOR_TOOLTIP    = "Trust signed mods by this author without changing individual Allow/Deny choices. Saving stores author trust separately from hash decisions.";
     private static final String WATERMARK_ICON_RESOURCE = "zb_icon.png";
 
     private static IconTexture watermarkIcon;
     private static boolean watermarkIconLoadAttempted;
 
     private final List<JarBatchApprovalProtocol.Entry> entries;
+    private final ApprovalChoices choices;
     private final ImBoolean[] allow;
     private final ImBoolean[] trustAuthor;
     private final ImBoolean persistDecisions = new ImBoolean(false);
@@ -97,6 +99,7 @@ final class ImguiApprovalDialog {
             List<JarBatchApprovalProtocol.Entry> entries,
             AtomicReference<List<JarBatchApprovalProtocol.Entry>> result) {
         this.entries = entries;
+        this.choices = new ApprovalChoices(entries);
         this.result = result;
         this.allow = new ImBoolean[entries.size()];
         this.trustAuthor = new ImBoolean[entries.size()];
@@ -178,7 +181,9 @@ final class ImguiApprovalDialog {
     private void drawBottomActions() {
         String forceDialogHint = "Hold Shift during game load to force-show this dialog";
         String persistLabel = "Save decisions to disk (persist across game launches)";
-        String persistTooltip = "When disabled, choices apply only to this game launch.";
+        String persistTooltip = "Only explicit choices are saved; explicit resets remove saved choices.\n"
+                + "Click a selected option again to reset it.\n"
+                + "Grey X: denied for this launch; asked again next launch.";
         String cancelLabel = "Cancel";
         String okLabel = "OK";
 
@@ -216,7 +221,7 @@ final class ImguiApprovalDialog {
         ImGui.setCursorPosY(buttonY);
         ImGui.setCursorPosX(Math.max(ImGui.getCursorPosX(), ImGui.getWindowWidth() - rightPad - buttonRowW));
         boolean cancelClicked = clickableButton(cancelLabel, cancelW, buttonH);
-        showTooltipIfHovered("deny all pending Java mods");
+        showTooltipIfHovered("Discard changes. Use saved approvals and trusted authors; deny only mods still awaiting approval for this launch.");
 
         if (cancelClicked) {
             result.compareAndSet(null, denyAll(entries));
@@ -406,13 +411,8 @@ final class ImguiApprovalDialog {
     }
 
     static List<JarBatchApprovalProtocol.Entry> denyAll(List<JarBatchApprovalProtocol.Entry> pending) {
-        ArrayList<JarBatchApprovalProtocol.Entry> out = new ArrayList<>(pending.size());
-        for (JarBatchApprovalProtocol.Entry e : pending) {
-            e.decision = false;
-            e.flags = e.flags.without(MF_PERSIST | MF_TRUST_AUTHOR);
-            out.add(e);
-        }
-        return out;
+        // The frontend can run in another process; resolve current saved state in the loader.
+        return ApprovalChoices.cancel(pending);
     }
 
     private void drawRow(int index, JarBatchApprovalProtocol.Entry e) {
@@ -519,9 +519,6 @@ final class ImguiApprovalDialog {
         if (forceDeny[index]) {
             allow[index].set(false);
             interactive = false;
-        } else if (trustAuthor[index].get()) {
-            allow[index].set(true);
-            interactive = false;
         }
         drawAllowCheckboxes(index, interactive);
     }
@@ -555,12 +552,14 @@ final class ImguiApprovalDialog {
         centerNextItem(rowW);
         ImGui.beginDisabled(!interactive);
         try {
-            if (clickableCheckboxValue("##allow-yes-" + index, allow[index].get(), "Yes", ALLOW_CHECK_MARK)) {
-                allow[index].set(true);
+            if (clickableCheckboxValue("##allow-yes-" + index, allow[index].get(),
+                    "Allow this mod. Click the selected option again to reset to undecided.", ALLOW_CHECK_MARK)) {
+                allow[index].set(choices.toggle(index, true));
             }
             ImGui.sameLine();
-            if (clickableCrossCheckbox("##allow-no-" + index, !allow[index].get(), "No")) {
-                allow[index].set(false);
+            if (clickableCrossCheckbox("##allow-no-" + index, !allow[index].get(),
+                    choices.denyTooltip(index, forceDeny[index]), choices.denyColor(index, forceDeny[index], DENY_CROSS_MARK))) {
+                allow[index].set(choices.toggle(index, false));
             }
         } finally {
             ImGui.endDisabled();
@@ -599,7 +598,7 @@ final class ImguiApprovalDialog {
         }
     }
 
-    private static boolean clickableCrossCheckbox(String label, boolean checked, String tooltip) {
+    private static boolean clickableCrossCheckbox(String label, boolean checked, String tooltip, int color) {
         if (!checked) {
             return clickableCheckboxValue(label, false, tooltip);
         }
@@ -621,7 +620,7 @@ final class ImguiApprovalDialog {
         drawList.addRectFilled(x0, y0, x1, y1, bgColor, rounding);
 
         float pad = Math.max(1.0f, (float) (int) (size / 6.0f));
-        renderCrossMark(drawList, x0 + pad, y0 + pad, DENY_CROSS_MARK, size - pad * 2.0f);
+        renderCrossMark(drawList, x0 + pad, y0 + pad, color, size - pad * 2.0f);
 
         if (hovered) {
             ImGui.setMouseCursor(ImGuiMouseCursor.Hand);
@@ -827,11 +826,7 @@ final class ImguiApprovalDialog {
     }
 
     private void setAllowForTrust(int index, boolean selected) {
-        if (selected) {
-            allow[index].set(true);
-            return;
-        }
-        allow[index].set(forceDeny[index] ? false : initialAllow[index]);
+        choices.trust(index, selected);
     }
 
     private List<JarBatchApprovalProtocol.Entry> buildLines() {
@@ -843,19 +838,20 @@ final class ImguiApprovalDialog {
                 rowAllow = false;
             }
             e.decision = rowAllow;
-            if (persistDecisions.get()) {
+            boolean saveRow = choices.shouldPersist(i, persistDecisions.get());
+            if (saveRow) {
                 e.flags = e.flags.with(MF_PERSIST);
             } else {
                 e.flags = e.flags.without(MF_PERSIST);
             }
-            if (persistDecisions.get() && trustAuthor[i].get() && canTrustAuthor(e)) {
+            if (trustAuthor[i].get() && canTrustAuthor(e)) {
                 e.flags = e.flags.with(MF_TRUST_AUTHOR);
             } else {
                 e.flags = e.flags.without(MF_TRUST_AUTHOR);
             }
             out.add(e);
         }
-        return out;
+        return choices.finish(out, persistDecisions.get());
     }
 
     private static boolean initialAllow(JarBatchApprovalProtocol.Entry e) {

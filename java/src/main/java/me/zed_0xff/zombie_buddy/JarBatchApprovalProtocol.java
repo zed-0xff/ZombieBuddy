@@ -25,8 +25,13 @@ public final class JarBatchApprovalProtocol {
 
     static final String HDR_REQ  = "ZB_BATCH_V8";
     static final String HDR_RESP = "ZB_BATCH_V8_OUT";
-    private static final Gson JSON = ZBGson.PRETTY;
+    // IPC must retain explicit null flags for whole-batch validation. The shared
+    // persistent-store adapter keeps its existing null-to-EMPTY normalization.
+    private static final Gson JSON = ZBGson.PRETTY.newBuilder()
+            .registerTypeAdapter(ModFlags.class, ZBGson.PRETTY.getAdapter(ModFlags.class).nullSafe())
+            .create();
 
+    /** Normal construction supplies non-null flags/signature; readers also validate after Gson deserialization. */
     public static final class Entry {
         public final String modId;
         public final WorkshopItemID workshopItemId;
@@ -34,6 +39,7 @@ public final class JarBatchApprovalProtocol {
         public final Path infAbsolutePath;
         public final String sha256;
         public final Date date;
+        /** In responses, null with MF_PERSIST explicitly clears a saved hash decision; the loader denies this launch. */
         public Boolean decision;
         public ModFlags flags = ModFlags.EMPTY;
         public final String modDisplayName;
@@ -106,7 +112,7 @@ public final class JarBatchApprovalProtocol {
             if (env == null || !HDR_REQ.equals(env.header)) {
                 throw new IOException("Bad request header: " + (env != null ? env.header : null));
             }
-            return env.entries != null ? env.entries : Collections.emptyList();
+            return checkedEntries(env.entries);
         }
     }
 
@@ -121,8 +127,22 @@ public final class JarBatchApprovalProtocol {
             if (env == null || !HDR_RESP.equals(env.header)) {
                 return null;
             }
-            return env.entries != null ? env.entries : Collections.emptyList();
+            return checkedEntries(env.entries);
         }
+    }
+
+    private static List<Entry> checkedEntries(List<Entry> entries) throws IOException {
+        if (entries == null) return Collections.emptyList();
+        // Gson can bypass Entry's constructor and field initializers. Reject incomplete
+        // metadata before any frontend or loader processes the batch; never treat it as unsigned.
+        for (int i = 0; i < entries.size(); i++) {
+            Entry entry = entries.get(i);
+            if (entry == null) throw new IOException("Null approval entry at index " + i);
+            if (entry.zbs == null) throw new IOException("Missing approval signature metadata at index " + i);
+            if (entry.flags == null) throw new IOException("Missing approval flags at index " + i);
+        }
+        // A null decision is valid (undecided/request or explicit reset/response).
+        return entries;
     }
 
     private static final class RequestEnvelope {
