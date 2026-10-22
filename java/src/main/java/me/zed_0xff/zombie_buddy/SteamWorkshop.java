@@ -97,7 +97,7 @@ public final class SteamWorkshop {
     }
 
     private static Duration parseHttpTimeout() {
-        return Duration.ofSeconds(Agent.getArgInt("http.client.timeout", DEFAULT_TIMEOUT));
+        return Duration.ofSeconds(Agent.getArgInt("http_client_timeout", DEFAULT_TIMEOUT));
     }
 
     private SteamWorkshop() {}
