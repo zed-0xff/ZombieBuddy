@@ -204,12 +204,12 @@ Multiple JARs:
 
 ### expose_classes
 
-Expose Java classes to Lua at startup. Comma-separated list of fully-qualified class names.
+Expose Java classes to Lua at startup. Semicolon-separated list of fully-qualified class names.
 
 **Example:**
 
 ```
--javaagent:ZombieBuddy.jar=expose_classes=com.example.MyClass,com.example.OtherClass --
+-javaagent:ZombieBuddy.jar=expose_classes=com.example.MyClass;com.example.OtherClass --
 ```
 
 ---

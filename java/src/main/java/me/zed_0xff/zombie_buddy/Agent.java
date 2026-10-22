@@ -127,12 +127,8 @@ public class Agent {
         }
 
         if (arguments.containsKey("expose_classes")) {
-            String[] classes = arguments.get("expose_classes").split(",");
-            for (String className : classes) {
-                className = className.trim();
-                if (!className.isEmpty()) {
-                    Exposer.exposeClass(className);
-                }
+            for (String className : parseClassNames(arguments.get("expose_classes"))) {
+                Exposer.exposeClass(className);
             }
         }
 
@@ -145,6 +141,17 @@ public class Agent {
 
         Loader.preloadMods();
         Reflect.clearCaches();
+    }
+
+    static List<String> parseClassNames(String value) {
+        List<String> classes = new ArrayList<>();
+        for (String className : value.split(";")) {
+            className = className.trim();
+            if (!className.isEmpty()) {
+                classes.add(className);
+            }
+        }
+        return classes;
     }
 
     public static boolean isExperimental() {
