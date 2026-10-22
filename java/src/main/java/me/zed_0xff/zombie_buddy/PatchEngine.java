@@ -1,7 +1,6 @@
 package me.zed_0xff.zombie_buddy;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -13,7 +12,10 @@ import me.zed_0xff.zombie_buddy.annotations.Patch;
 import me.zed_0xff.zombie_buddy.transformers.TransformedJar;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.asm.Advice;
+import net.bytebuddy.description.annotation.AnnotationDescription;
 import net.bytebuddy.description.method.MethodDescription;
+import net.bytebuddy.description.method.ParameterDescription;
+import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.dynamic.ClassFileLocator;
 import net.bytebuddy.implementation.MethodCall;
 import net.bytebuddy.implementation.MethodDelegation;
@@ -36,81 +38,53 @@ public final class PatchEngine {
             Advice.OnMethodExit.class
             );
 
-    // arguments are "non-special"
-    private static final HashSet<Class<? extends Annotation>> ARGUMENT_ANNOTATIONS = new HashSet<>(List.of(
-            Advice.Argument.class,
-            net.bytebuddy.implementation.bind.annotation.Argument.class
-            ));
-
-    private static boolean isSpecialAnnotation(Annotation ann) {
-        var annType = ann.annotationType();
-        if (ARGUMENT_ANNOTATIONS.contains(annType)) {
+    private static boolean isSpecialAnnotation(AnnotationDescription ann) {
+        TypeDescription annType = ann.getAnnotationType();
+        if (annType.represents(Advice.Argument.class)
+                || annType.represents(net.bytebuddy.implementation.bind.annotation.Argument.class)) {
             return false;
         }
 
         String annTypeName = annType.getName();
         boolean result = annTypeName.startsWith("net.bytebuddy.implementation.bind.annotation.") || annTypeName.startsWith("net.bytebuddy.asm.Advice");
-        // Logger.trace("isSpecialAnnotation: " + ann + " -> " + result);
         return result;
     }
 
-    private static boolean hasAnnotation(Method method, List<Class<? extends Annotation>> annTypes) {
-        for (var annType : annTypes) {
-            if (method.isAnnotationPresent(annType)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static Method findMethodWithAnnotation(Class<?> clazz, Class<? extends Annotation> annType) {
-        for (Method method : clazz.getDeclaredMethods()) {
-            if (method.isAnnotationPresent(annType)) {
+    private static MethodDescription findMethodWithAnnotation(TypeDescription type, Class<? extends Annotation> annType) {
+        for (MethodDescription method : type.getDeclaredMethods()) {
+            if (method.getDeclaredAnnotations().ofType(annType) != null) {
                 return method;
             }
         }
         return null;
     }
 
-    private static boolean hasParameterAnnotation(Method method, Class<? extends Annotation> annType) {
-        Annotation[][] paramAnns = method.getParameterAnnotations();
-        for (Annotation[] paramAnn : paramAnns) {
-            for (Annotation ann : paramAnn) {
-                if (annType.isInstance(ann)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
+    private static List<TypeDescription> inferSignatureFromMethod(MethodDescription patchMethod) {
+        Map<Integer, TypeDescription> argumentMap = new HashMap<>();
 
-    private static List<Class<?>> inferSignatureFromMethod(Method patchMethod) {
-        Annotation[][] paramAnns = patchMethod.getParameterAnnotations();
-        Class<?>[] paramTypes = patchMethod.getParameterTypes();
-        Map<Integer, Class<?>> argumentMap = new HashMap<>();
-
-        for (int i = 0; i < paramAnns.length; i++) {
+        int i = 0;
+        for (ParameterDescription param : patchMethod.getParameters()) {
             boolean isSpecial = false;
-            int argumentIndex = -1;
-
-            for (Annotation ann : paramAnns[i]) {
+            for (AnnotationDescription ann : param.getDeclaredAnnotations()) {
                 if (isSpecialAnnotation(ann)) {
                     isSpecial = true;
                     break;
                 }
-                // https://javadoc.io/static/net.bytebuddy/byte-buddy/1.18.8/net/bytebuddy/implementation/bind/annotation/Argument.html
-                if (ann instanceof net.bytebuddy.implementation.bind.annotation.Argument arg) {
-                    argumentIndex = arg.value();
-                    Class<?> paramType = paramTypes[i];
-                    argumentMap.put(argumentIndex, paramType.isArray() ? paramType.getComponentType() : paramType);
-                    break;
-                }
+            }
+            if (isSpecial) {
+                i++;
+                continue;
             }
 
-            if (isSpecial) continue;
-            if (argumentIndex == -1) {
-                argumentMap.put(i, paramTypes[i]);
+            AnnotationDescription.Loadable<net.bytebuddy.implementation.bind.annotation.Argument> arg =
+                    param.getDeclaredAnnotations().ofType(net.bytebuddy.implementation.bind.annotation.Argument.class);
+            TypeDescription paramType = param.getType().asErasure();
+            if (arg != null) {
+                argumentMap.put(arg.load().value(), paramType.isArray() ? paramType.getComponentType() : paramType);
+            } else {
+                argumentMap.put(i, paramType);
             }
+            i++;
         }
 
         if (argumentMap.isEmpty()) return null;
@@ -125,7 +99,7 @@ public final class PatchEngine {
         }
 
         if (hasCompleteSequence) {
-            List<Class<?>> sig = new ArrayList<>();
+            List<TypeDescription> sig = new ArrayList<>();
             for (int idx = 0; idx <= maxIndex; idx++) {
                 sig.add(argumentMap.get(idx));
             }
@@ -310,14 +284,14 @@ public final class PatchEngine {
                             boolean strictMatch = patchAnn != null && patchAnn.strictMatch();
 
                             Class<?> patchClass = ModJarInjector.loadInClassLoader(adviceClass, cl);
-                            patchClass = PatchTransformer.preparePatch(patchClass, td);
-                            if (patchClass == null) continue;
+                            ClassFileLocator locator = classFileLocator(transformedJar, modLoader);
+                            PatchTransformer.PreparedPatch prepared = PatchTransformer.preparePatch(patchClass, locator);
+                            if (prepared == null) continue;
 
-                            var methodMatcher = buildAdviceMethodMatcher(methodName, strictMatch, patchClass, null);
+                            var methodMatcher = buildAdviceMethodMatcher(methodName, strictMatch, prepared.description());
 
                             try {
-                                ClassFileLocator locator = classFileLocator(transformedJar, modLoader);
-                                result = result.visit(Advice.to(patchClass, locator).on(methodMatcher));
+                                result = result.visit(Advice.to(prepared.description(), locator).on(methodMatcher));
                                 Logger.debug("Applied advice to " + className + "." + methodName);
                             } catch (Exception e) {
                                 Logger.error("ERROR: Failed to apply advice to " + className + "." + methodName + ": " + e.getMessage());
@@ -334,8 +308,9 @@ public final class PatchEngine {
                         Class<?> delegationClass = entry.getValue();
 
                         Class<?> patchClass = ModJarInjector.loadInClassLoader(delegationClass, cl);
-                        patchClass = PatchTransformer.preparePatch(patchClass, td);
-                        if (patchClass == null) continue;
+                        ClassFileLocator locator = classFileLocator(transformedJar, modLoader);
+                        PatchTransformer.PreparedPatch prepared = PatchTransformer.preparePatch(patchClass, locator);
+                        if (prepared == null) continue;
 
                         Logger.info("patching " + className + "." + methodName + " with delegation");
                         
@@ -343,8 +318,8 @@ public final class PatchEngine {
                         if (methodName.equals("<init>")) {
                             try {
                                 // Infer constructor signature from delegation method's @Argument annotations
-                                Method delegationMethod = findMethodWithAnnotation(patchClass, RuntimeType.class);
-                                List<Class<?>> inferredConstructorSignature = null;
+                                MethodDescription delegationMethod = findMethodWithAnnotation(prepared.description(), RuntimeType.class);
+                                List<TypeDescription> inferredConstructorSignature = null;
                                 if (delegationMethod != null) {
                                     inferredConstructorSignature = inferSignatureFromMethod(delegationMethod);
                                 }
@@ -354,7 +329,7 @@ public final class PatchEngine {
                                 if (!Utils.isBlank(inferredConstructorSignature)) {
                                     // Match constructor with specific signature
                                     constructorMatcher = net.bytebuddy.matcher.ElementMatchers.isConstructor()
-                                        .and(net.bytebuddy.matcher.ElementMatchers.takesArguments(inferredConstructorSignature.toArray(new Class<?>[0])));
+                                        .and(net.bytebuddy.matcher.ElementMatchers.takesArguments(inferredConstructorSignature));
                                 } else {
                                     // No signature inferred, match all constructors (fallback)
                                     constructorMatcher = net.bytebuddy.matcher.ElementMatchers.isConstructor();
@@ -366,7 +341,7 @@ public final class PatchEngine {
                                 result = result
                                     .constructor(constructorMatcher)
                                     .intercept(MethodCall.invoke(objectConstructor)
-                                        .andThen(MethodDelegation.to(patchClass)));
+                                        .andThen(MethodDelegation.to(prepared.description())));
                             } catch (Throwable t) {
                                 Logger.error("ERROR: Could not set up constructor delegation: " + t.getMessage());
                                 if (Loader.g_verbosity > 0) {
@@ -375,12 +350,12 @@ public final class PatchEngine {
                                 // Fallback to SuperMethodCall
                                 result = result
                                     .constructor(ElementMatchers.any())
-                                    .intercept(SuperMethodCall.INSTANCE.andThen(MethodDelegation.to(patchClass)));
+                                    .intercept(SuperMethodCall.INSTANCE.andThen(MethodDelegation.to(prepared.description())));
                             }
                         } else {
                             result = result
                                 .method(SyntaxSugar.methodMatcher(methodName))
-                                .intercept(MethodDelegation.to(patchClass));
+                                .intercept(MethodDelegation.to(prepared.description()));
                         }
                     }
                     
@@ -524,69 +499,72 @@ public final class PatchEngine {
     private static net.bytebuddy.matcher.ElementMatcher.Junction<MethodDescription> buildAdviceMethodMatcher(
             String methodName,
             boolean strictMatch,
-            Class<?> patchClass,
-            Method onlyMethod) {
+            TypeDescription patchTd) {
         var methodMatcher = SyntaxSugar.methodMatcher(methodName);
 
         boolean hasAllArguments = false;
         boolean hasNoParamMethod = false;
-        List<Class<?>> inferredTypes = null;
+        List<TypeDescription> inferredTypes = null;
         Integer minParameterCount = null;
-        List<Map<Integer, Class<?>>> allAdviceMaps = new ArrayList<>();
+        List<Map<Integer, TypeDescription>> allAdviceMaps = new ArrayList<>();
         List<Boolean> allAdviceExactMatch = new ArrayList<>();
-        Set<List<Class<?>>> allInferredSignatures = new HashSet<>();
+        Set<List<TypeDescription>> allInferredSignatures = new HashSet<>();
 
-        for (Method adviceMethod : patchClass.getDeclaredMethods()) {
-            if (onlyMethod != null && adviceMethod != onlyMethod) {
+        for (MethodDescription adviceMethod : patchTd.getDeclaredMethods()) {
+            boolean isAdviceMethod = false;
+            for (Class<? extends Annotation> annType : ADVICE_ANNOTATION_TYPES) {
+                if (adviceMethod.getDeclaredAnnotations().ofType(annType) != null) {
+                    isAdviceMethod = true;
+                    break;
+                }
+            }
+            if (!isAdviceMethod) {
                 continue;
             }
 
-            if (!hasAnnotation(adviceMethod, ADVICE_ANNOTATION_TYPES)) {
-                continue;
+            var params = adviceMethod.getParameters();
+
+            for (ParameterDescription param : params) {
+                if (param.getDeclaredAnnotations().ofType(Advice.AllArguments.class) != null) {
+                    hasAllArguments = true;
+                }
             }
 
-            Annotation[][] paramAnns = adviceMethod.getParameterAnnotations();
-
-            if (hasParameterAnnotation(adviceMethod, Advice.AllArguments.class)) {
-                hasAllArguments = true;
-            }
-
-            if (adviceMethod.getParameterCount() == 0 && !hasAllArguments) {
+            if (params.isEmpty() && !hasAllArguments) {
                 hasNoParamMethod = true;
             }
 
             if (!hasAllArguments) {
-                Class<?>[] paramTypes = adviceMethod.getParameterTypes();
-                Map<Integer, Class<?>> argumentMap = new HashMap<>();
+                Map<Integer, TypeDescription> argumentMap = new HashMap<>();
                 boolean hasAnyArguments = false;
-                boolean allParamsAreSpecial = paramTypes.length > 0;
+                boolean allParamsAreSpecial = !params.isEmpty();
 
-                for (int i = 0; i < paramAnns.length; i++) {
+                for (int i = 0; i < params.size(); i++) {
+                    ParameterDescription param = params.get(i);
+                    TypeDescription paramType = param.getType().asErasure();
                     boolean isArgument = false;
                     boolean skip = false;
-                    int argumentIndex = -1;
 
-                    for (Annotation ann : paramAnns[i]) {
-                        if (ann instanceof Advice.Argument arg) {
-                            isArgument = true;
-                            hasAnyArguments = true;
-                            allParamsAreSpecial = false;
-                            argumentIndex = arg.value();
-                            Class<?> paramType = paramTypes[i];
-                            Class<?> typeToStore = paramType.isArray() ? paramType.getComponentType() : paramType;
-                            argumentMap.put(argumentIndex, typeToStore);
-                            break;
-                        }
-
-                        if (isSpecialAnnotation(ann)) {
-                            skip = true;
-                            break;
+                    AnnotationDescription.Loadable<Advice.Argument> arg =
+                            param.getDeclaredAnnotations().ofType(Advice.Argument.class);
+                    if (arg != null) {
+                        isArgument = true;
+                        hasAnyArguments = true;
+                        allParamsAreSpecial = false;
+                        TypeDescription typeToStore = paramType.isArray() ? paramType.getComponentType() : paramType;
+                        argumentMap.put(arg.load().value(), typeToStore);
+                    } else {
+                        for (AnnotationDescription ann : param.getDeclaredAnnotations()) {
+                            if (isSpecialAnnotation(ann)) {
+                                skip = true;
+                                break;
+                            }
                         }
                     }
 
                     if (!skip && !isArgument) {
                         allParamsAreSpecial = false;
-                        argumentMap.put(i, paramTypes[i]);
+                        argumentMap.put(i, paramType);
                     }
                 }
 
@@ -595,7 +573,7 @@ public final class PatchEngine {
                     allAdviceExactMatch.add(!hasAnyArguments);
                 }
 
-                if (allParamsAreSpecial && paramTypes.length > 0) {
+                if (allParamsAreSpecial && !params.isEmpty()) {
                     hasNoParamMethod = true;
                 }
 
@@ -615,24 +593,24 @@ public final class PatchEngine {
                     }
 
                     if (hasCompleteSequence) {
-                        List<Class<?>> sig = new ArrayList<>();
+                        List<TypeDescription> sig = new ArrayList<>();
                         for (int idx = 0; idx <= maxIndex; idx++) {
                             sig.add(argumentMap.get(idx));
                         }
                         allInferredSignatures.add(sig);
                     }
                 } else if (!argumentMap.isEmpty()) {
-                    List<Class<?>> sig = new ArrayList<>();
-                    for (int idx = 0; idx < paramTypes.length; idx++) {
+                    List<TypeDescription> sig = new ArrayList<>();
+                    for (int idx = 0; idx < params.size(); idx++) {
                         boolean isSpecial = false;
-                        for (Annotation ann : paramAnns[idx]) {
+                        for (AnnotationDescription ann : params.get(idx).getDeclaredAnnotations()) {
                             if (isSpecialAnnotation(ann)) {
                                 isSpecial = true;
                                 break;
                             }
                         }
                         if (!isSpecial) {
-                            sig.add(paramTypes[idx]);
+                            sig.add(params.get(idx).getType().asErasure());
                         }
                     }
                     if (!sig.isEmpty()) {
@@ -657,7 +635,7 @@ public final class PatchEngine {
             return methodMatcher;
         }
 
-        final List<Map<Integer, Class<?>>> maps = new ArrayList<>(allAdviceMaps);
+        final List<Map<Integer, TypeDescription>> maps = new ArrayList<>(allAdviceMaps);
         final List<Boolean> exactMatches = new ArrayList<>(allAdviceExactMatch);
         final int minParams = (minParameterCount != null) ? minParameterCount : 0;
         final boolean strict = strictMatch;
@@ -681,7 +659,7 @@ public final class PatchEngine {
                     }
 
                     for (int i = 0; i < maps.size(); i++) {
-                        Map<Integer, Class<?>> argMap = maps.get(i);
+                        Map<Integer, TypeDescription> argMap = maps.get(i);
                         boolean exact = exactMatches.get(i);
 
                         if (exact && targetParamCount != argMap.size()) continue;
@@ -689,15 +667,15 @@ public final class PatchEngine {
                         if (!exact && targetParamCount < minParams) continue;
 
                         allArgsMatch = true;
-                        for (Map.Entry<Integer, Class<?>> entry : argMap.entrySet()) {
+                        for (Map.Entry<Integer, TypeDescription> entry : argMap.entrySet()) {
                             int idx = entry.getKey();
                             if (idx >= targetParamCount) {
                                 allArgsMatch = false;
                                 break;
                             }
-                            Class<?> expected = entry.getValue();
-                            if (expected == Object.class) continue;
-                            net.bytebuddy.description.type.TypeDescription actual = target.getParameters().get(idx).getType().asErasure();
+                            TypeDescription expected = entry.getValue();
+                            if (expected.represents(Object.class)) continue;
+                            TypeDescription actual = target.getParameters().get(idx).getType().asErasure();
                             if (!actual.isAssignableTo(expected)) {
                                 allArgsMatch = false;
                                 break;

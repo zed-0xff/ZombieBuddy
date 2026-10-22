@@ -250,6 +250,22 @@ public class AttackPatch {
 }
 ```
 
+`@Patch.This` can be declared as `Object` or as the target type. Either form can be used:
+
+```java
+@Patch(className = "zombie.characters.IsoGameCharacter", methodName = "attack")
+public class AttackPatchObject {
+    @Patch.OnEnter
+    public static void enter(@Patch.This Object self) { }
+}
+
+@Patch(className = "zombie.characters.IsoGameCharacter", methodName = "attack")
+public class AttackPatchTyped {
+    @Patch.OnEnter
+    public static void enter(@Patch.This IsoGameCharacter self) { }
+}
+```
+
 ### Reading and Writing Fields (@Patch.Field)
 
 `@Patch.Field` binds a parameter to an instance or static field of the target class. By default the value is written back after the advice returns. Use `readOnly = true` for read-only binding.
