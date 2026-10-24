@@ -39,6 +39,7 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.14.0'
 
     compileOnly files(GAME_CLASSPATH)
+    testCompileOnly files(GAME_CLASSPATH)
     
     // Test dependencies
     testImplementation 'org.junit.jupiter:junit-jupiter:6.1.3'
@@ -523,6 +524,8 @@ task unitTest(type: Test) {
 
     useJUnitPlatform()
     dependsOn testJar
+    dependsOn shadowJar
+    systemProperty 'zb.test.agentJar', shadowJar.archiveFile.get().asFile.absolutePath
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath + files(GAME_CLASSPATH)
 }
