@@ -52,6 +52,9 @@ public class LuaHandler implements HttpHandler {
 
     private static void handleRequest(HttpExchange exchange) throws Exception {
         HttpServer.logRequest(exchange);
+        if (!HttpServer.requireAuth(exchange)) {
+            return;
+        }
         if (!_lua_ready) {
             HttpServer.sendResponse(exchange, 503, "Lua not initialized yet\n");
             return;
@@ -71,7 +74,11 @@ public class LuaHandler implements HttpHandler {
         boolean json_arr_1 = HttpServer.parseBoolParam(query, "json_arr_1", false);
         final LuaJSON lj   = json_arr_1 ? new LuaJSON(depth, 0, LuaJSON.Flags.ARR_INJECT_NULL) : new LuaJSON(depth, 0);
 
-        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        byte[] bodyBytes = HttpServer.readBodyLimited(exchange, HttpServer.MAX_LUA_BODY_BYTES);
+        if (bodyBytes == null) {
+            return;
+        }
+        String body = new String(bodyBytes, StandardCharsets.UTF_8);
         if (body.isEmpty()) {
             HttpServer.sendResponse(exchange, 400, "Empty request body\n");
             return;

@@ -1,7 +1,9 @@
 package me.zed_0xff.zombie_buddy.patches.experimental;
 
 import com.sun.net.httpserver.HttpExchange;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.invoke.VarHandle;
 import java.net.InetSocketAddress;
@@ -23,6 +25,7 @@ import zombie.Lua.LuaManager;
 import zombie.gameStates.GameLoadingState;
 
 import me.zed_0xff.zombie_buddy.Callbacks;
+import me.zed_0xff.zombie_buddy.HttpAuth;
 import me.zed_0xff.zombie_buddy.Logger;
 import me.zed_0xff.zombie_buddy.Reflect;
 import me.zed_0xff.zombie_buddy.Utils;
@@ -38,6 +41,17 @@ public class HttpServer {
     // Timeout for waiting for Lua task execution (in milliseconds)
     public static long luaTaskTimeoutMs = 5000;
     public static int g_verbosity = 0;
+
+    /** Hard limit for /lua request bodies. */
+    public static final int MAX_LUA_BODY_BYTES = 1024 * 1024;
+
+    /** Hard limit for /log?lines=N. */
+    public static final int MAX_LOG_LINES = 5000;
+
+    private static final int HTTP_THREADS = 4;
+
+    /** Per-process bearer token. Null/blank disables the sensitive endpoints. */
+    private static volatile String authToken = null;
     
     // Queue for Lua tasks to be executed on the main thread (for dedicated servers)
     private static final ConcurrentLinkedQueue<LuaTask> luaTaskQueue = new ConcurrentLinkedQueue<>();
@@ -254,7 +268,8 @@ public class HttpServer {
 
         instance = this;
         Callbacks.afterLuaInit.register(() -> capturedLuaThread = Thread.currentThread());
-        Logger.info("HTTP server started at http://" + server.getAddress().getHostString() + ":" + port);
+        Logger.info("HTTP server started at http://" + server.getAddress().getHostString() + ":" + port
+            + " (token required for /lua and /log)");
     }
 
     private static InetSocketAddress resolveBindAddress(String host, int port) {
@@ -273,7 +288,8 @@ public class HttpServer {
             return t;
         };
 
-        return Executors.newCachedThreadPool(factory);
+        // Bounded pool: keeps a runaway client from creating unbounded threads.
+        return Executors.newFixedThreadPool(HTTP_THREADS, factory);
     }
 
     public int getPort() {
@@ -293,6 +309,75 @@ public class HttpServer {
             server.stop(0);
             Logger.info("HTTP server stopped");
         }
+        authToken = null;
+    }
+
+    /** Sets the bearer token required by /lua and /log. Null disables those endpoints. */
+    public static void setAuthToken(String token) {
+        authToken = token;
+    }
+
+    /**
+     * Enforces bearer-token authentication and rejects browser-originated requests.
+     * Sends the error response itself and returns false when the request must stop.
+     */
+    public static boolean requireAuth(HttpExchange exchange) throws IOException {
+        String expected = authToken;
+        if (!HttpAuth.isValidToken(expected)) {
+            sendResponse(exchange, 503, "HTTP API disabled: no valid authentication token configured\n");
+            return false;
+        }
+
+        // Legitimate command-line clients do not send Origin. Rejecting it blocks
+        // cross-origin browser requests even if a token were somehow exposed.
+        if (exchange.getRequestHeaders().getFirst("Origin") != null) {
+            sendResponse(exchange, 403, "Cross-origin requests are not allowed\n");
+            return false;
+        }
+
+        String supplied = HttpAuth.extractToken(
+            exchange.getRequestHeaders().getFirst("X-ZombieBuddy-Token"),
+            exchange.getRequestHeaders().getFirst("Authorization"));
+        if (!HttpAuth.isAuthorized(expected, supplied)) {
+            exchange.getResponseHeaders().set("WWW-Authenticate", "Bearer realm=\"ZombieBuddy\"");
+            sendResponse(exchange, 401, "Unauthorized\n");
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Reads a request body with a hard byte limit. Sends 413 and returns null when
+     * the body is larger than {@code maxBytes}.
+     */
+    public static byte[] readBodyLimited(HttpExchange exchange, int maxBytes) throws IOException {
+        String contentLength = exchange.getRequestHeaders().getFirst("Content-Length");
+        if (contentLength != null) {
+            try {
+                if (Long.parseLong(contentLength) > maxBytes) {
+                    sendResponse(exchange, 413, "Payload too large\n");
+                    return null;
+                }
+            } catch (NumberFormatException ignored) {
+                // Let the streaming limit below enforce the real size.
+            }
+        }
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream(Math.min(maxBytes, 8192));
+        try (InputStream in = exchange.getRequestBody()) {
+            byte[] buf = new byte[8192];
+            int total = 0;
+            int read;
+            while ((read = in.read(buf)) > 0) {
+                total += read;
+                if (total > maxBytes) {
+                    sendResponse(exchange, 413, "Payload too large\n");
+                    return null;
+                }
+                out.write(buf, 0, read);
+            }
+        }
+        return out.toByteArray();
     }
 
     public static void sendResponse(HttpExchange exchange, int statusCode, String response) throws IOException {

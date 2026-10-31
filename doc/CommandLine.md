@@ -182,6 +182,40 @@ Enables experimental patches. This is a flag parameter (no value needed).
 
 ---
 
+### lua_server_port / lua_server_host / lua_server_allow_remote / lua_server_token
+
+Controls the **experimental** HTTP Lua API. The server is disabled unless `lua_server_port` is set.
+
+| Parameter | Description |
+|-----------|-------------|
+| `lua_server_port` | Port to listen on, or `random` to pick an unused port. Disabled when omitted. |
+| `lua_server_host` | Bind address. Defaults to `127.0.0.1`. Non-loopback addresses require `lua_server_allow_remote=true`. |
+| `lua_server_allow_remote` | `true` allows binding to a non-loopback address. Default: `false`. |
+| `lua_server_token` | Optional bearer token. Must be at least 32 printable characters. When omitted or invalid, a random token is generated. |
+| `lua_task_timeout` | Maximum time in milliseconds to wait for a Lua task. Default: `5000`. |
+
+The token is written to `zbLuaAPI.token` next to `zbLuaAPI.txt` in the game cache directory (or the ZombieBuddy config directory as a fallback), with owner-only permissions where the filesystem supports them. A fixed-port server writes the token file when the game finishes initializing; a random-port server also writes `zbLuaAPI.txt` with the actual port.
+
+`/lua` bodies are capped at 1 MiB and `/log` at 5,000 lines. `/lua` and `/log` require the token in either header:
+
+```
+X-ZombieBuddy-Token: <token>
+Authorization: Bearer <token>
+```
+
+Example:
+
+```
+TOKEN=$(cat /path/to/zbLuaAPI.token)
+curl -H "X-ZombieBuddy-Token: $TOKEN" \
+     --data-binary @script.lua \
+     http://127.0.0.1:4444/lua
+```
+
+> **Security warning:** `/lua` executes arbitrary Lua inside the game process. The `sandbox` query parameter is a compatibility aid, not a security boundary. Binding to a non-loopback address sends the bearer token over cleartext HTTP; use a firewall, VPN, or SSH tunnel. Do not expose this API to untrusted networks.
+
+---
+
 ### patches_jar
 
 Load additional patch JARs at startup. Useful for development or testing patches without packaging them as a mod.
