@@ -181,6 +181,7 @@ public final class ImguiModApprovalFrontend implements ModApprovalFrontend {
             fontConfig.setSizePixels(fontSize);
             try {
                 ImGui.getIO().getFonts().addFontDefault(fontConfig);
+                local.zbselective.i18n.CnFonts.install(fontConfig);
             } finally {
                 fontConfig.destroy();
             }

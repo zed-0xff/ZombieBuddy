@@ -47,6 +47,7 @@ public final class SwingModApprovalFrontend implements ModApprovalFrontend {
             ProcessBuilder pb = new ProcessBuilder(
                 javaExe,
                 "-Djava.awt.headless=false",
+                local.zbselective.i18n.UiText.childVmOption(),
                 "-cp",
                 jarPath,
                 SwingApprovalMain.class.getName(),

@@ -10,7 +10,6 @@ import java.nio.file.Files;
 import java.nio.file.FileSystems;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 
 import zombie.core.Core;
@@ -32,7 +31,7 @@ public class Patch_ZomboidFileSystem {
     @Patch(className = "zombie.ZomboidFileSystem", methodName = "loadMods")
     public class Patch_loadMods2 {
         @Patch.OnEnter
-        public static void enter(ArrayList<String> mods, @Patch.Local("t0") long t0) {
+        public static void enter(List<String> mods, @Patch.Local("t0") long t0) {
             Logger.info("ZomboidFileSystem.loadMods(" + mods.size() + " mods) ...");
             long loaderStartNs = System.nanoTime();
             Loader.loadMods(mods);
@@ -42,7 +41,7 @@ public class Patch_ZomboidFileSystem {
         }
 
         @Patch.OnExit
-        public static void exit(ArrayList<String> mods, @Patch.Local("t0") long t0) {
+        public static void exit(List<String> mods, @Patch.Local("t0") long t0) {
             long elapsedMS = (System.nanoTime() - t0) / 1_000_000L;
             if ( elapsedMS > 1000 ) Logger.info("ZomboidFileSystem.loadMods(" + mods.size() + " mods) took " + elapsedMS + " ms");
         }

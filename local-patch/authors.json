@@ -1,0 +1,76 @@
+{
+  "updated_at": "2026-08-16T00:00:00Z",
+  "authors": [
+    {
+      "id": 76561198043849998,
+      "keys": [
+        "c0fe7daaa1fbd1ee54096d96669a7bbb10cd0a2ad08949d664d4804c50e34db1"
+      ],
+      "name": "Zed"
+    },
+    {
+      "id": 76561198063443193,
+      "keys": [
+        "f121bcb87764ccc56466f74b68295e04b69ebfedee0b73b67813346f16f43e67"
+      ],
+      "name": "enry of alitz"
+    },
+    {
+      "id": 76561198138070597,
+      "keys": [
+        "be6633706dcd21475cf4e74ed47e2c7621d69da78213d164272a80016a6a45e3"
+      ],
+      "name": "gm.outside"
+    },
+    {
+      "id": 76561199150528543,
+      "keys": [
+        "ce7e3614b929c28f22d38bada9de999f7253b1b1c3554434d67e8e41e574cace"
+      ],
+      "name": "Koji"
+    },
+    {
+      "id": 76561198146270079,
+      "keys": [
+        "1987f95772831b20215bbef4481cd8e42140e17c30869b7bf87d9773f51f3c89"
+      ],
+      "name": "ILC233"
+    },
+    {
+      "id": 76561199128207983,
+      "keys": [
+        "760e7ced774b4e88e6f6789c266985e50e3b772992a9250c6a985b01453fff4b"
+      ],
+      "name": "Saint"
+    },
+    {
+      "id": 76561198258764906,
+      "keys": [
+        "0f99c4e5bfe0c9de71569c31bd627001aa17e9a714f9abe39038d0e51d176f88"
+      ],
+      "name": "老余"
+    },
+    {
+      "id": 76561198090292133,
+      "keys": [
+        "a140d928eed497c39427d85fb849a202e883146cca5dbfd3c8949796e1f7146a"
+      ],
+      "name": "Xutu"
+    },
+    {
+      "id": 76561198273218719,
+      "name": "IKappaID",
+      "keys": [
+        "465dda4ba32a507acfa85ce6952bdcc4ab3f0f389c0cf5a85f86f7e6762ea785"
+      ]
+    },
+    {
+      "id": 76561197988649366,
+      "name": "Kio-",
+      "keys": [
+        "0ae56541e4aa658a2c907845f721ae0476b5e32b5d042c5107c5c352cb836116"
+      ]
+    }
+  ],
+  "signature": "a83de9048a51c91c443c94548e1ebd3eea2daa785646b84f5059eb28da1bd7a02e611b70131387699cea59327de6d2f6ec8ad381b8142865e98b96cee0cdfb05"
+}

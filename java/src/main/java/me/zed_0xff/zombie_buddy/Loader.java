@@ -410,7 +410,10 @@ public class Loader {
         for (Map.Entry<String, Config.PreloadMod> e : g_config.preload_mods().entrySet()) {
             String id = e.getKey();
             Config.PreloadMod preloadMod = e.getValue();
+            // Skip inactive/unprepared preloads before JAR hashing and network metadata lookup.
+            if (!local.zbselective.RuntimeState.shouldPreload(id, preloadMod.jarPath())) continue;
             String javaPkgName = JavaModInfo.javaPkgNameFrom(preloadMod.infPath());
+            if (local.zbselective.i18n.UiText.replacesLegacyPackage(javaPkgName)) continue;
             if (Utils.isBlank(javaPkgName)) {
                 Logger.warn("Preload mod '" + id + "': cannot read javaPkgName from " + preloadMod.infPath() + "; removing.");
                 PreloadMods.remove(id);
@@ -452,8 +455,9 @@ public class Loader {
             g_jarLoadStatus.put(entry.canJarPath(), new JavaModLoadState(
                         entry.id(),
                         entry.canJarPath(),
-                        zbsResult.flags().with(MF_PRELOAD).with(MF_ACTIVE),
-                        "preloaded",
+                        local.zbselective.RuntimeState.isInstalled(entry.canJarPath())
+                            ? zbsResult.flags().with(MF_PRELOAD).with(MF_ACTIVE) : zbsResult.flags(),
+                        local.zbselective.RuntimeState.isInstalled(entry.canJarPath()) ? "preloaded" : "not loaded",
                         entry.hash(),
                         null
                         ));
@@ -555,7 +559,7 @@ public class Loader {
         "ZModUnbork"
     );
 
-    private static void autoFixModOrder(ArrayList<String> mods) {
+    private static void autoFixModOrder(List<String> mods) {
         if (Utils.isBlank(mods)) {
             return;
         }
@@ -586,14 +590,20 @@ public class Loader {
         return out;
     }
 
-    private static void moveModToIndex(ArrayList<String> mods, String modId, int index) {
+    private static void moveModToIndex(List<String> mods, String modId, int index) {
         int oldIndex = mods.indexOf(modId);
         if (oldIndex < 0) return;
         mods.remove(oldIndex);
         mods.add(Math.min(index, mods.size()), modId);
     }
 
+    /** Binary compatibility for mods compiled against the original ArrayList entry point. */
     public static void loadMods(ArrayList<String> mods) {
+        loadMods((List<String>) mods);
+    }
+
+    public static void loadMods(List<String> mods) {
+        local.zbselective.RuntimeState.begin(mods);
         if (g_config.auto_fix_mod_order()) {
             autoFixModOrder(mods);
         }
@@ -613,7 +623,7 @@ public class Loader {
         }
 
         ArrayList<String> mergedIds = new ArrayList<>();
-        mergedIds.addAll(PreloadMods.getIds()); // inject preloaded mod ids BEFORE actual mod list
+        mergedIds.addAll(local.zbselective.RuntimeState.enabledPreloadIds(PreloadMods.getIds())); // only enabled preloads
         mergedIds.addAll(mods);
 
         Boolean isB42 = null;
@@ -677,7 +687,7 @@ public class Loader {
         for (int i = 0; i < jModInfos.size(); i++) {
             JavaModInfo jModInfo = jModInfos.get(i);
             boolean stSkip = false;
-            if (jModInfo.javaPkgName().equals(myPackageName)) {
+            if (jModInfo.javaPkgName().equals(myPackageName) || local.zbselective.i18n.UiText.replacesLegacyPackage(jModInfo.javaPkgName())) {
                 stSkip = true;
             }
             Integer lastIdx = lastPkgNameIndex.get(jModInfo.javaPkgName());
@@ -801,14 +811,14 @@ public class Loader {
             }
             if (!batchEntries.isEmpty()) {
                 if (g_hasDoLoadingText) {
-                    GameWindow.DoLoadingText("Waiting for Java mods approval…");
+                    GameWindow.DoLoadingText(local.zbselective.i18n.UiText.text("Waiting for Java mods approval…", "正在等待 Java 模组审批…"));
                 }
                 List<JarBatchApprovalProtocol.Entry> decided = batchEntries;
                 try {
                     decided = approvalFrontend().approvePendingMods(batchEntries);
                 } finally {
                     if (g_hasDoLoadingText) {
-                        GameWindow.DoLoadingText("Loading Mods");
+                        GameWindow.DoLoadingText(local.zbselective.i18n.UiText.text("Loading Mods", "正在加载模组"));
                     }
                 }
                 applyBatchApprovalLines(decided, approvals);
@@ -823,7 +833,7 @@ public class Loader {
             String skipReason = "";
             
             // Skip ZombieBuddy itself - it's loaded as a Java agent, not through normal mod loading
-            if (jModInfo.javaPkgName().equals(myPackageName)) {
+            if (jModInfo.javaPkgName().equals(myPackageName) || local.zbselective.i18n.UiText.replacesLegacyPackage(jModInfo.javaPkgName())) {
                 shouldSkip = true;
                 skipReason = " (loaded as Java agent, skipping normal mod loading)" + SelfUpdater.getExclusionReasonSuffix(ctx.jarPath);
             }
@@ -878,7 +888,7 @@ public class Loader {
                         flags = flags.with(MF_PERSIST);
                     }
                 }
-                if (!shouldSkip) {
+                if (local.zbselective.RuntimeState.isInstalled(canonicalJarPath)) {
                     flags = flags.with(MF_ACTIVE);
                 }
 
@@ -887,12 +897,13 @@ public class Loader {
                 if (prev != null) {
                     flags = flags.merge(prev.flags.getSticky());
                 }
+                if (!local.zbselective.RuntimeState.isInstalled(canonicalJarPath)) flags = flags.without(MF_ACTIVE);
 
                 g_jarLoadStatus.put(canonicalJarPath, new JavaModLoadState(
                     ctx.modId,
                     canonicalJarPath,
                     flags,
-                    shouldSkip ? skipReason.trim() : "loaded",
+                    shouldSkip ? skipReason.trim() : (flags.has(MF_ACTIVE) ? "loaded" : "approved"),
                     ctx.hash,
                     decision
                 ));
@@ -939,6 +950,7 @@ public class Loader {
                 loadJar(jModInfos.get(i).jarPath(), jModInfos.get(i).javaPkgName(), modContexts.get(i).hash, Phase.MAIN);
             }
         }
+        local.zbselective.RuntimeState.finish();
     }
 
     private static void checkShiftKey() {
@@ -975,6 +987,10 @@ public class Loader {
 
     // called by Agent and Loader
     static boolean loadJar(Path jarPath, String packageName, String approvedHash, Phase phase) {
+        if (local.zbselective.i18n.UiText.replacesLegacyPackage(packageName)) {
+            Logger.info("Built-in automatic localization replaces legacy package " + packageName);
+            return false;
+        }
         if (!Files.isRegularFile(jarPath)) {
             Logger.error("JAR not found: " + jarPath);
             return false;
@@ -983,10 +999,28 @@ public class Loader {
             Logger.error("Invalid package name: '" + packageName + "' for JAR " + jarPath);
             return false;
         }
-        if (!addJarToClasspath(jarPath, packageName, approvedHash)) {
+        if (!local.zbselective.RuntimeState.allowJar(jarPath, packageName, approvedHash, phase.name())) {
+            updateInstalledStatus(jarPath, "deferred until game selection or restart");
             return false;
         }
+        if (!addJarToClasspath(jarPath, packageName, approvedHash)) {
+            updateInstalledStatus(jarPath, "not loaded");
+            return false;
+        }
+        local.zbselective.RuntimeState.installed(jarPath, packageName, approvedHash, phase.name());
+        updateInstalledStatus(jarPath, phase == Phase.PREMAIN ? "preloaded" : "loaded");
         return ApplyPatchesFromPackage(packageName, null, phase);
+    }
+
+    private static void updateInstalledStatus(Path jarPath, String reason) {
+        try {
+            Path real = jarPath.toRealPath();
+            boolean installed = local.zbselective.RuntimeState.isInstalled(real);
+            g_jarLoadStatus.computeIfPresent(real, (path, old) -> new JavaModLoadState(
+                old.id(), path, installed ? old.flags().with(MF_ACTIVE) : old.flags().without(MF_ACTIVE),
+                installed && !reason.equals("loaded") && !reason.equals("preloaded") ? old.reason() : reason,
+                old.sha256(), old.decision()));
+        } catch (IOException error) { Logger.error("Cannot update Java load status: " + error); }
     }
 
     private static final Set<String> _known_mains = new HashSet<>();

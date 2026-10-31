@@ -86,7 +86,7 @@ public final class Watermark {
     }
 
     private static void draw() {
-        String base = ZombieBuddy.getFullVersionString() + " loaded";
+        String base = ZombieBuddy.getFullVersionString() + local.zbselective.i18n.UiText.text(" loaded", " 已加载");
         String newVersion = SelfUpdater.getNewVersion();
 
         var font     = UIFont.Small;
@@ -109,7 +109,7 @@ public final class Watermark {
         if (newVersion != null) {
             var segments = new ArrayList<TextSegment>();
             segments.add(TextSegment.green(base));
-            segments.add(TextSegment.yellow(" (New version " + newVersion + " installed. Please restart the game)"));
+            segments.add(TextSegment.yellow(local.zbselective.i18n.UiText.text(" (New version ", "（检测到新版本 ") + newVersion + local.zbselective.i18n.UiText.text(" installed. Please restart the game)", " 已安装，请重启游戏）")));
             drawSegments(font, textMgr, textX, textY, segments);
         } else {
             drawGreen(font, textMgr, textX, textY, base);
@@ -117,7 +117,7 @@ public final class Watermark {
         textY += textH;
 
         if (!Utils.isBlank(_midLine)) {
-            drawYellow(font, textMgr, textX, textY, _midLine);
+            drawYellow(font, textMgr, textX, textY, local.zbselective.i18n.UiText.watermarkLine(_midLine));
             textY += textH;
         }
 
@@ -133,7 +133,7 @@ public final class Watermark {
                         ))
             .toList();
 
-        String prefix = (mods.size() == 0 ? "No" : mods.size()) + " active Java mods";
+        String prefix = (mods.size() == 0 ? local.zbselective.i18n.UiText.text("No", "0") : mods.size()) + local.zbselective.i18n.UiText.text(" active Java mods", " 个活跃 Java 模组");
         if (mods.isEmpty()) {
             drawGreen(font, textMgr, textX, textY, prefix);
             return;
@@ -145,7 +145,7 @@ public final class Watermark {
         boolean lineHasMod = false;
         line.add(TextSegment.green(lineText));
         for (var mod : mods) {
-            String idText = mod.id() + (mod.flags().has(MF_PRELOAD) ? " (preload)" : "");
+            String idText = mod.id() + (mod.flags().has(MF_PRELOAD) ? local.zbselective.i18n.UiText.text(" (preload)", "（预加载）") : "");
             String text = (lineHasMod ? ", " : "") + idText;
             String candidate = lineText + text;
             if (lineHasMod && textMgr.MeasureStringX(font, candidate) > maxW) {

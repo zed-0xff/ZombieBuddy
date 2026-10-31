@@ -22,6 +22,7 @@ public class Agent {
             return;
         }
 
+        local.zbselective.i18n.UiText.initialize();
         Logger.info("activating " + ZombieBuddy.getFullVersionString());
         Loader.g_instrumentation = inst;
 
@@ -83,6 +84,12 @@ public class Agent {
             }
         }
 
+        try {
+            local.zbselective.RuntimeState.initialize(Utils.getCurrentJarPath());
+        } catch (java.io.IOException error) {
+            throw new IllegalStateException("Cannot initialize optimized restart plan", error);
+        }
+
         // fails to expose via annotation at this point (in zbspec), so expose manually
         Exposer.exposeClass(ZombieBuddy.class);
 
@@ -101,7 +108,11 @@ public class Agent {
             for (String entry : entries) {
                 entry = entry.trim();
                 if (!entry.isEmpty()) {
-                    String[] parts = entry.split(":", 2);
+                    // Split at the package delimiter, not at a Windows drive letter.
+                    int separator = entry.lastIndexOf(':');
+                    String[] parts = separator > 0 && separator < entry.length() - 1
+                        ? new String[] { entry.substring(0, separator), entry.substring(separator + 1) }
+                        : new String[0];
                     if (parts.length != 2) {
                         Logger.error(
                                 "patches_jar entry must be in format <path>:<package_name>, got: " + entry);

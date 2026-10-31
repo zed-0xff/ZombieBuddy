@@ -1,0 +1,9 @@
+id=ZombieBuddyOptimized
+name=ZombieBuddy Fix + Performance + Auto CN/EN / 修复、性能优化与内置汉化
+require=\ZombieBuddy
+modversion=1.1.2
+versionMin=42.21
+author=老余
+poster=poster.png
+icon=icon.png
+description=Built-in automatic CN/EN localization; no separate ZombieBuddyCN activation required. Temporary manual replacement package for ZombieBuddy.jar and the official signed authors.json. Requires the original ZombieBuddy installation. No in-game activation required. Will be deleted after the original author's update. / 手动替换JAR和官方作者签名名单的临时补丁，无需在游戏模组列表启用；原作者更新后删除。

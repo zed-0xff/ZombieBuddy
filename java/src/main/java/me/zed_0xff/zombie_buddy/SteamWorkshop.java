@@ -53,9 +53,6 @@ public final class SteamWorkshop {
 
     private static final String STEAM_GET_PUBLISHED_FILE_DETAILS_URL =
         "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/";
-    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofSeconds(10))
-        .build();
     private static final int BATCH_SIZE = 100;
 
     private SteamWorkshop() {}
@@ -117,7 +114,7 @@ public final class SteamWorkshop {
             .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
             .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
             .build();
-        HttpResponse<String> resp = HTTP_CLIENT.send(req, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> resp = NetworkClients.get(false).send(req, HttpResponse.BodyHandlers.ofString());
         if (resp.statusCode() != 200) {
             setUnknownDetails(out, new HashSet<>(chunk),
                 "Steam API request failed (HTTP " + resp.statusCode() + ")");

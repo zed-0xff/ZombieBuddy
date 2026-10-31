@@ -38,8 +38,9 @@ public final class ImguiApprovalMain {
     private ImguiApprovalMain() {}
 
     public static void main(String[] args) {
+        local.zbselective.i18n.UiText.initialize();
         if (args == null || args.length != 2) {
-            System.err.println("Usage: ImguiApprovalMain <requestFile> <responseFile>");
+            System.err.println(local.zbselective.i18n.UiText.text("Usage: ImguiApprovalMain <requestFile> <responseFile>", "用法: ImguiApprovalMain <请求文件> <响应文件>"));
             System.exit(2);
         }
 
@@ -69,7 +70,7 @@ public final class ImguiApprovalMain {
 
     private static List<JarBatchApprovalProtocol.Entry> runDialog(List<JarBatchApprovalProtocol.Entry> entries) {
         if (!GLFW.glfwInit()) {
-            throw new IllegalStateException("GLFW initialization failed");
+            throw new IllegalStateException(local.zbselective.i18n.UiText.text("GLFW initialization failed", "GLFW 初始化失败"));
         }
 
         long window = 0;
@@ -87,9 +88,9 @@ public final class ImguiApprovalMain {
                 GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 1);
             }
 
-            window = GLFW.glfwCreateWindow(WIDTH, HEIGHT, "ZombieBuddy Java Mod Approval", 0, 0);
+            window = GLFW.glfwCreateWindow(WIDTH, HEIGHT, local.zbselective.i18n.UiText.text("ZombieBuddy Java Mod Approval", "ZombieBuddy Java 模组审批"), 0, 0);
             if (window == 0) {
-                throw new IllegalStateException("Could not create GLFW window");
+                throw new IllegalStateException(local.zbselective.i18n.UiText.text("Could not create GLFW window", "无法创建 GLFW 窗口"));
             }
 
             GLFW.glfwMakeContextCurrent(window);
@@ -189,6 +190,7 @@ public final class ImguiApprovalMain {
         fontConfig.setSizePixels(fontSize);
         try {
             ImGui.getIO().getFonts().addFontDefault(fontConfig);
+                local.zbselective.i18n.CnFonts.install(fontConfig);
         } finally {
             fontConfig.destroy();
         }

@@ -1,0 +1,146 @@
+{
+  "meta": {
+    "mod_id": "ZombieBuddyCN",
+    "mod_version": "1.0.0",
+    "description": "ZombieBuddy 简体中文汉化字符串表（Java 侧）。键为原模组源码中的精确字符串常量，值为简体中文译文。仅替换显示文本，不改变任何安全/审批逻辑。"
+  },
+  "classes": {
+    "me.zed_0xff.zombie_buddy.Watermark": {
+      " loaded": " 已加载",
+      " (New version ": "（检测到新版本 ",
+      " installed. Please restart the game)": " 已安装，请重启游戏）",
+      "No": "0",
+      " active Java mods": " 个活跃 Java 模组",
+      " (preload)": "（预加载）"
+    },
+    "me.zed_0xff.zombie_buddy.Loader": {
+      "Waiting for Java mods approval…": "正在等待 Java 模组审批…",
+      "Loading Mods": "正在加载模组",
+      "Preload mod \"": "预加载模组 “",
+      "\" disabled. Restart the game to deactivate it.": "” 已停用，重启游戏后生效。"
+    },
+    "me.zed_0xff.zombie_buddy.Loader$PreloadMods": {
+      "Preload mod \"": "预加载模组 “",
+      "\" added/updated. Restart recommended.": "” 已添加或更新，建议重启游戏。"
+    },
+    "me.zed_0xff.zombie_buddy.frontend.TinyfdModApprovalFrontend": {
+      "ZombieBuddy Java mod approval": "ZombieBuddy Java 模组审批",
+      "Invalid ZBS — load will be denied.": "ZBS 无效——将拒绝加载。",
+      "ZBS invalid — this Java mod cannot be loaded.\n\n": "ZBS 无效——此 Java 模组无法加载。\n\n",
+      "\n\nIt will be denied.": "\n\n该模组将被拒绝加载。",
+      "Mod: ": "模组: ",
+      "Modified: ": "修改时间: ",
+      "Only allow if you trust this mod source.": "仅在您信任此模组来源时允许加载。",
+      "valid": "有效",
+      "invalid": "无效",
+      "unsigned": "未签名",
+      "<unknown>": "未知"
+    },
+    "me.zed_0xff.zombie_buddy.frontend.ConsoleModApprovalFrontend": {
+      "Mod id:    ": "模组 ID:    ",
+      "Workshop:  ": "创意工坊:  ",
+      "Updated:   ": "更新时间:   ",
+      "ZBS valid: ": "ZBS 有效: ",
+      "ZBS note:  ": "ZBS 说明:  ",
+      "ZBS invalid — load will be denied.": "ZBS 无效——将拒绝加载。",
+      "Allow this Java mod to load?": "允许此 Java 模组加载吗？",
+      "Save this decision to disk?": "将此决定保存到磁盘吗？",
+      "Please answer y or n.": "请输入 y 或 n。",
+      "(none)": "（无）",
+      "(unknown)": "（未知）"
+    },
+    "me.zed_0xff.zombie_buddy.frontend.SwingApprovalMain": {
+      "Usage: SwingApprovalMain <requestFile> <responseFile>": "用法: SwingApprovalMain <请求文件> <响应文件>",
+      "ZombieBuddy — Java mod approval": "ZombieBuddy — Java 模组审批",
+      "<html>For each mod choose <b>Yes</b> (load JAR) or <b>No</b> (block).</html>": "<html>请为每个模组选择<b>是</b>（加载 JAR）或<b>否</b>（阻止）。</html>",
+      "Mod": "模组",
+      "Author": "作者",
+      "Updated": "更新时间",
+      "<html><center>Steam<br/>ban status</center></html>": "<html><center>Steam<br/>封禁状态</center></html>",
+      "<html><center>Trust<br/>author</center></html>": "<html><center>信任<br/>作者</center></html>",
+      "Allow": "允许",
+      "Invalid signature — JAR may have been tampered with.": "签名无效——JAR 可能已被篡改。",
+      "<html><i>(unsigned)</i></html>": "<html><i>（未签名）</i></html>",
+      "?": "？",
+      "Yes": "是",
+      "No": "否",
+      "Cannot trust author: they have a banned mod in this batch.": "无法信任该作者：其在本批次中有被封禁的模组。",
+      "<html><small><i>\"Trust author\" means all mods by that author are auto-allowed while their digital signature remains valid and the mod is not banned.</i></small></html>": "<html><small><i>“信任作者”表示该作者的所有模组将在其数字签名仍然有效且未被封禁时自动允许加载。</i></small></html>",
+      "Save decisions to disk (persist across game launches)": "将决定保存到磁盘（跨游戏启动保持）",
+      "OK": "确定",
+      "Cancel": "取消"
+    },
+    "me.zed_0xff.zombie_buddy.frontend.ImguiApprovalDialog": {
+      "[Preload]": "【预加载】",
+      "This mod wants ZombieBuddy to load its Java code during agent startup on the next launch.": "此模组希望 ZombieBuddy 在下一次启动时于代理启动阶段加载其 Java 代码。",
+      "Preloaded mods run before normal Project Zomboid mod loading.": "预加载模组先于常规 Project Zomboid 模组加载。",
+      "This lets the mod hook earlier game code that is otherwise already loaded.": "这允许模组挂钩更早期的游戏代码（否则这些代码可能已加载）。",
+      "Mod": "模组",
+      "Author": "作者",
+      "Updated": "更新时间",
+      "Steam ban status": "Steam 封禁状态",
+      "Allow": "允许",
+      "Trust author": "信任作者",
+      "Signed mods by that author can be auto-allowed while the signature remains valid and the mod is not banned.": "该作者的已签名模组可在签名仍然有效且未被封禁时自动允许加载。",
+      "ZombieBuddy Java Mod Approval": "ZombieBuddy Java 模组审批",
+      "Review each Java mod before allowing it to load.": "请在允许加载前逐一审查每个 Java 模组。",
+      "Hold Shift during game load to force-show this dialog": "游戏加载期间按住 Shift 可强制显示此对话框",
+      "Save decisions to disk (persist across game launches)": "将决定保存到磁盘（跨游戏启动保持）",
+      "When disabled, choices apply only to this game launch.": "未勾选时，选择仅对本次游戏启动生效。",
+      "Cancel": "取消",
+      "OK": "确定",
+      "Shows the approval dialog even for previously approved Java mods.": "即使对已批准的 Java 模组也会显示审批对话框。",
+      "deny all pending Java mods": "拒绝所有待审批的 Java 模组",
+      "No": "否",
+      "Yes": "是",
+      "(unsigned)": "（未签名）",
+      "?": "？",
+      "Unknown": "未知",
+      "Invalid signature": "签名无效",
+      "id:  ": "ID:  ",
+      "jar: ": "JAR: ",
+      "inf: ": "mod.info: ",
+      "url: ": "链接: ",
+      "Cannot trust author: this mod has a Steam ban.": "无法信任该作者：此模组已被 Steam 封禁。",
+      "Cannot trust author: they have a banned mod in this batch.": "无法信任该作者：其在本批次中有被封禁的模组。",
+      "Cannot trust author: signature is invalid.": "无法信任该作者：签名无效。",
+      "Cannot trust author: mod is unsigned.": "无法信任该作者：模组未签名。",
+      "Cannot trust author: signature has no author SteamID.": "无法信任该作者：签名中缺少作者 SteamID。"
+    },
+    "me.zed_0xff.zombie_buddy.frontend.ImguiApprovalMain": {
+      "Usage: ImguiApprovalMain <requestFile> <responseFile>": "用法: ImguiApprovalMain <请求文件> <响应文件>",
+      "ZombieBuddy Java Mod Approval": "ZombieBuddy Java 模组审批",
+      "GLFW initialization failed": "GLFW 初始化失败",
+      "Could not create GLFW window": "无法创建 GLFW 窗口"
+    },
+    "me.zed_0xff.zombie_buddy.ZBSVerifier": {
+      "Missing .zbs file next to JAR: ": "JAR 旁缺少 .zbs 文件：",
+      "Could not read .zbs: ": "无法读取 .zbs：",
+      "Declared SteamID64 does not match Workshop item uploader.": "声明的 SteamID64 与创意工坊上传者不匹配。",
+      "known authors list": "已知作者列表",
+      "Steam profile": "Steam 个人资料",
+      "Could not find JavaModZBS:<64 hex> on Steam profile — add it to your profile summary.": "在 Steam 个人资料中未找到 JavaModZBS:<64 hex>——请将其添加到个人资料简介中。",
+      "Invalid JavaModZBS hex in ": "JavaModZBS 十六进制值无效，来源：",
+      "JavaModZBS in ": "JavaModZBS（来自 ",
+      " must be 64 hex chars (32-byte Ed25519 public key).": "）必须为 64 个十六进制字符（32 字节 Ed25519 公钥）。",
+      "Invalid signature — JAR may have been tampered with.": "签名无效——JAR 可能已被篡改。",
+      "Invalid signature hex: ": "无效的签名十六进制值："
+    },
+    "me.zed_0xff.zombie_buddy.ZBSVerifier$CheckResult": {
+      "Missing .zbs file (allow_unsigned_mods=false)": "缺少 .zbs 文件（allow_unsigned_mods=false）",
+      "missing .zbs file; allow_unsigned_mods=false": "缺少 .zbs 文件；allow_unsigned_mods=false"
+    },
+    "me.zed_0xff.zombie_buddy.ZBSVerifier$MissingSignature": {
+      "Missing signature file.": "缺少签名文件。"
+    },
+    "me.zed_0xff.zombie_buddy.ZBSVerifier$InvalidSignature": {
+      "Invalid signature.": "签名无效。"
+    },
+    "me.zed_0xff.zombie_buddy.ZBSVerifier$VerificationError": {
+      "Could not verify signature.": "无法验证签名。"
+    },
+    "me.zed_0xff.zombie_buddy.frontend.ImguiModApprovalFrontend": {},
+    "me.zed_0xff.zombie_buddy.frontend.ImguiModApprovalFrontend$OwnedImguiContext": {},
+    "me.zed_0xff.zombie_buddy.frontend.SwingModApprovalFrontend": {}
+  }
+}
