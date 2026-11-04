@@ -64,7 +64,7 @@ The easiest way to install ZombieBuddy on Windows is using the automated install
 1. **Download the latest `ZombieBuddyInstaller.exe`** from the [GitHub Releases](https://github.com/zed-0xff/ZombieBuddy/releases/tag/windows_installer) page.
 2. **Run the installer** and choose **Install or update ZombieBuddy**.
 3. **Choose what launch mode to patch**:
-   - **Both** (recommended): patches Normal Launch and Alternate Launch.
+   - **Both**: patches `ProjectZomboid64.json` for Normal Launch and `ProjectZomboid64.bat` for Alternate Launch. It removes an existing ZombieBuddy Steam launch option after showing that change in the confirmation preview, so Normal Launch requests the native agent only once.
    - **Normal Launch**: then choose `ProjectZomboid64.json`, Steam launch options, or both.
    - **Alternate Launch**: patches `ProjectZomboid64.bat`.
 4. **Review the confirmation preview**. The installer lists every system change before applying it.
@@ -81,6 +81,8 @@ The installer will:
   - `ProjectZomboid64.bat` for Alternate Launch.
 
 If Steam launch options need to be changed, the installer asks you to close Steam at that point. It does not require Steam to be closed for launcher JSON/BAT edits or file copies.
+
+ZombieBuddy's Java agent already ignores duplicate initialization. Using one injection point avoids a redundant native-agent load request; it does not fix duplicate Java patch application. Game updates or Steam file verification can overwrite JSON/BAT patches, so rerun the installer if they are lost. For Normal Launch that survives game updates, choose **Normal Launch → Steam launch options**.
 
 The same installer can also uninstall ZombieBuddy later. Run it again and choose **Uninstall ZombieBuddy**.
 
