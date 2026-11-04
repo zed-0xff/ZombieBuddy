@@ -22,6 +22,8 @@ public class Agent {
             return;
         }
 
+        CoopChild.isReadOnly(); // Freeze the child role before any mod can change JVM properties.
+
         Logger.info("activating " + ZombieBuddy.getFullVersionString());
         Loader.g_instrumentation = inst;
         Reflect.init(inst);
@@ -85,6 +87,7 @@ public class Agent {
             }
         }
 
+        CoopServerLaunch.install(inst);
         Exposer.exposeAnnotatedClasses(ZombieBuddy.class.getPackage().getName());
 
         String basePkg = ZombieBuddy.class.getPackage().getName();

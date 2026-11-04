@@ -118,8 +118,8 @@ public final class ModApprovalsStore {
                     }
                 }
             }
-            if (Files.exists(leg)) {
-                Files.delete(leg);
+            if (CoopChild.legacyExists(leg)) {
+                CoopChild.deleteLegacy(leg);
                 Logger.info("Deleted legacy Java mod approvals file " + leg.getFileName());
             }
         } catch (Exception e) {
@@ -129,6 +129,7 @@ public final class ModApprovalsStore {
     }
 
     static void save(FileData data) {
+        if (CoopChild.isReadOnly()) return;
         try {
             Path jp = jsonPath();
             Files.createDirectories(jp.getParent());

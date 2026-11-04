@@ -183,6 +183,7 @@ public class Loader {
     }
 
     private static ModApprovalFrontend approvalFrontend() {
+        if (CoopChild.isReadOnly()) return CoopChild.frontend();
         ModApprovalFrontend f = g_approvalFrontend;
         if (f != null) {
             return f;
@@ -207,6 +208,17 @@ public class Loader {
             approvals.put(hash, g_sessionJarDecisions.get(hash));
         }
     }
+
+    /** A copy of direct process choices, without deriving grants from loaded mods or author trust. */
+    public static Map<String, Boolean> coopSessionJarDecisions() {
+        Map<String, Boolean> snapshot = new HashMap<>();
+        for (String hash : g_sessionJarDecisions.hashes()) {
+            snapshot.put(hash, g_sessionJarDecisions.get(hash));
+        }
+        return snapshot;
+    }
+
+    public static Config coopSessionConfig() { return g_config; }
 
     /**
      * Per-modId load/decision snapshot captured at loadMods() time so Lua
@@ -276,6 +288,7 @@ public class Loader {
      */
     private static void storeDecision(String jarHash, boolean allow, String modId, 
             WorkshopItemID workshopId, SteamID64 authorId) {
+        if (CoopChild.isReadOnly()) return;
         if (jarHash == null) return;
         // Update existing entry if found
         for (ModApprovalsStore.ModEntry e : g_storedEntries) {
@@ -328,6 +341,7 @@ public class Loader {
     }
 
     static void applyBatchApprovalLines(List<JarBatchApprovalProtocol.Entry> entries, JarDecisionTable disk) {
+        if (CoopChild.isReadOnly()) return;
         if (entries == null) return;
         for (JarBatchApprovalProtocol.Entry entry : entries) {
             if (entry == null || entry.decision == null || Utils.isBlank(entry.sha256)) continue;
@@ -360,10 +374,12 @@ public class Loader {
         if (sid == null) {
             return false;
         }
-        return g_config.trustsAuthor(sid);
+        Boolean inherited = CoopSessionApprovals.authorChoice(sid);
+        return inherited != null ? inherited : g_config.trustsAuthor(sid);
     }
 
     private static void storeTrustedAuthor(SteamID64 sid) {
+        if (CoopChild.isReadOnly()) return;
         if (sid == null) {
             return;
         }
@@ -375,6 +391,7 @@ public class Loader {
     }
 
     private static void removeTrustedAuthor(SteamID64 sid) {
+        if (CoopChild.isReadOnly()) return;
         if (sid == null) {
             return;
         }
@@ -391,6 +408,7 @@ public class Loader {
         private static final String MANIFEST_ATTR = "ZB-Preload";
 
         private static void add(String id, Path infPath, Path jarPath) {
+            if (CoopChild.isReadOnly()) return;
             Config nextConfig = g_config.withPreloadMod(id, new Config.PreloadMod(infPath, jarPath));
             if (!nextConfig.equals(g_config)) {
                 g_config = nextConfig;
@@ -400,6 +418,7 @@ public class Loader {
         }
 
         private static void remove(String id) {
+            if (CoopChild.isReadOnly()) return;
             Config nextConfig = g_config.withoutPreloadMod(id);
             if (!nextConfig.equals(g_config)) {
                 g_config = nextConfig;
@@ -433,6 +452,7 @@ public class Loader {
     }
 
     static void preloadMods() {
+        if (!CoopSessionApprovals.isUsable()) return;
         if (g_config.preload_mods().isEmpty()) {
             return;
         }
@@ -475,7 +495,8 @@ public class Loader {
 
         // Second pass: ZBS check and load
         for (PreloadEntry entry : entries) {
-            ZBSVerifier.CheckResult zbsResult = zbsCheck(entry.canJarPath(), entry.hash(), entry.workshopItemId(), zbsCtx);
+            ZBSVerifier.CheckResult zbsResult = CoopSessionApprovals.check(entry.hash(),
+                    zbsCheck(entry.canJarPath(), entry.hash(), entry.workshopItemId(), zbsCtx));
             if (zbsBlocked(zbsResult)) {
                 Logger.warn("Preload pkg '" + entry.javaPkgName() + "': ZBS check failed (" + zbsResult.blockReason() + "); skipping.");
                 PreloadMods.remove(entry.id());
@@ -623,6 +644,11 @@ public class Loader {
         boolean steamBanned,
         Map<WorkshopItemID, SteamWorkshop.ItemDetails> workshopDetailsById
     ) {
+        if (CoopChild.isReadOnly()) {
+            if (steamBanned) CoopSessionApprovals.revokeAuthor(
+                    SteamWorkshop.getUploaderID(workshopItemId, workshopDetailsById));
+            return;
+        }
         if (!steamBanned || jarPath == null || hash == null) {
             return;
         }
@@ -637,11 +663,7 @@ public class Loader {
         SteamID64 sid,
         Map<SteamID64, KnownAuthors.AuthorEntry> knownAuthors
     ) {
-        if (sid == null) {
-            return "";
-        }
-        KnownAuthors.AuthorEntry known = knownAuthors != null ? knownAuthors.get(sid) : null;
-        return known != null && !Utils.isBlank(known.name) ? known.name : sid.toString();
+        return LocalAuthors.displayName(sid, knownAuthors);
     }
 
     private static final List<String> PINNED_MOD_ORDER = List.of(
@@ -689,6 +711,9 @@ public class Loader {
     }
 
     public static void loadMods(List<String> mods) {
+        if (!CoopSessionApprovals.isUsable()) return;
+        // The client owns configuration/approvals. Refresh its config at each child load pass.
+        CoopChild.refreshConfig();
         ArrayList<JavaModInfo> jModInfos = new ArrayList<>();
         ArrayList<String> jModIds = new ArrayList<>();
         HashSet<String> processedIds = new HashSet<>();
@@ -757,6 +782,7 @@ public class Loader {
         g_modApprovalsDirty = false;
         List<ModApprovalsStore.ModEntry> storedEntriesBefore = copyStoredEntries(g_storedEntries);
         JarDecisionTable approvals = buildJarDecisionTable(g_storedEntries);
+        CoopSessionApprovals.apply(approvals);
         if (!g_forceApprovalDialog) {
             checkShiftKey();
         }
@@ -801,7 +827,8 @@ public class Loader {
                 ? new SteamWorkshop.BanInfo(null, "Workshop id not found in mod path.")
                 : (workshopDetails != null ? workshopDetails.ban() : null);
             boolean steamBanned = banInfo != null && Boolean.TRUE.equals(banInfo.status());
-            modContexts.add(new ModCtx(modId, jarPath, hash, workshopItemId, workshopDetails, banInfo, steamBanned, zbsCheck(jarPath, hash, workshopItemId, zbsCtx)));
+            modContexts.add(new ModCtx(modId, jarPath, hash, workshopItemId, workshopDetails, banInfo, steamBanned,
+                    CoopSessionApprovals.check(hash, zbsCheck(jarPath, hash, workshopItemId, zbsCtx))));
         }
         for (ModCtx ctx : modContexts) {
             untrustAuthorForBannedMod(
@@ -893,7 +920,7 @@ public class Loader {
                     steamBan
                 ));
             }
-            if (!batchEntries.isEmpty()) {
+            if (!batchEntries.isEmpty() && !CoopChild.isReadOnly()) {
                 if (g_hasDoLoadingText) {
                     GameWindow.DoLoadingText("Waiting for Java mods approval…");
                 }
@@ -1208,6 +1235,7 @@ public class Loader {
     }
 
     public static void setAutoFixModOrder(boolean value) {
+        if (CoopChild.isReadOnly()) return;
         Config newConfig = g_config.withAutoFixModOrder(value);
         if (newConfig.equals(g_config)) {
             return;
@@ -1222,6 +1250,7 @@ public class Loader {
     }
 
     public static void setFixApprovalDialogCursor(boolean value) {
+        if (CoopChild.isReadOnly()) return;
         Config newConfig = g_config.withFixApprovalDialogCursor(value);
         if (newConfig.equals(g_config)) {
             return;
@@ -1236,6 +1265,7 @@ public class Loader {
     }
 
     public static void setFixMacOSRetina(boolean value) {
+        if (CoopChild.isReadOnly()) return;
         Config newConfig = g_config.withFixMacOSRetina(value);
         if (newConfig.equals(g_config)) {
             return;

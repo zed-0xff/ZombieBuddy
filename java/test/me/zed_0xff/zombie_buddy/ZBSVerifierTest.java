@@ -65,17 +65,28 @@ class ZBSVerifierTest {
     @Test
     void verify_rejectsTamperedJarHash() throws Exception {
         SignedFixture fixture = signedFixture(AUTHOR_ID);
+        String previousConfig = Agent.arguments.put("config_dir", tempDir.toString());
+        LocalAuthors.ProfileFetcher previousFetcher = LocalAuthors.profileFetcher;
+        LocalAuthorsTest.restart();
+        LocalAuthors.profileFetcher = id -> new LocalAuthors.Profile("Test Author", List.of(fixture.publicKeyHex));
+        try {
+            ZBSVerifier.Verification result = ZBSVerifier.verify(
+                fixture.jarPath,
+                fixture.zbsPath,
+                "0".repeat(64),
+                AUTHOR_ID,
+                knownAuthors(AUTHOR_ID, fixture.publicKeyHex)
+            );
 
-        ZBSVerifier.Verification result = ZBSVerifier.verify(
-            fixture.jarPath,
-            fixture.zbsPath,
-            "0".repeat(64),
-            AUTHOR_ID,
-            knownAuthors(AUTHOR_ID, fixture.publicKeyHex)
-        );
-
-        assertInstanceOf(ZBSVerifier.InvalidSignature.class, result);
-        assertEquals("Invalid signature — JAR may have been tampered with.", result.detailedMessage);
+            assertInstanceOf(ZBSVerifier.InvalidSignature.class, result);
+            assertEquals("Signature does not match the Steam profile signing keys.", result.detailedMessage);
+            assertFalse(Files.exists(tempDir.resolve("authors.local.json")));
+        } finally {
+            LocalAuthors.profileFetcher = previousFetcher;
+            if (previousConfig == null) Agent.arguments.remove("config_dir");
+            else Agent.arguments.put("config_dir", previousConfig);
+            LocalAuthorsTest.restart();
+        }
     }
 
     @Test
