@@ -41,7 +41,7 @@ class TypedThisMergedTest {
             ClassLoader modLoader = ModJarInjector.injectMerged(transformed);
             PatchEngine.applyPatches(transformed.patches(), modLoader, transformed);
 
-            Class<?> target = Class.forName(TARGET, false, ClassLoader.getSystemClassLoader());
+            Class<?> target = modLoader.loadClass(TARGET);
             Object instance = target.getDeclaredConstructor().newInstance();
             target.getDeclaredMethod("ping").invoke(instance);
 
