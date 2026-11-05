@@ -408,12 +408,29 @@ public final class PatchEngine {
     }
 
     private static ClassFileLocator classFileLocator(TransformedJar transformedJar, ClassLoader modLoader) {
+        ClassFileLocator transformedClasses = new ClassFileLocator() {
+            @Override
+            public Resolution locate(String name) {
+                byte[] bytes = Loader.getTransformedClassBytes(name);
+                return bytes == null
+                        ? new Resolution.Illegal(name)
+                        : new Resolution.Explicit(bytes);
+            }
+
+            @Override
+            public void close() {}
+        };
+
         if (transformedJar == null || transformedJar.classes().isEmpty()) {
-            return ClassFileLocator.ForClassLoader.of(modLoader);
+            return new ClassFileLocator.Compound(
+                transformedClasses,
+                ClassFileLocator.ForClassLoader.of(modLoader)
+            );
         }
 
         return new ClassFileLocator.Compound(
             new ClassFileLocator.Simple(transformedJar.classes()),
+            transformedClasses,
             ClassFileLocator.ForClassLoader.of(modLoader)
         );
     }

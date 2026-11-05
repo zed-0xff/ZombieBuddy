@@ -51,6 +51,39 @@ class TypedThisMergedTest {
         }
     }
 
+    @Test
+    void typedThisFromAnotherMergedJar(@TempDir Path tempDir) throws Exception {
+        assumeTrue(ClassInjector.UsingUnsafe.isAvailable(), "requires ClassInjector.UsingUnsafe");
+
+        Loader.g_instrumentation = ByteBuddyAgent.install();
+
+        Path classesDir = compileCrossJarClasses(tempDir);
+        Path markerJar = buildJar(tempDir.resolve("marker.jar"), classesDir, "typedthis/cross/Marker.class");
+        Path targetJar = buildJar(tempDir.resolve("target.jar"), classesDir,
+                "typedthis/cross/Target.class", "typedthis/cross/TypedPatch.class");
+
+        TransformedJar transformedMarker = Pipeline.transformPatchJar(markerJar, "typedthis.cross");
+        TransformedJar transformedTarget = Pipeline.transformPatchJar(targetJar, "typedthis.cross");
+        Loader.g_transformed_jars.put(markerJar, transformedMarker);
+        Loader.g_transformed_jars.put(targetJar, transformedTarget);
+
+        try {
+            ClassLoader modLoader = ModJarInjector.injectMerged(transformedMarker);
+            ModJarInjector.injectMerged(transformedTarget);
+            PatchEngine.applyPatches(transformedTarget.patches(), modLoader, transformedTarget);
+
+            Class<?> target = modLoader.loadClass("typedthis.cross.Target");
+            Object instance = target.getDeclaredConstructor().newInstance();
+            target.getDeclaredMethod("ping").invoke(instance);
+
+            assertTrue(target.getField("enterCalled").getBoolean(null),
+                    "typed @Patch.This from another merged jar should run");
+        } finally {
+            Loader.g_transformed_jars.remove(markerJar);
+            Loader.g_transformed_jars.remove(targetJar);
+        }
+    }
+
     private static boolean isLoaded(String className) {
         for (Class<?> cls : Loader.g_instrumentation.getAllLoadedClasses()) {
             if (className.equals(cls.getName())) {
@@ -58,6 +91,69 @@ class TypedThisMergedTest {
             }
         }
         return false;
+    }
+
+    private static Path compileCrossJarClasses(Path tempDir) throws Exception {
+        Path sourceDir = tempDir.resolve("cross-src/typedthis/cross");
+        Files.createDirectories(sourceDir);
+
+        Files.writeString(sourceDir.resolve("Marker.java"), """
+                package typedthis.cross;
+
+                public interface Marker {}
+                """);
+
+        Files.writeString(sourceDir.resolve("Target.java"), """
+                package typedthis.cross;
+
+                public class Target implements Marker {
+                    public static boolean enterCalled;
+
+                    public void ping() {}
+                }
+                """);
+
+        Files.writeString(sourceDir.resolve("TypedPatch.java"), """
+                package typedthis.cross;
+
+                import me.zed_0xff.zombie_buddy.annotations.Patch;
+
+                @Patch(className = "typedthis.cross.Target", methodName = "ping")
+                public class TypedPatch {
+                    @Patch.OnEnter
+                    public static void enter(@Patch.This Marker self) {
+                        Target.enterCalled = true;
+                    }
+                }
+                """);
+
+        Path classesDir = tempDir.resolve("cross-classes");
+        Files.createDirectories(classesDir);
+
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        ByteArrayOutputStream compilerErrors = new ByteArrayOutputStream();
+        int result = compiler.run(null, null, compilerErrors,
+                "-proc:none",
+                "-classpath", System.getProperty("java.class.path"),
+                "-d", classesDir.toString(),
+                sourceDir.resolve("Marker.java").toString(),
+                sourceDir.resolve("Target.java").toString(),
+                sourceDir.resolve("TypedPatch.java").toString());
+        assertEquals(0, result, compilerErrors.toString());
+
+        return classesDir;
+    }
+
+    private static Path buildJar(Path jarPath, Path classesDir, String... entries) throws Exception {
+        try (JarOutputStream jar = new JarOutputStream(Files.newOutputStream(jarPath))) {
+            for (String entry : entries) {
+                jar.putNextEntry(new JarEntry(entry));
+                jar.write(Files.readAllBytes(classesDir.resolve(entry)));
+                jar.closeEntry();
+            }
+        }
+
+        return jarPath;
     }
 
     private static Path buildPatchJar(Path tempDir) throws Exception {
