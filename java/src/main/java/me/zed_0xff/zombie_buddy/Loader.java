@@ -122,6 +122,10 @@ public class Loader {
     private static ZBSVerifier.CheckResult zbsCheck(
         Path jarPath, String hash, WorkshopItemID workshopItemId, ZBSContext ctx
     ) {
+        // Steam bans remain authoritative when allow-all skips signature checks,
+        // including the early preload path that has no later normal-policy loop.
+        var banned = PreloadPolicy.banResult(workshopItemId, ctx.workshopDetailsById());
+        if (banned != null) return banned;
         if (!zbsSignatureChecksEnabled() || jarPath == null || hash == null) {
             return ZBSVerifier.CheckResult.DISABLED;
         }
@@ -328,6 +332,16 @@ public class Loader {
     }
 
     static void applyBatchApprovalLines(List<JarBatchApprovalProtocol.Entry> entries, JarDecisionTable disk) {
+        // Cancel discards UI edits and restores saved decisions/trust after frontend IPC.
+        ApprovalChoices.applyCancelled(entries);
+        AuthorTrustChoices.applyAuthors(entries, Loader::storeTrustedAuthor, Loader::removeTrustedAuthor);
+        // Consume trust-only revocations without changing the hash store, and explicit resets:
+        // null + MF_PERSIST requests an explicit reset, not a permanent denial.
+        // Consume it before normal processing: remove the stored hash/author trust,
+        // then convert it to a nonpersistent denial for this launch. Never store the marker.
+        if (ApprovalChoices.applyClears(entries, g_storedEntries, Loader::removeTrustedAuthor)) {
+            g_modApprovalsDirty = true;
+        }
         if (entries == null) return;
         for (JarBatchApprovalProtocol.Entry entry : entries) {
             if (entry == null || entry.decision == null || Utils.isBlank(entry.sha256)) continue;
@@ -338,14 +352,6 @@ public class Loader {
                 storeDecision(entry.sha256, allow, entry.modId, entry.workshopItemId,
                     entry.zbs.valid() ? entry.zbs.authorSteamId() : null);
             }
-            if (entry.flags.has(MF_PERSIST) && entry.zbs.valid() && entry.zbs.authorSteamId() != null) {
-                if (entry.flags.has(MF_TRUST_AUTHOR)) {
-                    storeTrustedAuthor(entry.zbs.authorSteamId());
-                } else if (isAuthorTrusted(entry.zbs.authorSteamId())) {
-                    // 'trust author' checkbox unchecked
-                    removeTrustedAuthor(entry.zbs.authorSteamId());
-                }
-            }
             if (entry.flags.has(MF_PRELOAD) && !Utils.isBlank(entry.modId) && !Utils.isBlank(entry.infAbsolutePath) && !Utils.isBlank(entry.jarAbsolutePath)) {
                 if (allow) {
                     PreloadMods.add(entry.modId, entry.infAbsolutePath, entry.jarAbsolutePath);
@@ -354,13 +360,15 @@ public class Loader {
                 }
             }
         }
+        AuthorTrustChoices.authorize(entries, disk, g_config, Loader::registerTrustedPreload);
+    }
+
+    private static void registerTrustedPreload(JarBatchApprovalProtocol.Entry entry) {
+        PreloadMods.add(entry.modId, entry.infAbsolutePath, entry.jarAbsolutePath);
     }
 
     private static boolean isAuthorTrusted(SteamID64 sid) {
-        if (sid == null) {
-            return false;
-        }
-        return g_config.trustsAuthor(sid);
+        return AuthorTrustChoices.isPersistentlyTrusted(sid, g_config);
     }
 
     private static void storeTrustedAuthor(SteamID64 sid) {
@@ -396,6 +404,7 @@ public class Loader {
                 g_config = nextConfig;
                 g_configDirty = true;
                 Watermark.setMidLine("Preload mod \"" + id + "\" added/updated. Restart recommended.");
+                PreloadPolicy.restartRequired(id);
             }
         }
 
@@ -627,8 +636,10 @@ public class Loader {
             return;
         }
         SteamID64 uploaderID = SteamWorkshop.getUploaderID(workshopItemId, workshopDetailsById);
-        if (uploaderID != null && isAuthorTrusted(uploaderID)) {
+        ApprovalChoices.recordBanRevocation(uploaderID);
+        if (uploaderID != null && AuthorTrustChoices.isTrustedForRevocation(uploaderID, g_config)) {
             removeTrustedAuthor(uploaderID);
+            AuthorTrustChoices.revokeSession(uploaderID);
             Logger.warn("Removed trusted-author flag for " + uploaderID + " because banned mod was detected: " + modId);
         }
     }
@@ -689,6 +700,7 @@ public class Loader {
     }
 
     public static void loadMods(List<String> mods) {
+        ApprovalChoices.beginLoad();
         ArrayList<JavaModInfo> jModInfos = new ArrayList<>();
         ArrayList<String> jModIds = new ArrayList<>();
         HashSet<String> processedIds = new HashSet<>();
@@ -856,11 +868,11 @@ public class Loader {
                     // so the user sees their earlier choices pre-filled in the dialog.
                     decision = g_sessionJarDecisions.get(ctx.hash);
                 }
-                if (!g_forceApprovalDialog && !ctx.steamBanned && zbs.valid() && isAuthorTrusted(authorID)) {
+                if (!g_forceApprovalDialog && !ctx.steamBanned && zbs.valid() && AuthorTrustChoices.isTrusted(authorID, g_config)) {
                     // Auto-approve for this session only — trusted-author approvals are not persisted
                     // because the trust comes from the author record, not the specific JAR hash.
                     approvals.put(ctx.hash, Boolean.TRUE);
-                    if (jModInfo.javaPreload() && PreloadMods.hasManifestPreload(ctx.jarPath)) {
+                    if (g_config.trustsAuthor(authorID) && jModInfo.javaPreload() && PreloadMods.hasManifestPreload(ctx.jarPath)) {
                         PreloadMods.add(ctx.modId, jModInfo.infPath(), ctx.jarPath);
                     }
                     continue;
@@ -869,7 +881,7 @@ public class Loader {
                     if (decision != null) continue;
                 }
                 ModFlags entryFlags = new ModFlags(isDecisionStored(ctx.hash, decision) ? MF_PERSIST : MF_NONE);
-                if (zbs.valid() && authorID != null && isAuthorTrusted(authorID) && !ctx.steamBanned) {
+                if (zbs.valid() && authorID != null && AuthorTrustChoices.isTrusted(authorID, g_config) && !ctx.steamBanned) {
                     entryFlags = entryFlags.with(MF_TRUST_AUTHOR);
                 }
                 final boolean bHasManifestPreload = PreloadMods.hasManifestPreload(ctx.jarPath);
@@ -899,7 +911,10 @@ public class Loader {
                 }
                 List<JarBatchApprovalProtocol.Entry> decided = batchEntries;
                 try {
-                    decided = approvalFrontend().approvePendingMods(batchEntries);
+                    var frontend = approvalFrontend();
+                    // Automatic ban revocations must be on disk before a window can open or exit.
+                    ApprovalChoices.saveBanRevocations(g_config);
+                    decided = frontend.approvePendingMods(batchEntries);
                 } finally {
                     if (g_hasDoLoadingText) {
                         GameWindow.DoLoadingText("Loading Mods");
@@ -940,7 +955,7 @@ public class Loader {
                 skipReason = " (" + ctx.zbsResult.blockReason() + ", modId=" + ctx.modId + ")";
             }
 
-            if (flags.hasAll(MF_VALID, MF_SIGNED) && isAuthorTrusted(ctx.zbsResult.uploaderID())) {
+            if (flags.hasAll(MF_VALID, MF_SIGNED) && AuthorTrustChoices.isPersistentlyTrusted(ctx.zbsResult.sid(), g_config)) {
                 flags = flags.with(MF_TRUST_AUTHOR);
             }
 
@@ -980,6 +995,13 @@ public class Loader {
                 JavaModLoadState prev = g_jarLoadStatus.get(canonicalJarPath);
                 if (prev != null) {
                     flags = flags.merge(prev.flags.getSticky());
+                }
+
+                // allow-all authorizes registration after the ordinary permission/
+                // ban gates. The early entry runs on the next start.
+                if (!shouldSkip && POLICY_ALLOW_ALL.equals(g_jarPolicy) && jModInfo.javaPreload()
+                        && PreloadMods.hasManifestPreload(canonicalJarPath)) {
+                    PreloadMods.add(ctx.modId, jModInfo.infPath(), canonicalJarPath);
                 }
 
                 g_jarLoadStatus.put(canonicalJarPath, new JavaModLoadState(
