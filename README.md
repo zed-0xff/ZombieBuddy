@@ -88,6 +88,7 @@ public static class MyPatch {
 
 - **Project Zomboid** (Build 42+)
 - **Java 25** (required by the game)
+- **Windows native loader:** Windows 10/11 x64 for the current game target; runtime-file identity queries must be supported and permitted. See the [Windows loader requirement and diagnostics](doc/Installation.md#windows-native-loader-requirement) for the API floor, filesystem/access requirements and stderr/debug-output capture.
 - **Gradle** (for building Java mods)
 
 ## ☕ Support the Project

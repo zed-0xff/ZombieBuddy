@@ -1,13 +1,18 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include "runtime_guard.h"
 
 HMODULE hOrig = NULL;
 
 #define ZB_JAR "ZombieBuddy.jar"
-#define AGENT_OPTIONS_MAX 2048
+// Total payload capacity, including the JAR prefix and trailing NUL.
+#define AGENT_OPTIONS_MAX 4096
 
 // Minimal DllMain to prevent CRT initialization
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
+    (void)hinstDLL;
+    (void)fdwReason;
+    (void)lpvReserved;
     return TRUE;
 }
 
@@ -15,25 +20,45 @@ int  (*pAgent_OnAttach)(void*, char*, void*) = NULL;
 int  (*pAgent_OnLoad)(void*, char*, void*)   = NULL;
 void (*pAgent_OnUnload)(void*)               = NULL;
 
+static void clear_agent_callbacks(void) {
+    pAgent_OnAttach = NULL;
+    pAgent_OnLoad = NULL;
+    pAgent_OnUnload = NULL;
+}
+
 void write_msg(const char* msg) {
     WriteConsoleA(GetStdHandle(STD_OUTPUT_HANDLE), msg, lstrlenA(msg), NULL, NULL);
 }
 
 void init_instrument_dll() {
+    union {
+        FARPROC raw;
+        int (*entry)(void*, char*, void*);
+        void (*unload)(void*);
+    } proc;
     if (hOrig) return; // already loaded
 
-    SetDllDirectoryA(".\\jre64\\bin");
-    hOrig = LoadLibraryA("instrument.dll");
-    SetDllDirectoryA(NULL);
+    /* A failed retry must never reuse callbacks from an earlier library load. */
+    clear_agent_callbacks();
+    hOrig = load_runtime_instrument();
 
     if (!hOrig) {
         write_msg("[zbNative] Failed to load instrument.dll\n");
         return;
     }
 
-    *(void**)&pAgent_OnAttach = GetProcAddress(hOrig, "Agent_OnAttach");
-    *(void**)&pAgent_OnLoad   = GetProcAddress(hOrig, "Agent_OnLoad");
-    *(void**)&pAgent_OnUnload = GetProcAddress(hOrig, "Agent_OnUnload");
+    proc.raw = GetProcAddress(hOrig, "Agent_OnAttach");
+    pAgent_OnAttach = proc.entry;
+    proc.raw = GetProcAddress(hOrig, "Agent_OnLoad");
+    pAgent_OnLoad = proc.entry;
+    proc.raw = GetProcAddress(hOrig, "Agent_OnUnload");
+    pAgent_OnUnload = proc.unload;
+    if (!pAgent_OnAttach || !pAgent_OnLoad || !pAgent_OnUnload) {
+        guard_fail("ZB_GUARD_AGENT_EXPORTS", "Active runtime instrument.dll lacks agent exports.", runtimeInstrumentPath);
+        FreeLibrary(hOrig);
+        hOrig = NULL;
+        clear_agent_callbacks();
+    }
 }
 
 void check_and_apply_update(const char* jarPath) {
@@ -76,6 +101,20 @@ int build_agent_options(const char* tail, char* out, int outSize) {
     return 1;
 }
 
+/* Keep the larger option buffer off the stack in this CRT-free loader. */
+int invoke_agent(int (*entry)(void*, char*, void*), void* jvm, char* tail, void* reserved) {
+    int result = -1;
+    char* agentOptions = HeapAlloc(GetProcessHeap(), 0, AGENT_OPTIONS_MAX);
+    if (!agentOptions) {
+        write_msg("[zbNative] Error: cannot allocate agent options\n");
+        return -1;
+    }
+    if (build_agent_options(tail, agentOptions, AGENT_OPTIONS_MAX))
+        result = entry(jvm, agentOptions, reserved);
+    HeapFree(GetProcessHeap(), 0, agentOptions);
+    return result;
+}
+
 __declspec(dllexport) int Agent_OnLoad(void* jvm, char* tail, void* reserved) {
     if (hOrig == NULL) {
         init_instrument_dll();
@@ -87,12 +126,7 @@ __declspec(dllexport) int Agent_OnLoad(void* jvm, char* tail, void* reserved) {
     // Check for pending update before loading the agent
     check_and_apply_update(ZB_JAR);
 
-    char agentOptions[AGENT_OPTIONS_MAX];
-    if (!build_agent_options(tail, agentOptions, sizeof(agentOptions))) {
-        return -1;
-    }
-
-    return pAgent_OnLoad(jvm, agentOptions, reserved);
+    return invoke_agent(pAgent_OnLoad, jvm, tail, reserved);
 }
 
 __declspec(dllexport) int Agent_OnAttach(void* jvm, char* args, void* reserved) {
@@ -103,23 +137,20 @@ __declspec(dllexport) int Agent_OnAttach(void* jvm, char* args, void* reserved) 
         return -1;
     }
 
-    char agentOptions[AGENT_OPTIONS_MAX];
-    if (!build_agent_options(args, agentOptions, sizeof(agentOptions))) {
-        return -1;
-    }
-
-    return pAgent_OnAttach(jvm, agentOptions, reserved);
+    return invoke_agent(pAgent_OnAttach, jvm, args, reserved);
 }
 
 __declspec(dllexport) void Agent_OnUnload(void* jvm) {
     if (hOrig == NULL) {
+        clear_agent_callbacks();
         return;
     }
     if (pAgent_OnUnload) {
         pAgent_OnUnload(jvm);
     }
 
+    /* Release our instrumentation handle; runtimeJava stays held until process exit. */
     FreeLibrary(hOrig);
     hOrig = NULL;
+    clear_agent_callbacks();
 }
-
