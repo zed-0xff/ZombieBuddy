@@ -1,12 +1,18 @@
 package me.zed_0xff.zombie_buddy;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.jar.JarFile;
+
+import org.objectweb.asm.ClassReader;
 
 import me.zed_0xff.zombie_buddy.transformers.TransformedJar;
 import net.bytebuddy.dynamic.loading.ByteArrayClassLoader;
@@ -54,11 +60,46 @@ final class ModJarInjector {
         }
 
         if (!toInject.isEmpty()) {
-            Map<String, Class<?>> injected = new ClassInjector.UsingUnsafe(parent).injectRaw(toInject);
+            Map<String, Class<?>> injected = new ClassInjector.UsingUnsafe(parent).injectRaw(inDefinitionOrder(toInject));
             Logger.debug("Defined " + injected.size() + " transformed classes in " + parent);
         }
 
         return parent;
+    }
+
+    /**
+     * Orders classes so each one comes after its superclass and interfaces from the same batch.
+     * UsingUnsafe defines classes in map order, and defining a class resolves its supertypes at
+     * once: a class whose supertype is defined later fails with NoClassDefFoundError.
+     */
+    static Map<String, byte[]> inDefinitionOrder(Map<String, byte[]> classes) {
+        Map<String, byte[]> ordered = new LinkedHashMap<>();
+        Set<String> visiting = new HashSet<>();
+        for (String name : new TreeSet<>(classes.keySet())) {
+            addAfterSupertypes(name, classes, ordered, visiting);
+        }
+        return ordered;
+    }
+
+    private static void addAfterSupertypes(String name, Map<String, byte[]> classes,
+            Map<String, byte[]> ordered, Set<String> visiting) {
+        if (ordered.containsKey(name) || !visiting.add(name)) {
+            return;
+        }
+        byte[] bytes = classes.get(name);
+        ClassReader reader = new ClassReader(bytes);
+        List<String> supertypes = new ArrayList<>();
+        if (reader.getSuperName() != null) {
+            supertypes.add(reader.getSuperName());
+        }
+        supertypes.addAll(Arrays.asList(reader.getInterfaces()));
+        for (String internalName : supertypes) {
+            String supertype = internalName.replace('/', '.');
+            if (classes.containsKey(supertype)) {
+                addAfterSupertypes(supertype, classes, ordered, visiting);
+            }
+        }
+        ordered.put(name, bytes);
     }
 
     private static ClassLoader parentLoader() {
