@@ -39,6 +39,7 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.14.0'
 
     compileOnly files(GAME_CLASSPATH)
+    testCompileOnly files(GAME_CLASSPATH)
     
     // Test dependencies
     testImplementation 'org.junit.jupiter:junit-jupiter:6.1.3'
@@ -525,6 +526,9 @@ task unitTest(type: Test) {
     dependsOn testJar
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath + files(GAME_CLASSPATH)
+    dependsOn shadowJar
+    systemProperty 'zb.test.authorTrustAgent', shadowJar.archiveFile.get().asFile.absolutePath
+    systemProperty 'zb.test.authorTrustClasspath', (sourceSets.test.runtimeClasspath + files(GAME_CLASSPATH)).asPath
 }
 
 // Main test task - runs unit tests, vanilla, and patched tests

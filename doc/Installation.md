@@ -29,6 +29,52 @@ This guide covers installing ZombieBuddy for end users who want to use Java mods
 
 Nothing is loaded until you click **Yes**. A second dialog asks whether the decision should be **persisted** across game runs or kept **session-only**. Negative answers (deny) can be persisted too, so a mod you explicitly rejected never re-prompts you.
 
+### ImGui approval window
+
+The ImGui batch window distinguishes an undecided row (grey X) from an explicit refusal (red X).
+An untouched new mod is denied for this launch and asked again next launch under `policy=prompt`.
+`Save decisions to disk` saves only explicitly selected choices, rather than permanently rejecting every untouched row.
+Click a selected Allow or Deny option again to reset it to undecided; click the opposite option to switch directly.
+Saving an explicit reset also removes that mod hash's previous saved decision. Without Save, or on Cancel, stored decisions remain unchanged.
+Signature failures and Steam bans keep their enforced refusals; author trust still applies only to eligible signed mods.
+
+Cancel discards all pending window changes, regardless of the Save checkbox. The loading process
+rereads saved hash decisions and author trust after receiving the cancelled response: saved Allow
+remains allowed, saved Deny remains denied unless a verified trusted author allows it, matching
+ordinary prompt handling. Only unresolved hashes are denied for this launch and asked again next
+launch. Unsaved selections, resets, author-trust edits and earlier session-only choices are not
+retained. Cancel writes neither approval nor trust/preload configuration. Code already executed
+as a preload stays loaded. This also covers existing frontend fallbacks through the same
+`denyAll` entry; standalone OS-window lifecycle and other frontend interactions are unchanged.
+
+Automatic author-trust revocations caused by a Workshop ban are saved before the approval
+frontend opens, independently of Save or Cancel. Cancel cannot restore that revoked trust
+from a stale configuration file or use it to override a saved Deny. An explicit saved hash
+Allow for another eligible mod and unrelated trusted authors retain their normal behavior.
+The loader keeps its original final save gate for retries if the early write fails.
+
+Removing existing author trust without selecting Allow, Deny or reset saves only
+that author revocation. It does not add, replace or clear the row's hash decision;
+a previously unseen hash is asked again on the next launch. Save off and Cancel
+preserve author trust and preload configuration. Preload changes in an approval
+response require a saved explicit choice; saved Deny/reset still remove the
+corresponding preload entry.
+
+Author trust and individual hash choices are independent in ImGui and Console. Checking
+Trust author does not change or disable the individual Allow/Deny controls. Saving trust
+alone writes only the author record; explicitly selected individual choices remain separately
+saveable. Resetting a hash does not itself revoke author trust. Existing trusted-author
+precedence over saved hash refusals is retained without rewriting those refusals.
+
+The dedicated console asks `Trust Author <name>?` first for an eligible signed mod, then
+`Save to Disk?` if accepted. Declining trust asks `Allow this Java mod to load?` followed by
+`Save to Disk?`. Accepted authors skip individual questions for following eligible mods,
+including later batches. Saved trust survives process restarts; unsaved trust lasts only
+for this process and does not create persistent preload registrations. Signature/ban checks
+remain mandatory. Unsigned mods retain individual approval; invalid/banned mods cannot be trusted.
+
+Swing and Tinyfd retain their existing interaction behavior.
+
 ### Where decisions are stored
 
 - **Windows:** `%USERPROFILE%\.zombie_buddy\mod_approvals.json`
