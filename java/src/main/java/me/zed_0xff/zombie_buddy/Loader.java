@@ -21,8 +21,10 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.JarEntry;
@@ -389,6 +391,16 @@ public class Loader {
         private PreloadMods() {}
 
         private static final String MANIFEST_ATTR = "ZB-Preload";
+        private static final Map<Path, String> earlyJars = new HashMap<>();
+        private static final Set<String> restartNotices = new LinkedHashSet<>();
+
+        private static void restartRequired(String id) {
+            if (restartNotices.add(id)) {
+                Logger.warn("PRELOAD RESTART REQUIRED: '" + id
+                    + "' changed selection/registration or was not preloaded at process start. Fully restart the game or dedicated server to apply the preload selection. The current process continues running.");
+            }
+            Watermark.setMidLine("Preload changes: " + String.join(", ", restartNotices) + ". Full restart required.");
+        }
 
         private static void add(String id, Path infPath, Path jarPath) {
             Config nextConfig = g_config.withPreloadMod(id, new Config.PreloadMod(infPath, jarPath));
@@ -409,6 +421,17 @@ public class Loader {
 
         private static List<String> getIds() {
             return new ArrayList<>(g_config.preload_mods().keySet());
+        }
+
+        private static boolean matchesRegistration(String id, Path infPath, Path jarPath) {
+            Config.PreloadMod previous = g_config.preload_mods().get(id);
+            if (previous == null) return false;
+            try {
+                return Files.isSameFile(previous.infPath(), infPath)
+                    && Files.isSameFile(previous.jarPath(), jarPath);
+            } catch (IOException | SecurityException error) {
+                return false;
+            }
         }
 
         /**
@@ -481,7 +504,9 @@ public class Loader {
                 PreloadMods.remove(entry.id());
                 continue;
             }
-            loadJar(entry.canJarPath(), entry.javaPkgName(), entry.hash(), Phase.PREMAIN);
+            if (loadJar(entry.canJarPath(), entry.javaPkgName(), entry.hash(), Phase.PREMAIN)) {
+                PreloadMods.earlyJars.put(entry.canJarPath(), entry.hash());
+            }
             g_jarLoadStatus.put(entry.canJarPath(), new JavaModLoadState(
                         entry.id(),
                         entry.canJarPath(),
@@ -694,15 +719,10 @@ public class Loader {
         HashSet<String> processedIds = new HashSet<>();
 
         g_curr_modSet = new HashSet<>(mods);
-        if ( "default".equals(g_curr_modSetID) && "default".equals(g_prev_modSetID) && g_curr_modSet != null && g_prev_modSet != null) {
-            for (String mod_id : PreloadMods.getIds()) {
-                if( g_prev_modSet.contains(mod_id) && !g_curr_modSet.contains(mod_id) ) {
-                    Logger.info("Preload mod '" + mod_id + "' was removed from the default mod list; removing from preload.");
-                    PreloadMods.remove(mod_id);
-                    Watermark.setMidLine("Preload mod \"" + mod_id + "\" disabled. Restart the game to deactivate it.");
-                }
-            }
-        }
+        if ("default".equals(g_curr_modSetID)) onDefaultModsSaved(mods);
+        // A new/updated registration already has its original restart hint
+        // (and PR #92 supplies its console warning). Only fill the missing cases.
+        Map<String, Config.PreloadMod> registrationsAtLoad = new HashMap<>(g_config.preload_mods());
 
         ArrayList<String> mergedIds = new ArrayList<>();
         mergedIds.addAll(PreloadMods.getIds()); // inject preloaded mod ids BEFORE actual mod list
@@ -814,6 +834,7 @@ public class Loader {
             );
         }
 
+        Set<String> dialogHashes = new HashSet<>();
         if (POLICY_PROMPT.equals(g_jarPolicy)) {
             // Late Shift re-check: on first boot the display window may not exist when
             // checkShiftKey() runs above (before workshop/ZBS work). By the time we reach
@@ -860,9 +881,6 @@ public class Loader {
                     // Auto-approve for this session only — trusted-author approvals are not persisted
                     // because the trust comes from the author record, not the specific JAR hash.
                     approvals.put(ctx.hash, Boolean.TRUE);
-                    if (jModInfo.javaPreload() && PreloadMods.hasManifestPreload(ctx.jarPath)) {
-                        PreloadMods.add(ctx.modId, jModInfo.infPath(), ctx.jarPath);
-                    }
                     continue;
                 }
                 if (!g_forceApprovalDialog && !ctx.steamBanned) {
@@ -879,6 +897,7 @@ public class Loader {
                     Logger.warn(ctx.modId + ": javaPreload=" + jModInfo.javaPreload() + ", hasManifestPreload=" + bHasManifestPreload
                         + ", zbs.valid()=" + zbs.valid());
                 }
+                dialogHashes.add(ctx.hash);
                 batchEntries.add(new JarBatchApprovalProtocol.Entry(
                     ctx.modId,
                     ctx.workshopItemId,
@@ -974,6 +993,31 @@ public class Loader {
                 }
                 if (!shouldSkip) {
                     flags = flags.with(MF_ACTIVE);
+                    // A saved hash approval can bypass the dialog while its preload entry
+                    // is missing. Recover only after the ordinary load checks, and never
+                    // override this batch's frontend choices. An approved moved JAR
+                    // must update its old registration after the same ordinary checks.
+                    boolean savedAllow = Boolean.TRUE.equals(decision) && isDecisionStored(ctx.hash, decision);
+                    if (!dialogHashes.contains(ctx.hash)
+                        && flags.hasAll(MF_VALID, MF_SIGNED)
+                        && (savedAllow || isAuthorTrusted(ctx.zbsResult.sid()))
+                        && !PreloadMods.matchesRegistration(ctx.modId, jModInfo.infPath(), canonicalJarPath)
+                        && jModInfo.javaPreload() && PreloadMods.hasManifestPreload(ctx.jarPath)) {
+                        PreloadMods.add(ctx.modId, jModInfo.infPath(), canonicalJarPath);
+                        if (g_config.preload_mods().containsKey(ctx.modId)) {
+                            Logger.info("Restoring preload registration for approved mod '" + ctx.modId + "' via "
+                                + (savedAllow ? "saved hash Allow" : "verified author trust") + "; full restart required.");
+                        }
+                    }
+                    if (jModInfo.javaPreload() && PreloadMods.hasManifestPreload(ctx.jarPath)
+                        && !Objects.equals(ctx.hash, PreloadMods.earlyJars.get(canonicalJarPath))) {
+                        Config.PreloadMod current = g_config.preload_mods().get(ctx.modId);
+                        if (current != null && !Objects.equals(registrationsAtLoad.get(ctx.modId), current)) {
+                            PreloadMods.restartNotices.add(ctx.modId); // Original registration hint already issued.
+                        } else {
+                            PreloadMods.restartRequired(ctx.modId);
+                        }
+                    }
                 }
 
                 // merge in "sticky" flags like MF_ACTIVE or MF_PRELOAD
@@ -1198,6 +1242,24 @@ public class Loader {
 
     public static void onEnterLoadMods(String activeMods) {
         g_curr_modSetID = activeMods;
+    }
+
+    /** Called after a successful default-list save, and before default-list merging. */
+    public static void onDefaultModsSaved(List<String> selectedMods) {
+        if (selectedMods == null) return;
+        Config before = g_config;
+        Set<String> selected = new HashSet<>(selectedMods);
+        for (String id : PreloadMods.getIds()) {
+            if (selected.contains(id)) continue;
+            PreloadMods.remove(id);
+            // Keep the mutation authority in PreloadMods.remove (also when combined
+            // with the read-only Coop guard); never announce a rejected mutation.
+            if (!g_config.preload_mods().containsKey(id)) PreloadMods.restartRequired(id);
+        }
+        if (!before.equals(g_config) && g_configDirty) {
+            Config.save(g_config);
+            g_configDirty = false;
+        }
     }
 
     public static void onExitLoadMods(String activeMods) {
