@@ -8,7 +8,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -21,8 +20,13 @@ import me.zed_0xff.zombie_buddy.annotations.Patch;
 import me.zed_0xff.zombie_buddy.transformers.JarContext;
 import me.zed_0xff.zombie_buddy.transformers.Pipeline;
 import net.bytebuddy.asm.Advice;
+import net.bytebuddy.description.annotation.AnnotationDescription;
+import net.bytebuddy.description.method.MethodDescription;
+import net.bytebuddy.description.method.ParameterDescription;
 import net.bytebuddy.description.type.TypeDescription;
+import net.bytebuddy.dynamic.ClassFileLocator;
 import net.bytebuddy.dynamic.loading.ByteArrayClassLoader;
+import net.bytebuddy.pool.TypePool;
 
 /** Runtime preparation for patch classes. Mod patch jars are pre-transformed by {@link Pipeline}; agent-bundled patches are transformed here on first use. */
 final class PatchTransformer {
@@ -60,11 +64,14 @@ final class PatchTransformer {
             Class<?> fieldType
     ) implements IVarHandle {}
 
+    /** The runtime patch class plus its bytecode-level description, so callers never have to resolve descriptor types through reflection. */
+    record PreparedPatch(Class<?> type, TypeDescription description) {}
+
     /**
      * Populates {@link MethodHandle}/{@link VarHandle} fields on {@code patchClass}.
      * Returns null if a non-optional handle cannot be resolved (caller should drop the patch).
      */
-    public static Class<?> preparePatch(Class<?> patchClass, TypeDescription ignoredTd) {
+    public static PreparedPatch preparePatch(Class<?> patchClass, ClassFileLocator locator) {
         Patch patchAnn0 = patchClass.getAnnotation(Patch.class);
         String targetCls0 = (patchAnn0 != null) ? patchAnn0.className() : "";
         String prevClass = g_transformingClass.get();
@@ -77,7 +84,11 @@ final class PatchTransformer {
             Class<?> resolved = ensureTransformed(patchClass);
             if (resolved == null) return null;
 
-            return preparePatchInner(resolved, resolved.getAnnotation(Patch.class));
+            TypeDescription description = resolvePatchDescription(resolved, locator);
+            Class<?> prepared = preparePatchInner(resolved, description, resolved.getAnnotation(Patch.class));
+            if (prepared == null) return null;
+
+            return new PreparedPatch(prepared, description);
         } finally {
             if (prevClass != null) {
                 g_transformingClass.set(prevClass);
@@ -171,7 +182,17 @@ final class PatchTransformer {
         }
     }
 
-    private static Class<?> preparePatchInner(Class<?> patchClass, Patch patchAnn) {
+    private static TypeDescription resolvePatchDescription(Class<?> patchClass, ClassFileLocator locator) {
+        try {
+            return TypePool.Default.of(locator).describe(patchClass.getName()).resolve();
+        } catch (RuntimeException e) {
+            Logger.debug("Could not resolve patch type " + patchClass.getName()
+                    + " from class file locator, falling back to loaded type: " + e.getMessage());
+            return TypeDescription.ForLoadedType.of(patchClass);
+        }
+    }
+
+    private static Class<?> preparePatchInner(Class<?> patchClass, TypeDescription patchTd, Patch patchAnn) {
         String defaultTargetCls = (patchAnn != null) ? patchAnn.className() : "";
         Map<String, IMemberHandle> memberHandles = new HashMap<>();
         Map<String, IMemberHandle> paramHandleInfos = new HashMap<>();
@@ -181,7 +202,7 @@ final class PatchTransformer {
             Patch.NameMap nm = f.getAnnotation(Patch.NameMap.class);
             if (nm != null) {
                 if (nameMap == null) {
-                    nameMap = buildNameMap(patchClass);
+                    nameMap = buildNameMap(patchTd);
                 }
                 if (!setNameMapField(patchClass, f, nameMap)) {
                     return null;
@@ -201,20 +222,25 @@ final class PatchTransformer {
             }
         }
 
-        for (Method method : patchClass.getDeclaredMethods()) {
-            java.lang.annotation.Annotation[][] paramAnns = method.getParameterAnnotations();
-            for (int pi = 0; pi < paramAnns.length; pi++) {
-                for (java.lang.annotation.Annotation a : paramAnns[pi]) {
-                    if (a instanceof Patch.MethodHandle mh) {
+        for (MethodDescription method : patchTd.getDeclaredMethods()) {
+            int pi = 0;
+            for (ParameterDescription param : method.getParameters()) {
+                AnnotationDescription.Loadable<Patch.MethodHandle> mh =
+                        param.getDeclaredAnnotations().ofType(Patch.MethodHandle.class);
+                if (mh != null) {
+                    String storeKey = patchClass.getName() + "#" + method.getName() + "#" + pi;
+                    String pName = param.isNamed() ? param.getName() : null;
+                    paramHandleInfos.put(storeKey, methodHandleInfo(mh.load(), defaultTargetCls, pName));
+                } else {
+                    AnnotationDescription.Loadable<Patch.VarHandle> vh =
+                            param.getDeclaredAnnotations().ofType(Patch.VarHandle.class);
+                    if (vh != null) {
                         String storeKey = patchClass.getName() + "#" + method.getName() + "#" + pi;
-                        String pName = method.getParameters()[pi].isNamePresent() ? method.getParameters()[pi].getName() : null;
-                        paramHandleInfos.put(storeKey, methodHandleInfo(mh, defaultTargetCls, pName));
-                    } else if (a instanceof Patch.VarHandle vh) {
-                        String storeKey = patchClass.getName() + "#" + method.getName() + "#" + pi;
-                        String pName = method.getParameters()[pi].isNamePresent() ? method.getParameters()[pi].getName() : null;
-                        paramHandleInfos.put(storeKey, varHandleInfo(vh, defaultTargetCls, pName));
+                        String pName = param.isNamed() ? param.getName() : null;
+                        paramHandleInfos.put(storeKey, varHandleInfo(vh.load(), defaultTargetCls, pName));
                     }
                 }
+                pi++;
             }
         }
 
@@ -233,21 +259,27 @@ final class PatchTransformer {
         return patchClass;
     }
 
-    private static Map<String, String> buildNameMap(Class<?> patchClass) {
+    private static Map<String, String> buildNameMap(TypeDescription patchTd) {
         Map<String, String> out = new LinkedHashMap<>();
-        for (Method method : patchClass.getDeclaredMethods()) {
-            Parameter[] params = method.getParameters();
-            for (int i = 0; i < params.length; i++) {
-                Advice.FieldValue fv = params[i].getAnnotation(Advice.FieldValue.class);
-                if (fv == null || Utils.isBlank(fv.value())) {
+        for (MethodDescription method : patchTd.getDeclaredMethods()) {
+            for (ParameterDescription param : method.getParameters()) {
+                AnnotationDescription.Loadable<Advice.FieldValue> fv =
+                        param.getDeclaredAnnotations().ofType(Advice.FieldValue.class);
+                if (fv == null) {
                     continue;
                 }
 
-                Patch.Field field = params[i].getAnnotation(Patch.Field.class);
-                String logicalName = field != null && !Utils.isBlank(field.logicalName())
-                        ? field.logicalName()
-                        : params[i].isNamePresent() ? params[i].getName() : fv.value();
-                out.put(logicalName, fv.value());
+                Advice.FieldValue fieldValue = fv.load();
+                if (Utils.isBlank(fieldValue.value())) {
+                    continue;
+                }
+
+                AnnotationDescription.Loadable<Patch.Field> field =
+                        param.getDeclaredAnnotations().ofType(Patch.Field.class);
+                String logicalName = field != null && !Utils.isBlank(field.load().logicalName())
+                        ? field.load().logicalName()
+                        : param.isNamed() ? param.getName() : fieldValue.value();
+                out.put(logicalName, fieldValue.value());
             }
         }
 
