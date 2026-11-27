@@ -9,9 +9,6 @@ import org.bouncycastle.crypto.signers.Ed25519Signer;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,8 +33,6 @@ public final class ZBSVerifier {
     private static final Pattern LINE_STEAM_ID = Pattern.compile("^SteamID64:(\\d{17})$");
     /** Ed25519 Signature: 64 bytes as 128 hex characters. */
     private static final Pattern LINE_SIGNATURE = Pattern.compile("^Signature:([0-9a-fA-F]{128})$");
-    /** Pubkey may appear anywhere in the profile HTML (summary, etc.). */
-    private static final Pattern JAVA_MOD_ZBS_IN_HTML = Pattern.compile("JavaModZBS:([0-9a-fA-F]{64})");
 
     private ZBSVerifier() {}
 
@@ -157,11 +152,10 @@ public final class ZBSVerifier {
             return new MissingSignature(null, "Missing .zbs file next to JAR: " + zbsPath);
         }
         SteamID64 sid;
-        byte[] sig;
+        ParsedZBS parsed;
         try {
-            ParsedZBS p = parseZBS(zbsPath);
-            sid = p.sid;
-            sig = p.signature;
+            parsed = parseZBS(zbsPath);
+            sid = parsed.sid;
         } catch (IOException e) {
             return new InvalidSignature(null, "Could not read .zbs: " + e.getMessage());
         }
@@ -171,22 +165,15 @@ public final class ZBSVerifier {
             }
         }
         List<String> pubHexes = knownJavaModZBSHexes(sid, knownAuthors);
-        String keySource = "known authors list";
-        if (pubHexes.isEmpty()) {
-            keySource = "Steam profile";
-            try {
-                pubHexes = fetchJavaModZBSHexesFromSteam(sid);
-            } catch (Exception e) {
-                return new VerificationError(sid, e.getMessage(), Collections.emptyList());
-            }
-            if (pubHexes.isEmpty()) {
-                return new VerificationError(
-                    sid,
-                    "Could not find JavaModZBS:<64 hex> on Steam profile — add it to your profile summary.",
-                    pubHexes
-                );
-            }
+        if (!pubHexes.isEmpty()) {
+            Verification official = verifyWithKeys(parsed, jarSha256Hex, pubHexes, "known authors list");
+            if (official instanceof ValidSignature) return official;
         }
+        return LocalAuthors.verify(parsed, jarSha256Hex);
+    }
+
+    static Verification verifyWithKeys(ParsedZBS parsed, String jarSha256Hex, List<String> pubHexes, String keySource) {
+        SteamID64 sid = parsed.sid;
         try {
             String canonical = "ZBS:" + sid.value() + ":" + jarSha256Hex.toLowerCase(Locale.ROOT);
             byte[] msg = canonical.getBytes(StandardCharsets.UTF_8);
@@ -205,7 +192,7 @@ public final class ZBSVerifier {
                 Ed25519Signer signer = new Ed25519Signer();
                 signer.init(false, pub);
                 signer.update(msg, 0, msg.length);
-                boolean ok = signer.verifySignature(sig);
+                boolean ok = signer.verifySignature(parsed.signature);
                 if (ok) {
                     return new ValidSignature(sid, pubHexes);
                 }
@@ -236,39 +223,7 @@ public final class ZBSVerifier {
         return new ArrayList<>(keys);
     }
 
-    private static List<String> fetchJavaModZBSHexesFromSteam(SteamID64 sid) throws IOException {
-        String url = SteamWorkshop.authorProfileUrl(sid);
-        String body = SteamWorkshop.getCachedBody(url, "");
-        if (body == null) {
-            HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .timeout(SteamWorkshop.HTTP_TIMEOUT)
-                .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                .GET()
-                .build();
-            HttpResponse<String> resp;
-            try {
-                resp = SteamWorkshop.http().send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IOException("Interrupted while fetching Steam profile.", e);
-            }
-            int code = resp.statusCode();
-            if (code != 200) {
-                throw new IOException("Could not load Steam profile (HTTP " + code + ").");
-            }
-            body = resp.body();
-            SteamWorkshop.putCachedBody(url, "", body);
-        }
-        LinkedHashSet<String> keys = new LinkedHashSet<>();
-        Matcher m = JAVA_MOD_ZBS_IN_HTML.matcher(body);
-        while (m.find()) {
-            keys.add(m.group(1).toLowerCase(Locale.ROOT));
-        }
-        return new ArrayList<>(keys);
-    }
-
-    private static final class ParsedZBS {
+    static final class ParsedZBS {
         final SteamID64 sid;
         final byte[] signature;
 

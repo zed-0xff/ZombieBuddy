@@ -124,6 +124,33 @@ public final class SwingApprovalMain {
         return e.modId;
     }
 
+    /** The official label wins; the request carries the verified local fallback. */
+    static JLabel authorLink(
+        JarBatchApprovalProtocol.Entry.ZBSignature signature,
+        Map<SteamID64, String> steamIdToDisplayName
+    ) {
+        String steamId = signature.authorSteamId().toString();
+        String profileUrl = SteamWorkshop.authorWorkshopUrl(signature.authorSteamId());
+        String resolved = steamIdToDisplayName != null
+            ? steamIdToDisplayName.get(signature.authorSteamId())
+            : null;
+        String linkText = resolved != null && !resolved.isBlank() ? resolved
+            : !signature.notice().isBlank() ? signature.notice() : steamId;
+        JLabel link = new JLabel(
+            "<html><a href=\"" + profileUrl + "\">" + escapeHtml(linkText) + "</a></html>");
+        link.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        if (!steamId.equals(linkText)) {
+            link.setToolTipText(steamId);
+        }
+        link.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent ev) {
+                openUri(profileUrl);
+            }
+        });
+        return link;
+    }
+
     private static void showDialog(
         List<JarBatchApprovalProtocol.Entry> entries,
         Path resp,
@@ -257,23 +284,7 @@ public final class SwingApprovalMain {
             applyRowBackground(authorCell, rowBg);
             String zbsSteamId = e.zbs.authorSteamId() != null ? e.zbs.authorSteamId().toString() : "";
             if (zbsYes && !zbsSteamId.isEmpty()) {
-                String profileUrl = SteamWorkshop.authorWorkshopUrl(e.zbs.authorSteamId());
-                String resolved = steamIdToDisplayName != null
-                    ? steamIdToDisplayName.get(e.zbs.authorSteamId())
-                    : null;
-                String linkText = !Utils.isBlank(resolved) ? resolved : zbsSteamId;
-                JLabel linkLab = new JLabel(
-                    "<html><a href=\"" + profileUrl + "\">" + escapeHtml(linkText) + "</a></html>");
-                linkLab.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-                if (!zbsSteamId.equals(linkText)) {
-                    linkLab.setToolTipText(zbsSteamId);
-                }
-                linkLab.addMouseListener(new MouseAdapter() {
-                    @Override
-                    public void mouseClicked(MouseEvent ev) {
-                        openUri(profileUrl);
-                    }
-                });
+                JLabel linkLab = authorLink(e.zbs, steamIdToDisplayName);
                 applyRowBackground(linkLab, rowBg);
                 authorCell.add(linkLab);
             } else if (zbsNo) {

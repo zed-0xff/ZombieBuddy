@@ -123,12 +123,12 @@ Timeout in seconds for HTTP connections and requests. Applies to all outbound HT
 
 ### http_cache_ttl
 
-Time-to-live in seconds for the in-memory HTTP response cache. Applies to all outbound HTTP calls: Steam Workshop API, Steam profile pages, and the GitHub authors list.
+Time-to-live in seconds for the general in-memory HTTP response cache, including Steam Workshop API and GitHub authors-list responses. Verified Steam-profile keys have a separate persistent [local author cache](ModSigning.md#local-steam-profile-cache), with one profile response or failure per author/process; this option does not expire or disable that cache.
 
 | Value | Description |
 |-------|-------------|
 | `3600` | (default) Cache responses for 1 hour |
-| `0` | Disable caching entirely |
+| `0` | Disable the general HTTP response cache |
 
 **Example:**
 
